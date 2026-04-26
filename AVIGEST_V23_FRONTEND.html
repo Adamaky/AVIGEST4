@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a2a3a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>AviGest v23</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        OneSignalDeferred.push(async function(OS) { await OS.init({ appId: "8a6d7ad0-e39a-4e29-b187-26f9f5f4eae3" }); });
+    </script>
+
+    <style>
+        :root { --primary: #1a2a3a; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; --accent: #3498db; --bg: #f8fafc; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Lexend', sans-serif; margin: 0; background: var(--bg); padding-bottom: 80px; }
+        .header { background: var(--primary); color: white; padding: 14px 16px; font-weight: 800; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+        .container { padding: 12px; max-width: 500px; margin: 0 auto; }
+        .card { background: white; padding: 16px; border-radius: 20px; margin-bottom: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+        .stat-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+        .stat-box { background: white; padding: 15px; border-radius: 18px; text-align: center; border-bottom: 4px solid var(--primary); }
+        .stat-val { font-size: 22px; font-weight: 800; display: block; color: var(--primary); }
+        .stat-val-sm { font-size: 16px; font-weight: 800; display: block; color: var(--primary); }
+        .stat-label { font-size: 9px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+        .chart-container { position: relative; height: 220px; width: 100%; margin-top: 10px; }
+        .nav-bottom { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; height: 75px; border-top: 1px solid #e2e8f0; z-index: 1000; }
+        .nav-bottom button { flex: 1; border: none; background: none; font-size: 11px; font-weight: 700; color: #94a3b8; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; position: relative; }
+        .nav-bottom button.active { color: var(--accent); }
+        #login-screen { position: fixed; inset: 0; background: var(--primary); display: flex; align-items: center; justify-content: center; z-index: 10000; }
+        .login-box { background: white; width: 85%; max-width: 320px; padding: 30px; border-radius: 28px; text-align: center; }
+        .pin-pad { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 25px; }
+        .pin-pad button { background: #f1f5f9; border: none; border-radius: 15px; padding: 18px; font-size: 22px; font-weight: 700; color: var(--primary); cursor: pointer; transition: 0.15s; }
+        .pin-pad button:active { transform: scale(0.93); }
+        .btn { width: 100%; padding: 16px; border: none; border-radius: 15px; color: white; font-weight: 800; cursor: pointer; transition: 0.3s; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; }
+        .btn:disabled { opacity: 0.6; cursor: wait; }
+        .btn-primary { background: var(--primary); }
+        .btn-accent  { background: var(--accent); }
+        .btn-success { background: var(--success); }
+        .btn-danger  { background: var(--danger); }
+        input, select, textarea { width: 100%; padding: 14px; margin-bottom: 12px; border-radius: 12px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 16px; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+        label { display: block; margin: 10px 0 4px 2px; font-weight: 600; font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+        .task-card { background: #fff5f5; border-left: 5px solid var(--danger); padding: 14px; border-radius: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        .task-card.done { background: #f0fff4; border-left-color: var(--success); }
+        .task-title { font-weight: 700; font-size: 14px; flex: 1; }
+        .task-meta { font-size: 11px; color: #64748b; margin-top: 4px; }
+        .task-compta { background: white; border: 1.5px solid #e2e8f0; padding: 14px; border-radius: 14px; margin-bottom: 10px; }
+        .toast { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); background: var(--primary); color: white; padding: 14px 20px; border-radius: 14px; font-size: 13px; font-weight: 600; z-index: 10001; box-shadow: 0 8px 24px rgba(0,0,0,0.2); animation: slideDown 0.3s ease; max-width: 90%; text-align: center; }
+        .toast.error   { background: var(--danger); }
+        .toast.success { background: var(--success); }
+        .toast.warning { background: var(--warning); color: var(--primary); }
+        @keyframes slideDown { from { opacity:0; transform: translate(-50%,-20px); } to { opacity:1; transform: translate(-50%,0); } }
+        .empty-state { text-align: center; padding: 40px 20px; color: #64748b; font-size: 14px; }
+        .stock-alert { background: linear-gradient(90deg, var(--danger), #c0392b); color: white; padding: 14px; border-radius: 14px; margin-bottom: 12px; font-weight: 700; font-size: 14px; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
+        .section-title { font-size: 15px; font-weight: 800; margin: 8px 4px 14px; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+        .access-denied { text-align: center; padding: 60px 20px; color: #64748b; }
+        .offline-indicator { background: var(--danger); color: white; padding: 6px 12px; border-radius: 10px; font-size: 10px; font-weight: 700; display: none; }
+        .offline-indicator.visible { display: inline-block; animation: pulse 2s infinite; }
+        .queue-badge { position: absolute; top: 4px; right: 12px; background: var(--danger); color: white; font-size: 9px; width: 16px; height: 16px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-weight: 800; }
+        .queue-badge.visible { display: flex; }
+        .sync-status { font-size: 11px; color: #64748b; text-align: center; margin-top: 8px; padding: 8px; background: #f1f5f9; border-radius: 10px; }
+        .bande-selector { background: #e8f4fd; border: 2px solid var(--accent); border-radius: 14px; padding: 12px; margin-bottom: 12px; }
+        .bande-selector label { color: var(--accent); margin: 0 0 6px; }
+        .bande-selector select { margin-bottom: 0; border-color: var(--accent); }
+        .kpi-card { background: linear-gradient(135deg, var(--primary), #2c4a6e); color: white; padding: 16px; border-radius: 18px; margin-bottom: 10px; }
+        .kpi-card .kpi-label { font-size: 10px; opacity: 0.75; text-transform: uppercase; letter-spacing: 1px; }
+        .kpi-card .kpi-val { font-size: 26px; font-weight: 800; margin: 4px 0 0; }
+        .divider { height: 1px; background: #e2e8f0; margin: 16px 0; }
+
+        /* ── SESSION BADGE ── */
+        .session-badge { display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:20px; font-size:12px; font-weight:700; margin-bottom:14px; }
+        .session-badge.Matin  { background:#d1fae5; color:#065f46; }
+        .session-badge.Midi   { background:#dbeafe; color:#1e3a8a; }
+        .session-badge.PM     { background:#fef3c7; color:#92400e; }
+        .session-badge.Nuit   { background:#ede9fe; color:#4c1d95; }
+
+        /* ── ETAPES GUIDE ── */
+        .etape { display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid #f1f5f9; }
+        .etape:last-child { border-bottom:none; }
+        .etape-num { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex-shrink:0; }
+        .etape-num.pending { background:#f1f5f9; color:#64748b; }
+        .etape-num.active  { background:var(--accent); color:white; }
+        .etape-num.done    { background:var(--success); color:white; }
+        .etape-num.blocked { background:#fee2e2; color:var(--danger); }
+        .etape-titre { font-size:13px; font-weight:700; color:var(--primary); }
+        .etape-titre.done { color:#64748b; text-decoration:line-through; }
+        .etape-desc  { font-size:11px; color:#64748b; margin-top:3px; line-height:1.5; }
+        .etape-tag   { display:inline-block; padding:2px 8px; border-radius:8px; font-size:10px; font-weight:700; margin-left:6px; }
+        .etape-tag.urgent { background:#fee2e2; color:var(--danger); }
+        .etape-tag.conditionnel { background:#fef3c7; color:#92400e; }
+
+        /* ── ALERTES ── */
+        .alerte-card { padding:12px 14px; border-radius:14px; margin-bottom:8px; display:flex; gap:10px; }
+        .alerte-card.CRITIQUE { background:#fef2f2; border:1.5px solid #fca5a5; }
+        .alerte-card.WARNING  { background:#fffbeb; border:1.5px solid #fcd34d; }
+        .alerte-kpi { font-weight:800; font-size:12px; color:var(--danger); }
+        .alerte-kpi.W { color:#92400e; }
+        .alerte-msg { font-size:12px; color:#374151; margin-top:2px; }
+
+        /* ── PROGRESS ── */
+        .progress-bar  { height:6px; background:#e2e8f0; border-radius:3px; margin-top:8px; overflow:hidden; }
+        .progress-fill { height:100%; border-radius:3px; background:var(--success); transition:width 0.4s; }
+
+        /* ── ALIMENT TOGGLE ── */
+        .aliment-toggle { display:flex; gap:8px; margin:8px 0; }
+        .aliment-btn { flex:1; padding:11px; border:2px solid #e2e8f0; border-radius:12px; background:white; font-family:inherit; font-size:12px; font-weight:700; cursor:pointer; }
+        .aliment-btn.on.active  { background:#d1fae5; border-color:var(--success); color:#065f46; }
+        .aliment-btn.off.active { background:#fee2e2; border-color:var(--danger); color:var(--danger); }
+
+        /* ── COMPTA ROW ── */
+        .compta-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f8fafc; font-size:13px; }
+        .compta-row:last-child { border-bottom:none; }
+
+        /* ── PHASE CLOTURE ── */
+        .phase-card { display:flex; align-items:center; gap:12px; padding:12px; border-radius:14px; margin-bottom:8px; border:1.5px solid #e2e8f0; }
+        .phase-statut { display:inline-block; padding:2px 8px; border-radius:8px; font-size:10px; font-weight:700; margin-top:4px; }
+        .phase-statut.VALIDEE    { background:#d1fae5; color:#065f46; }
+        .phase-statut.EN_COURS   { background:#dbeafe; color:#1e3a8a; }
+        .phase-statut.EN_ATTENTE { background:#f1f5f9; color:#64748b; }
+
+        /* ── VENTE STATUT ── */
+        .vente-statut { display:inline-block; padding:2px 8px; border-radius:8px; font-size:10px; font-weight:700; }
+        .vente-statut.SOLDE      { background:#d1fae5; color:#065f46; }
+        .vente-statut.PARTIEL    { background:#fef3c7; color:#92400e; }
+        .vente-statut.EN_ATTENTE { background:#dbeafe; color:#1e3a8a; }
+        .vente-statut.EN_RETARD  { background:#fee2e2; color:var(--danger); }
+
+        /* ── KPI CARD ── */
+        .kpi-card { background:linear-gradient(135deg,var(--primary),#2c4a6e); color:white; padding:18px; border-radius:20px; margin-bottom:12px; }
+        .kpi-label { font-size:10px; opacity:0.7; text-transform:uppercase; letter-spacing:1px; }
+        .kpi-val   { font-size:26px; font-weight:800; margin-top:4px; }
+
+        /* ── STAT-GRID-3 ── */
+        .stat-grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:12px; }
+        .stat-val-sm { font-size:15px; font-weight:800; display:block; color:var(--primary); }
+    </style>
+</head>
+<body>
+
+<!-- ============ ÉCRAN LOGIN ============ -->
+<div id="login-screen">
+    <div class="login-box">
+        <h2 style="color:var(--primary); margin-bottom:5px;">AviGest</h2>
+        <p style="font-size:12px; color:#64748b; margin:0;">Accès Sécurisé</p>
+        <div id="pin-display" style="font-size:36px; letter-spacing:12px; margin:25px 0; font-weight:800; color:var(--accent);">____</div>
+        <div class="pin-pad">
+            <button onclick="pin('1')">1</button><button onclick="pin('2')">2</button><button onclick="pin('3')">3</button>
+            <button onclick="pin('4')">4</button><button onclick="pin('5')">5</button><button onclick="pin('6')">6</button>
+            <button onclick="pin('7')">7</button><button onclick="pin('8')">8</button><button onclick="pin('9')">9</button>
+            <button onclick="pinClear()" style="background:#fee2e2; color:var(--danger);">C</button>
+            <button onclick="pin('0')">0</button>
+            <button onclick="login()" style="background:var(--success); color:white;">OK</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ APP PRINCIPALE ============ -->
+<div id="app-main" style="display:none;">
+    <div class="header">
+        <span id="user-info" style="font-size:10px; opacity:0.8;">--</span>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span class="offline-indicator" id="offline-badge">📴 HORS LIGNE</span>
+            <div id="top-title" style="font-size:14px;">DASHBOARD</div>
+        </div>
+        <button onclick="deconnexion()" style="background:none; border:1px solid rgba(255,255,255,0.3); color:white; border-radius:10px; padding:5px 10px; font-size:10px; cursor:pointer;">Sortir</button>
+    </div>
+    <div class="container" id="app-container"></div>
+    <nav class="nav-bottom" id="main-nav">
+        <button onclick="changeTab('accueil')" id="nav-accueil" class="active">📊 Technique</button>
+        <button onclick="changeTab('agent')"   id="nav-agent">👨‍🌾 Terrain<span class="queue-badge" id="queue-badge">0</span></button>
+        <button onclick="changeTab('gestion')" id="nav-gestion">💰 Finance</button>
+        <button onclick="changeTab('stock')"   id="nav-stock">📦 Stock</button>
+        <button onclick="changeTab('more')" id="nav-more">⋯ Plus</button>
+    </nav>
+</div>
+
+<script>
+// ============================================================
+// CONFIGURATION
+// ============================================================
+const URL_API          = "https://script.google.com/macros/s/AKfycbxN3dVH77nGS4YWzHtryqmeVQKf8inqBlyIp7tV6-VJZ2Y0Pt1rG1UkWujQIP7dIESV-g/exec";
+const SESSION_DURATION = 12 * 60 * 60 * 1000; // 12 heures
+
+let App = {
+    token:        localStorage.getItem('aviToken'),
+    role:         localStorage.getItem('aviRole'),
+    loginTime:    parseInt(localStorage.getItem('aviLoginTime') || '0'),
+    currentTab:   'accueil',
+    activeBande:  localStorage.getItem('activeBande') || '',
+    data:         {},
+    offlineQueue: JSON.parse(localStorage.getItem('aviQueue_v23') || '[]'),
+    isOnline:     navigator.onLine,
+    isSyncing:    false
+};
+
+// Map sécurisée pour éviter XSS dans le chiffrage comptable
+const tachesComptaMap = {};
+
+// ============================================================
+// SÉCURITÉ & SESSION
+// ============================================================
+
+function isSessionExpired() {
+    if (!App.token || !App.loginTime) return true;
+    return (Date.now() - App.loginTime) >= SESSION_DURATION;
+}
+
+function handleSessionExpired() {
+    showToast('Session expirée. Reconnexion requise.', 'error', 4000);
+    setTimeout(() => { localStorage.clear(); location.reload(); }, 2000);
+}
+
+// ============================================================
+// OFFLINE QUEUE — token injecté au moment de l'envoi
+// ============================================================
+
+function queueRequest(payload) {
+    const p = Object.assign({}, payload);
+    delete p.token; // Le token sera ajouté frais au moment de la sync
+    App.offlineQueue.push({ payload: p, timestamp: Date.now(), id: 'Q' + Date.now() });
+    localStorage.setItem('aviQueue_v23', JSON.stringify(App.offlineQueue));
+    updateOfflineUI();
+    showToast('📴 Donnée sauvegardée localement.', 'warning');
+}
+
+async function processQueue() {
+    if (App.offlineQueue.length === 0 || !App.isOnline || App.isSyncing) return;
+    if (isSessionExpired()) {
+        showToast('Session expirée. Reconnectez-vous pour synchroniser ' + App.offlineQueue.length + ' enregistrement(s).', 'warning', 6000);
+        return;
+    }
+    App.isSyncing = true;
+    showToast('Synchronisation de ' + App.offlineQueue.length + ' enregistrement(s)...', 'info');
+
+    const failed = [];
+    for (const item of App.offlineQueue) {
+        try {
+            const payload = Object.assign({}, item.payload, { token: App.token });
+            const res  = await fetch(URL_API, { method: 'POST', body: JSON.stringify(payload) });
+            const data = await res.json();
+            if (!data.success && data.error && data.error.includes('Session')) failed.push(item);
+        } catch (e) {
+            failed.push(item);
+        }
+    }
+
+    App.offlineQueue = failed;
+    localStorage.setItem('aviQueue_v23', JSON.stringify(failed));
+    App.isSyncing = false;
+    updateOfflineUI();
+    if (failed.length === 0) { showToast('✅ Toutes les données synchronisées', 'success'); sync(); }
+    else showToast(failed.length + ' élément(s) en attente', 'warning');
+}
+
+function updateOfflineUI() {
+    const badge  = document.getElementById('offline-badge');
+    const qBadge = document.getElementById('queue-badge');
+    if (badge)  badge.className  = 'offline-indicator' + (App.isOnline ? '' : ' visible');
+    if (qBadge) {
+        const n = App.offlineQueue.length;
+        qBadge.textContent = n > 9 ? '9+' : n;
+        qBadge.className   = 'queue-badge' + (n > 0 ? ' visible' : '');
+    }
+}
+
+window.addEventListener('online',  () => { App.isOnline = true;  updateOfflineUI(); showToast('🌐 Connexion rétablie', 'success'); processQueue(); });
+window.addEventListener('offline', () => { App.isOnline = false; updateOfflineUI(); showToast('📴 Mode hors ligne activé', 'warning'); });
+
+// ============================================================
+// API
+// ============================================================
+
+async function apiGet(params = {}) {
+    if (params.action !== 'login' && isSessionExpired()) { handleSessionExpired(); return { success: false }; }
+    const url = new URL(URL_API);
+    url.searchParams.append('token', App.token || '');
+    Object.keys(params).forEach(k => url.searchParams.append(k, params[k]));
+    const res = await fetch(url.toString());
+    return await res.json();
+}
+
+async function apiPost(payload) {
+    if (isSessionExpired()) { handleSessionExpired(); return { success: false }; }
+    payload.token = App.token;
+    if (!App.isOnline) { queueRequest(payload); return { success: true, queued: true, offline: true }; }
+    try {
+        const res = await fetch(URL_API, { method: 'POST', body: JSON.stringify(payload) });
+        return await res.json();
+    } catch (e) {
+        queueRequest(payload);
+        return { success: true, queued: true, offline: true };
+    }
+}
+
+// ============================================================
+// LOGIN
+// ============================================================
+
+let pinBuffer = '';
+function pin(d) {
+    if (pinBuffer.length < 4) {
+        pinBuffer += d;
+        document.getElementById('pin-display').innerText = pinBuffer.split('').map(() => '•').join('').padEnd(4, '_');
+    }
+}
+function pinClear() { pinBuffer = ''; document.getElementById('pin-display').innerText = '____'; }
+
+async function login() {
+    if (pinBuffer.length !== 4) return;
+    const btn = document.querySelector('.pin-pad button:last-child');
+    btn.disabled = true;
+    try {
+        // PIN envoyé comme chaîne — le backend fait .toString().trim()
+        const res = await fetch(`${URL_API}?action=login&pin=${pinBuffer}`);
+        const d   = await res.json();
+        if (d.success) {
+            App.token     = d.token;
+            App.role      = d.role;
+            App.loginTime = Date.now();
+            localStorage.setItem('aviToken',    d.token);
+            localStorage.setItem('aviRole',     d.role);
+            localStorage.setItem('aviNom',      d.nom || '');
+            localStorage.setItem('aviLoginTime', String(App.loginTime));
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('app-main').style.display     = 'block';
+            showApp();
+        } else {
+            showToast(d.error || 'PIN incorrect', 'error');
+            pinClear();
+        }
+    } catch (e) {
+        showToast('Erreur réseau. Vérifiez votre connexion.', 'error');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// ============================================================
+// NAVIGATION & AFFICHAGE
+// ============================================================
+
+function showApp() {
+    if (App.role === 'AGENT') {
+        document.getElementById('nav-gestion').style.display = 'none';
+        document.getElementById('nav-stock').style.display   = 'none';
+    }
+    if (App.role === 'PARTENAIRE') {
+        document.getElementById('nav-agent').style.display = 'none';
+    }
+    updateOfflineUI();
+    sync();
+}
+
+async function sync() {
+    if (!App.token) return;
+    if (isSessionExpired()) { handleSessionExpired(); return; }
+    document.getElementById('user-info').textContent = (App.role || '--') + ' | ' + (App.activeBande || 'Aucun lot');
+    try {
+        const res = await fetch(`${URL_API}?action=dashboard&token=${App.token}&idBande=${App.activeBande}`);
+        App.data  = await res.json();
+        if (!App.data.success) {
+            showToast(App.data.error || 'Erreur serveur', 'error');
+            if (App.data.error && App.data.error.includes('Session')) { localStorage.clear(); location.reload(); }
+            return;
+        }
+        render();
+    } catch (e) {
+        showToast('Mode hors ligne — données locales', 'warning');
+    }
+}
+
+function changeTab(t) {
+    App.currentTab = t;
+    document.querySelectorAll('.nav-bottom button').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('nav-' + t);
+    if (btn) btn.classList.add('active');
+    render();
+    if (t === 'accueil') sync();
+}
+
+// ============================================================
+// COMPOSANT RÉUTILISABLE — Sélecteur de bande
+// ============================================================
+
+function renderBandeSelector() {
+    const bandes = App.data.listeBandes || [];
+    if (bandes.length === 0) return '';
+    return `<div class="bande-selector">
+        <label>🐔 Bande active</label>
+        <select onchange="changerBande(this.value)">
+            <option value="">-- Toutes les bandes --</option>
+            ${bandes.map(b => `<option value="${escapeHtml(b)}" ${b === App.activeBande ? 'selected' : ''}>${escapeHtml(b)}</option>`).join('')}
+        </select>
+    </div>`;
+}
+
+// ============================================================
+// RENDU — 4 onglets
+// ============================================================
+
+function render() {
+    const zone = document.getElementById('app-container');
+    const p    = App.data.performance || {};
+    const f    = App.data.finance;        // null pour AGENT
+    const poidsSac = p.poidsSacKg || 50;
+
+    // ── ACCUEIL (Technique) ──────────────────────────────────
+    if (App.currentTab === 'accueil') {
+        let html = '';
+        if (p.alerteStock) {
+            html += `<div class="stock-alert">🚨 STOCK CRITIQUE : ${Math.round(p.stockSacs || 0)} sac(s) restant(s)</div>`;
+        }
+        html += `<div class="stat-grid">
+            <div class="stat-box">
+                <span class="stat-label">Mortalité</span>
+                <span class="stat-val" style="color:var(--danger)">${p.morts || 0}</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">Âge du Lot</span>
+                <span class="stat-val">${p.ageJours || 0} J</span>
+            </div>
+        </div>`;
+        if (App.data.graphs && App.data.graphs.poidsStd && App.data.graphs.poidsStd.length > 0) {
+            html += `<div class="card"><span class="stat-label">Croissance (Réel vs Standard)</span><div class="chart-container"><canvas id="chartPoids"></canvas></div></div>`;
+        }
+        if (App.data.graphs && App.data.graphs.tempReelle && App.data.graphs.tempReelle.length > 0) {
+            html += `<div class="card"><span class="stat-label">Ambiance (°C)</span><div class="chart-container"><canvas id="chartTemp"></canvas></div></div>`;
+        }
+        if (App.offlineQueue.length > 0) {
+            html += `<div class="sync-status">📴 ${App.offlineQueue.length} enregistrement(s) en attente</div>
+                     <button class="btn btn-accent" onclick="forceSync()" style="margin-top:8px;">🔄 SYNCHRONISER</button>`;
+        }
+        zone.innerHTML = html;
+        setTimeout(initTechCharts, 100);
+    }
+
+    // ── TERRAIN (Agent) ──────────────────────────────────────
+    else if (App.currentTab === 'agent') {
+        let html = renderBandeSelector();
+
+        if (!App.activeBande && (App.data.listeBandes || []).length === 0) {
+            html += `<div class="card" style="border:2px solid var(--warning); background:#fffbf0;">
+                <p style="margin:0; font-size:13px; color:#856404;">⚠️ Aucune bande active. Demandez au gérant de configurer les bandes.</p>
+            </div>`;
+        }
+
+        html += `<div class="section-title" style="color:var(--danger)">🚩 TÂCHES À EXÉCUTER</div>`;
+        const taches = App.data.tachesAgent || [];
+        if (taches.length === 0) {
+            html += `<div class="card empty-state">Aucune tâche urgente. ✅</div>`;
+        } else {
+            taches.forEach(t => {
+                html += `<div class="task-card" id="task-${escapeHtml(t.id)}">
+                    <div style="flex:1;">
+                        <div class="task-title">${escapeHtml(t.titre)}</div>
+                        <div class="task-meta">📅 ${escapeHtml(t.date)} · Lot: ${escapeHtml(t.idBande || '-')}</div>
+                    </div>
+                    <button class="btn btn-success" style="width:auto; padding:10px 14px; font-size:12px; margin-bottom:0;"
+                        data-task-id="${escapeHtml(t.id)}"
+                        onclick="terminerTache(this.dataset.taskId, this)">FAIT ✓</button>
+                </div>`;
+            });
+        }
+
+        html += `<div class="section-title" style="margin-top:20px;">📝 Saisie Journalière</div>
+        <div class="card">
+            <label>Catégorie</label>
+            <select id="s-cat">
+                <option value="Temperature">🌡️ Température (°C)</option>
+                <option value="Hygrometrie">💧 Hygrométrie (%)</option>
+                <option value="Poussiere">🌫️ Poussière (1-5)</option>
+                <option value="Mortalité">💀 Mortalité (sujets)</option>
+                <option value="Alimentation">🌾 Aliment consommé (kg)</option>
+                <option value="Eau">💧 Eau (Litres)</option>
+                <option value="Poids">⚖️ Poids moyen (g)</option>
+            </select>
+            <label>Valeur</label>
+            <input type="number" id="s-val" placeholder="Ex: 32" inputmode="decimal">
+            <label>Observation (optionnel)</label>
+            <textarea id="s-note" rows="2" placeholder="Matin, soir, anomalie..."></textarea>
+            <button class="btn btn-primary" id="btn-save" onclick="saveTech()">💾 ENREGISTRER</button>
+        </div>`;
+
+        if (!App.isOnline) {
+            html += `<div class="sync-status">📴 Mode hors ligne. Données envoyées au retour de la connexion.</div>`;
+        }
+        html += `<button class="btn btn-accent" onclick="forceSync()">🔄 SYNCHRONISER</button>`;
+        zone.innerHTML = html;
+    }
+
+    // ── FINANCE (Gérant / Partenaire uniquement) ──────────────
+    else if (App.currentTab === 'gestion') {
+        if (App.role === 'AGENT') {
+            zone.innerHTML = `<div class="access-denied"><div style="font-size:48px;">🚫</div><h3>Accès réservé</h3><p>Ce module est réservé au gérant.</p></div>`;
+            return;
+        }
+        if (!f) { zone.innerHTML = `<div class="card empty-state">Données financières indisponibles.</div>`; return; }
+
+        let html = `<div class="kpi-card">
+            <div class="kpi-label">SOLDE NET — ${escapeHtml(App.activeBande || 'TOUTES BANDES')}</div>
+            <div class="kpi-val">${(f.solde || 0).toLocaleString('fr-FR')} F</div>
+        </div>`;
+
+        // Coûts de revient — affichés uniquement si données disponibles
+        if (f.coutKiloVif > 0) {
+            html += `<div class="stat-grid">
+                <div class="stat-box" style="border-bottom-color:var(--accent);">
+                    <span class="stat-label">Coût/kg vif</span>
+                    <span class="stat-val-sm">${f.coutKiloVif.toLocaleString('fr-FR')} F</span>
+                </div>
+                <div class="stat-box" style="border-bottom-color:var(--warning);">
+                    <span class="stat-label">Coût/kg carcasse</span>
+                    <span class="stat-val-sm">${f.coutKiloCarcasse.toLocaleString('fr-FR')} F</span>
+                </div>
+            </div>`;
+        }
+
+        html += `<div class="card"><span class="stat-label">Répartition des Coûts</span><div class="chart-container"><canvas id="chartFinance"></canvas></div></div>`;
+
+        // Détail des postes
+        html += `<div class="card">
+            <div class="section-title" style="margin:0 0 12px;">📋 Détail des postes</div>
+            ${[
+                ['🌾 Aliment',      f.alimentation],
+                ['🐥 Poussins',     f.poussins],
+                ['💊 Santé',        f.sante],
+                ['👷 Main d\'œuvre', f.main_oeuvre],
+                ['📦 Divers',       f.divers]
+            ].map(([label, val]) => `
+                <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f1f5f9; font-size:13px;">
+                    <span>${label}</span>
+                    <strong>${(val || 0).toLocaleString('fr-FR')} F</strong>
+                </div>
+            `).join('')}
+            <div style="display:flex; justify-content:space-between; padding:10px 0 0; font-size:14px; font-weight:800; color:var(--success);">
+                <span>✅ Recettes</span>
+                <strong>${(f.recettes || 0).toLocaleString('fr-FR')} F</strong>
+            </div>
+        </div>`;
+
+        html += `<div class="section-title" style="margin-top:8px;">⚙️ Planifier une tâche</div>
+        <div class="card">
+            <label>Date d'exécution</label>
+            <input type="date" id="t-date">
+            <label>Action à réaliser</label>
+            <input type="text" id="t-titre" placeholder="Ex: Vide sanitaire, Vaccination...">
+            <button class="btn btn-accent" id="btn-planif" onclick="creerTacheGestion()">📅 PLANIFIER</button>
+        </div>`;
+
+        html += `<div class="section-title">💰 Chiffrage Comptable</div>`;
+        const compta = App.data.tachesGestion || [];
+        if (compta.length === 0) {
+            html += `<div class="card empty-state">Rien en attente de chiffrage.</div>`;
+        } else {
+            Object.keys(tachesComptaMap).forEach(k => delete tachesComptaMap[k]);
+            compta.forEach(t => {
+                tachesComptaMap[t.id] = { titre: t.titre, idBande: t.idBande };
+                html += `<div class="task-compta">
+                    <div style="font-weight:700; margin-bottom:4px;">${escapeHtml(t.titre)}</div>
+                    <div class="task-meta">Terminée · Lot: ${escapeHtml(t.idBande || '-')}</div>
+                    <label style="margin-top:10px;">Type d'écriture</label>
+                    <select id="type-${escapeHtml(t.id)}">
+                        <option value="DEPENSE">Dépense (−)</option>
+                        <option value="RECETTE">Recette (+)</option>
+                    </select>
+                    <label>Montant (FCFA)</label>
+                    <input type="number" id="price-${escapeHtml(t.id)}" placeholder="0" inputmode="numeric">
+                    <button class="btn btn-primary" style="padding:12px; font-size:14px;"
+                        data-task-id="${escapeHtml(t.id)}"
+                        onclick="chiffrerEcriture(this.dataset.taskId)">✅ VALIDER</button>
+                </div>`;
+            });
+        }
+
+        html += renderBandeSelector();
+        zone.innerHTML = html;
+        setTimeout(initFinanceChart, 100);
+        const dateInput = document.getElementById('t-date');
+        if (dateInput) dateInput.valueAsDate = new Date();
+    }
+
+    // ── STOCK ────────────────────────────────────────────────
+    else if (App.currentTab === 'stock') {
+        if (App.role === 'AGENT') {
+            zone.innerHTML = `<div class="access-denied"><div style="font-size:48px;">🚫</div><h3>Accès réservé</h3><p>Le stock est géré par le gérant.</p></div>`;
+            return;
+        }
+        let html = `<div class="section-title">📦 Gestion des Stocks</div>
+        <div class="stat-grid">
+            <div class="stat-box" style="border-bottom-color:var(--success);">
+                <span class="stat-label">Stock aliment</span>
+                <span class="stat-val">${Math.round(p.stockSacs || 0)}</span>
+                <span style="font-size:11px; color:#64748b;">sacs (${poidsSac}kg)</span>
+            </div>
+            <div class="stat-box" style="border-bottom-color:var(--accent);">
+                <span class="stat-label">Âge lot</span>
+                <span class="stat-val">${p.ageJours || 0}</span>
+                <span style="font-size:11px; color:#64748b;">jours</span>
+            </div>
+        </div>`;
+
+        if (p.alerteStock) {
+            html += `<div class="stock-alert">⚠️ Moins de 5 sacs restants. Réapprovisionnement urgent.</div>`;
+        }
+
+        html += `<div class="card">
+            <div class="section-title" style="margin:0 0 12px; font-size:14px;">➕ Entrée de stock (achat)</div>
+            <label>Produit</label>
+            <input type="text" id="st-produit" placeholder="Ex: Aliment démarrage, Vaccin...">
+            <label>Quantité</label>
+            <input type="number" id="st-qte" placeholder="0" inputmode="decimal">
+            <label>Unité</label>
+            <select id="st-unite">
+                <option value="kg">Kilogrammes (kg)</option>
+                <option value="sac50">Sacs de 50 kg</option>
+                <option value="L">Litres (L)</option>
+                <option value="unite">Unités</option>
+            </select>
+            <label>Coût total (FCFA)</label>
+            <input type="number" id="st-cout" placeholder="0" inputmode="numeric">
+            <label>Fournisseur (optionnel)</label>
+            <input type="text" id="st-fourn" placeholder="Ex: Sedima, CCPA...">
+            <button class="btn btn-success" id="btn-stock" onclick="envoyerStockEntree()">📥 ENREGISTRER L'ENTRÉE</button>
+        </div>
+        <div class="card" style="background:#f8f9fa; font-size:13px; color:#64748b; line-height:1.7;">
+            <strong>💡 Comment ça marche :</strong><br>
+            • <strong>Entrées</strong> (achats) → ici.<br>
+            • <strong>Sorties</strong> (consommation) → agent, onglet Terrain → Aliment.<br>
+            • Stock calculé : <em>Entrées − Sorties</em>.
+        </div>`;
+
+        zone.innerHTML = html;
+    }
+}
+
+// ============================================================
+// ACTIONS MÉTIER
+// ============================================================
+
+async function saveTech() {
+    const cat  = document.getElementById('s-cat').value;
+    const val  = document.getElementById('s-val').value;
+    const note = document.getElementById('s-note').value;
+    if (val === '' || isNaN(val)) { showToast('Valeur numérique requise', 'warning'); return; }
+    if (!App.activeBande) { showToast("Sélectionnez d'abord une bande dans le sélecteur.", 'warning', 4000); return; }
+
+    const btn = document.getElementById('btn-save');
+    setLoading(btn, true);
+    try {
+        const d = await apiPost({ action: 'SAISIE_TECH', idBande: App.activeBande, cat, val1: Number(val), note });
+        if (d.success || d.queued) {
+            showToast(d.alert || d.message || 'Enregistré ✅', d.alert ? 'warning' : 'success', d.alert ? 5000 : 3000);
+            document.getElementById('s-val').value = '';
+            document.getElementById('s-note').value = '';
+            if (!d.offline) sync();
+        } else showToast(d.error || 'Erreur', 'error');
+    } catch (e) { showToast('Erreur réseau', 'error'); }
+    finally { setLoading(btn, false); }
+}
+
+async function terminerTache(id, btn) {
+    if (!confirm("Confirmez-vous l'exécution ?")) return;
+    setLoading(btn, true);
+    try {
+        const d = await apiPost({ action: 'AGENT_TERMINE', idRow: id });
+        if (d.success || d.queued) {
+            showToast(d.queued ? 'Tâche sauvegardée (hors ligne)' : 'Tâche validée ✅', 'success');
+            const el = document.getElementById('task-' + id);
+            if (el) el.classList.add('done');
+            if (!d.offline) setTimeout(sync, 500);
+        } else { showToast(d.error || 'Erreur', 'error'); setLoading(btn, false); }
+    } catch (e) { showToast('Erreur réseau', 'error'); setLoading(btn, false); }
+}
+
+async function creerTacheGestion() {
+    const date  = document.getElementById('t-date').value;
+    const titre = document.getElementById('t-titre').value;
+    if (!date || !titre) { showToast('Date et titre obligatoires', 'warning'); return; }
+    const btn = document.getElementById('btn-planif');
+    setLoading(btn, true);
+    try {
+        const d = await apiPost({ action: 'CREER_TACHE', date, titre, idBande: App.activeBande });
+        if (d.success || d.queued) {
+            showToast(d.queued ? 'Tâche sauvegardée (hors ligne)' : 'Tâche planifiée ✅', 'success');
+            document.getElementById('t-titre').value = '';
+            if (!d.offline) sync();
+        } else showToast(d.error || 'Erreur', 'error');
+    } catch (e) { showToast('Erreur réseau', 'error'); }
+    finally { setLoading(btn, false); }
+}
+
+async function chiffrerEcriture(id) {
+    const montant = document.getElementById('price-' + id)?.value;
+    const type    = document.getElementById('type-' + id)?.value;
+    if (!montant || isNaN(montant) || Number(montant) <= 0) { showToast('Montant invalide', 'warning'); return; }
+
+    const data    = tachesComptaMap[id] || {};
+    const idBande = data.idBande || App.activeBande || 'GENERAL';
+
+    const d = await apiPost({ action: 'GERANT_COMPTA', idRow: id, montant: Number(montant), typeEcriture: type, titre: data.titre || '', idBande });
+    if (d.success || d.queued) {
+        if (d.alert) showToast(d.alert, 'warning', 5000);
+        showToast(d.queued ? 'Écriture sauvegardée (hors ligne)' : (d.message || 'Validé ✅'), 'success');
+        if (!d.offline) sync();
+    } else showToast(d.error || 'Erreur', 'error');
+}
+
+async function envoyerStockEntree() {
+    const produit = document.getElementById('st-produit').value.trim();
+    const qte     = document.getElementById('st-qte').value;
+    const unite   = document.getElementById('st-unite').value;
+    const cout    = document.getElementById('st-cout').value;
+    const fourn   = document.getElementById('st-fourn').value.trim();
+
+    if (!produit) { showToast('Nom du produit requis', 'warning'); return; }
+    if (!qte || isNaN(qte) || Number(qte) <= 0) { showToast('Quantité invalide', 'warning'); return; }
+
+    let qteKg = Number(qte);
+    if (unite === 'sac50') qteKg *= 50;
+
+    const btn = document.getElementById('btn-stock');
+    setLoading(btn, true);
+    try {
+        const d = await apiPost({ action: 'STOCK_ENTREE', idBande: App.activeBande || 'GENERAL', produit, quantite: qteKg, unite: 'kg', coutTotal: Number(cout) || 0, fournisseur: fourn });
+        if (d.success || d.queued) {
+            showToast(d.queued ? 'Stock sauvegardé (hors ligne)' : (d.message || 'Stock enregistré ✅'), 'success');
+            ['st-produit','st-qte','st-cout','st-fourn'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+            if (!d.offline) sync();
+        } else showToast(d.error || 'Erreur', 'error');
+    } catch (e) { showToast('Erreur réseau', 'error'); }
+    finally { setLoading(btn, false); }
+}
+
+function changerBande(b) {
+    App.activeBande = b;
+    localStorage.setItem('activeBande', b);
+    showToast('Bande active : ' + (b || 'Toutes'), 'info');
+    sync();
+}
+
+async function deconnexion() {
+    try { await apiGet({ action: 'logout' }); } catch (e) {}
+    localStorage.clear();
+    location.reload();
+}
+
+async function forceSync() {
+    if (App.offlineQueue.length === 0) { showToast('Aucune donnée en attente', 'info'); return; }
+    if (!App.isOnline) { showToast('Pas de connexion. Activez le Wi-Fi ou les données mobiles.', 'warning'); return; }
+    await processQueue();
+}
+
+// ============================================================
+// GRAPHIQUES
+// ============================================================
+
+function initTechCharts() {
+    if (!App.data.graphs) return;
+    const g = App.data.graphs;
+
+    if (g.poidsStd && g.poidsStd.length > 0) {
+        const ctx = document.getElementById('chartPoids');
+        if (ctx) new Chart(ctx, {
+            type: 'line',
+            data: { datasets: [
+                { label: 'Standard', data: g.poidsStd, borderColor: '#cbd5e1', borderDash: [5,5], pointRadius: 0, fill: false },
+                { label: 'Réel',     data: g.poidsReel, borderColor: '#27ae60', backgroundColor: 'rgba(39,174,96,0.1)', fill: true, tension: 0.4 }
+            ]},
+            options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: 'linear', display: true } } }
+        });
+    }
+
+    if (g.tempReelle && g.tempReelle.length > 0) {
+        const ctx = document.getElementById('chartTemp');
+        if (ctx) {
+            const datasets = [];
+            if (g.tempStd && g.tempStd.length > 0) {
+                datasets.push({ label: 'Standard', data: g.tempStd, borderColor: '#cbd5e1', borderDash: [5,5], pointRadius: 0, fill: false });
+            }
+            datasets.push({ label: 'Réelle', data: g.tempReelle, borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.1)', fill: true, tension: 0.3 });
+            new Chart(ctx, {
+                type: 'line',
+                data: { datasets },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: 'linear', display: true } } }
+            });
+        }
+    }
+}
+
+function initFinanceChart() {
+    const f   = App.data.finance;
+    const ctx = document.getElementById('chartFinance');
+    if (!f || !ctx) return;
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Aliment', 'Poussins', 'Santé', 'Main-d\'œuvre', 'Divers'],
+            datasets: [{
+                data: [f.alimentation || 0, f.poussins || 0, f.sante || 0, f.main_oeuvre || 0, f.divers || 0],
+                backgroundColor: ['#3498db', '#f1c40f', '#e74c3c', '#27ae60', '#94a3b8'],
+                borderWidth: 0
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+}
+
+// ============================================================
+// UTILITAIRES
+// ============================================================
+
+function escapeHtml(text) {
+    if (text == null) return '';
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function showToast(msg, type = 'info', duration = 3000) {
+    const existing = document.querySelector('.toast');
+    if (existing) existing.remove();
+    const t = document.createElement('div');
+    t.className   = 'toast ' + type;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), duration);
+}
+
+function setLoading(btn, loading) {
+    if (!btn) return;
+    if (loading) { btn.dataset.orig = btn.innerHTML; btn.innerHTML = '⏳ Chargement...'; btn.disabled = true; }
+    else         { btn.innerHTML = btn.dataset.orig || btn.innerHTML; btn.disabled = false; }
+}
+
+// ============================================================
+// DÉMARRAGE
+// ============================================================
+
+
+// ════════════════════════════════════════════════════════════
+// FONCTIONS V23 — Guide contextuel, Alertes, Modules étendus
+// ════════════════════════════════════════════════════════════
+
+function detecterSessionFrontend() {
+    const h = new Date().getHours();
+    if (h >= 5  && h < 10) return 'Matin';
+    if (h >= 10 && h < 14) return 'Midi';
+    if (h >= 14 && h < 19) return 'PM';
+    return 'Nuit';
+}
+
+function sessionIcon(s) {
+    return { Matin:'🌅', Midi:'☀️', PM:'🌤️', Nuit:'🌙' }[s] || '🕐';
+}
+
+function formatMontant(n) {
+    return Math.round(n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+function renderAlertes(alertes) {
+    if (!alertes || !alertes.length) return '';
+    return alertes.map(a => `
+        <div class="alerte-card ${a.niveau}">
+            <div style="font-size:18px;">${a.niveau === 'CRITIQUE' ? '🚨' : '⚠️'}</div>
+            <div>
+                <div class="alerte-kpi ${a.niveau === 'WARNING' ? 'W' : ''}">${escapeHtml(a.kpi)}</div>
+                <div class="alerte-msg">${escapeHtml(a.message)}</div>
+            </div>
+        </div>`).join('');
+}
+
+function renderGuideSession(session, terrain, perf) {
+    const tempOk = terrain.tempStdJour
+        ? terrain.tempMax <= terrain.tempStdJour + 2
+        : terrain.tempMax <= 32;
+
+    const etapesParSession = {
+        Matin: [
+            { id:'eau-matin',   emoji:'💧', titre:'Nettoyage abreuvoirs + service eau', desc:'Sortir, nettoyer et remplir. Avant 8H00.', tag:'urgent' },
+            { id:'alim-matin',  emoji:'🌾', titre:'Service aliment du matin', desc:'T° : ' + (terrain.tempMax||'--') + '°C — Norme : ' + (terrain.tempStdJour||'--') + '°C', tag:'conditionnel', blocked:!tempOk, blockedMsg:'⚠️ T° hors norme — Retirer l\'aliment', champ:'toggle' },
+            { id:'amb-matin',   emoji:'🌡️', titre:'Saisie : Temp + Hygro + Litière', desc:'Relever les paramètres d\'ambiance du matin', champ:'ambiance' },
+            { id:'mort-matin',  emoji:'💀', titre:'Mortalité matin', desc:'Compter et saisir les sujets morts', champ:'mort-matin' },
+            { id:'eau-cpt',     emoji:'🔢', titre:'Relevé compteur eau matin', desc:'Lire et saisir la valeur du compteur', champ:'eau-matin' },
+            { id:'alim-kg',     emoji:'🌾', titre:'Saisir kg aliment distribué', desc:'Quantité totale d\'aliment du matin (kg)', champ:'aliment' },
+        ],
+        Midi: [
+            { id:'amb-midi',    emoji:'🌡️', titre:'Saisie midi : Temp + Hygro', desc:'Relevé de midi', champ:'ambiance' },
+            { id:'eau-midi-v',  emoji:'💧', titre:'Vérifier les abreuvoirs', desc:'S\'assurer que l\'eau est disponible' },
+            { id:'alim-midi',   emoji:'🌾', titre:'Gestion aliment selon T°', desc:'T° : ' + (terrain.tempMax||'--') + '°C', tag:'conditionnel', blocked:!tempOk, blockedMsg:'⚠️ Maintenir aliment retiré', champ:'toggle' },
+        ],
+        PM: [
+            { id:'amb-pm',      emoji:'🌡️', titre:'Saisie après-midi : Temp + Hygro', desc:'Relevé de 16H', champ:'ambiance' },
+            { id:'alim-pm',     emoji:'🌾', titre:'Service aliment après-midi (16H)', desc:'Si T° dans les normes', tag:'conditionnel', blocked:!tempOk, blockedMsg:'⚠️ Ne pas distribuer — T° hors norme', champ:'toggle' },
+            { id:'pesee-pm',    emoji:'⚖️', titre:'Pesée (si jour de pesée)', desc:'Poids moyen, min et max observés', champ:'pesee' },
+        ],
+        Nuit: [
+            { id:'amb-nuit',    emoji:'🌡️', titre:'Saisie nuit : Temp + Hygro', desc:'Relevé de nuit', champ:'ambiance' },
+            { id:'mort-soir',   emoji:'💀', titre:'Mortalité soir', desc:'Sujets morts depuis ce matin', champ:'mort-soir' },
+            { id:'eau-soir-cpt',emoji:'🔢', titre:'Relevé compteur eau soir', desc:'Lire et saisir la valeur du compteur', champ:'eau-soir' },
+            { id:'lit-nuit',    emoji:'🌾', titre:'Litières + Vitesse air', desc:'Score litière 1-5 et vitesse d\'air', champ:'ambiance' },
+            { id:'sante',       emoji:'🫁', titre:'État santé général', desc:'Observer respiration et comportement', champ:'sante' },
+        ]
+    };
+
+    const etapes = etapesParSession[session] || [];
+    let html = `<div class="section-title" style="margin-top:16px;">📋 Guide ${session} — ${etapes.length} étapes</div><div class="card">`;
+
+    etapes.forEach((e, idx) => {
+        const cls = e.blocked ? 'blocked' : idx === 0 ? 'active' : 'pending';
+        html += `<div class="etape" id="etape-${e.id}">
+            <div class="etape-num ${cls}">${idx + 1}</div>
+            <div style="flex:1;">
+                <div class="etape-titre">${e.emoji} ${e.titre}${e.tag ? `<span class="etape-tag ${e.tag}">${e.tag === 'urgent' ? 'URGENT' : 'CONDITIONNEL'}</span>` : ''}</div>
+                <div class="etape-desc">${e.desc}</div>
+                ${e.blocked ? `<div style="font-size:11px;color:var(--danger);font-weight:700;margin-top:3px;">${e.blockedMsg}</div>` : ''}
+                ${e.champ && !e.blocked ? renderChampsEtape(e.champ, e.id) : ''}
+            </div>
+        </div>`;
+    });
+
+    return html + '</div>';
+}
+
+function renderChampsEtape(type, id) {
+    if (type === 'toggle') return `<div class="aliment-toggle">
+        <button class="aliment-btn on" onclick="setAlimentStatut('ON',this)">✅ SERVI</button>
+        <button class="aliment-btn off" onclick="setAlimentStatut('OFF',this)">❌ RETIRÉ</button></div>`;
+    if (type === 'ambiance') return `<div style="margin-top:8px;">
+        <div class="stat-grid">
+            <div><label>Temp (°C)</label><input type="number" id="v-temp-${id}" placeholder="32" inputmode="decimal"></div>
+            <div><label>Hygro (%)</label><input type="number" id="v-hygro-${id}" placeholder="65" inputmode="decimal"></div>
+        </div>
+        <div class="stat-grid">
+            <div><label>Litière (1-5)</label><select id="v-lit-${id}"><option value="">--</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+            <div><label>Air (m/s)</label><input type="number" id="v-air-${id}" placeholder="0.5" inputmode="decimal"></div>
+        </div>
+        <button class="btn btn-primary" onclick="saisirAmbiance('${id}')" style="padding:11px;font-size:13px;">💾 ENREGISTRER</button></div>`;
+    if (type === 'mort-matin') return `<div style="margin-top:8px;"><label>Morts matin</label><input type="number" id="v-mort-matin" placeholder="0" inputmode="numeric" min="0">
+        <button class="btn btn-danger" onclick="saisirMortalite('MortaliteMatin','v-mort-matin')" style="padding:11px;font-size:13px;">💀 ENREGISTRER</button></div>`;
+    if (type === 'mort-soir') return `<div style="margin-top:8px;"><label>Morts soir</label><input type="number" id="v-mort-soir" placeholder="0" inputmode="numeric" min="0">
+        <button class="btn btn-danger" onclick="saisirMortalite('MortaliteSoir','v-mort-soir')" style="padding:11px;font-size:13px;">💀 ENREGISTRER</button></div>`;
+    if (type === 'eau-matin') return `<div style="margin-top:8px;"><label>Compteur matin (L)</label><input type="number" id="v-eau-matin" placeholder="1200" inputmode="numeric">
+        <button class="btn btn-accent" onclick="saisirEau('EauMatin','v-eau-matin')" style="padding:11px;font-size:13px;">💧 ENREGISTRER</button></div>`;
+    if (type === 'eau-soir') return `<div style="margin-top:8px;"><label>Compteur soir (L)</label><input type="number" id="v-eau-soir" placeholder="1580" inputmode="numeric">
+        <button class="btn btn-accent" onclick="saisirEau('EauSoir','v-eau-soir')" style="padding:11px;font-size:13px;">💧 ENREGISTRER</button></div>`;
+    if (type === 'aliment') return `<div style="margin-top:8px;"><label>Aliment distribué (kg)</label><input type="number" id="v-aliment" placeholder="45" inputmode="decimal">
+        <button class="btn btn-success" onclick="saisirAliment()" style="padding:11px;font-size:13px;">🌾 ENREGISTRER</button></div>`;
+    if (type === 'pesee') return `<div style="margin-top:8px;"><div class="stat-grid-3">
+        <div><label>Moy (g)</label><input type="number" id="v-pmoy" placeholder="185" inputmode="numeric"></div>
+        <div><label>Min (g)</label><input type="number" id="v-pmin" placeholder="140" inputmode="numeric"></div>
+        <div><label>Max (g)</label><input type="number" id="v-pmax" placeholder="230" inputmode="numeric"></div></div>
+        <button class="btn btn-primary" onclick="saisirPesee()" style="padding:11px;font-size:13px;">⚖️ PESÉE</button></div>`;
+    if (type === 'sante') return `<div style="margin-top:8px;"><label>Score santé (1-5)</label>
+        <select id="v-sante"><option value="">--</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+        <label>Observation</label><textarea id="v-sante-note" rows="2" placeholder="Respiration, comportement..."></textarea>
+        <button class="btn btn-success" onclick="saisirSante()" style="padding:11px;font-size:13px;">🫁 ENREGISTRER</button></div>`;
+    return '';
+}
+
+// ── Saisies agent ──
+
+async function saisirAmbiance(etapeId) {
+    if (!App.activeBande) { showToast('Sélectionnez une bande', 'warning'); return; }
+    const temp   = document.getElementById('v-temp-'  + etapeId)?.value;
+    const hygro  = document.getElementById('v-hygro-' + etapeId)?.value;
+    const lit    = document.getElementById('v-lit-'   + etapeId)?.value;
+    const air    = document.getElementById('v-air-'   + etapeId)?.value;
+    const saisies = [];
+    if (temp)  saisies.push({ cat:'Temperature', val1:temp });
+    if (hygro) saisies.push({ cat:'Hygrometrie', val1:hygro });
+    if (lit)   saisies.push({ cat:'Litiere',     val1:lit });
+    if (air)   saisies.push({ cat:'VitesseAir',  val1:air });
+    if (!saisies.length) { showToast('Saisissez au moins une valeur', 'warning'); return; }
+    let alerte = null;
+    for (const s of saisies) {
+        const d = await apiPost({ action:'SAISIE_TECH', idBande:App.activeBande, ...s });
+        if (d.alert) alerte = d.alert;
+    }
+    marquerEtapeFaite(etapeId);
+    showToast(alerte || 'Ambiance enregistrée ✅', alerte ? 'warning' : 'success', alerte ? 5000 : 3000);
+    if (temp || hygro) sync();
+}
+
+async function saisirMortalite(cat, inputId) {
+    if (!App.activeBande) { showToast('Sélectionnez une bande', 'warning'); return; }
+    const val = document.getElementById(inputId)?.value;
+    if (val === '' || val === undefined) { showToast('Saisissez une valeur', 'warning'); return; }
+    const d = await apiPost({ action:'SAISIE_TECH', idBande:App.activeBande, cat, val1:val });
+    if (d.success || d.queued) {
+        showToast(d.alert || 'Mortalité enregistrée ✅', d.alert ? 'warning' : 'success', d.alert ? 5000 : 3000);
+        document.getElementById(inputId).value = '';
+        sync();
+    } else showToast(d.error || 'Erreur', 'error');
+}
+
+async function saisirEau(cat, inputId) {
+    if (!App.activeBande) { showToast('Sélectionnez une bande', 'warning'); return; }
+    const val = document.getElementById(inputId)?.value;
+    if (!val) { showToast('Saisissez la valeur du compteur', 'warning'); return; }
+    const d = await apiPost({ action:'SAISIE_TECH', idBande:App.activeBande, cat, val1:val });
+    if (d.success || d.queued) { showToast('Compteur enregistré ✅', 'success'); document.getElementById(inputId).value = ''; sync(); }
+    else showToast(d.error || 'Erreur', 'error');
+}
+
+async function saisirAliment() {
+    if (!App.activeBande) { showToast('Sélectionnez une bande', 'warning'); return; }
+    const val = document.getElementById('v-aliment')?.value;
+    if (!val) { showToast('Saisissez la quantité', 'warning'); return; }
+    const d = await apiPost({ action:'SAISIE_TECH', idBande:App.activeBande, cat:'Alimentation', val1:val });
+    if (d.success || d.queued) { showToast('Aliment enregistré ✅', 'success'); document.getElementById('v-aliment').value = ''; sync(); }
+    else showToast(d.error || 'Erreur', 'error');
+}
+
+async function saisirPesee() {
+    if (!App.activeBande) { showToast('Sélectionnez une bande', 'warning'); return; }
+    const moy = document.getElementById('v-pmoy')?.value;
+    if (!moy) { showToast('Poids moyen obligatoire', 'warning'); return; }
+    for (const [cat, id] of [['PoidsMoyen','v-pmoy'],['PoidsMin','v-pmin'],['PoidsMax','v-pmax']]) {
+        const val = document.getElementById(id)?.value;
+        if (val) await apiPost({ action:'SAISIE_TECH', idBande:App.activeBande, cat, val1:val });
+    }
+    showToast('Pesée enregistrée ✅', 'success');
+    ['v-pmoy','v-pmin','v-pmax'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+    sync();
+}
+
+async function saisirSante() {
+    if (!App.activeBande) { showToast('Sélectionnez une bande', 'warning'); return; }
+    const score = document.getElementById('v-sante')?.value;
+    const note  = document.getElementById('v-sante-note')?.value;
+    if (!score) { showToast('Saisissez un score', 'warning'); return; }
+    const d = await apiPost({ action:'SAISIE_TECH', idBande:App.activeBande, cat:'SanteGeneral', val1:score, note });
+    if (d.success || d.queued) { showToast('Santé enregistrée ✅', 'success'); sync(); }
+    else showToast(d.error || 'Erreur', 'error');
+}
+
+async function setAlimentStatut(statut, btn) {
+    if (!App.activeBande) { showToast('Sélectionnez une bande', 'warning'); return; }
+    btn.parentElement.querySelectorAll('.aliment-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    await apiPost({ action:'SAISIE_TECH', idBande:App.activeBande, cat:'AlimentStatut', val1:0, note:statut });
+    showToast('Aliment : ' + statut, statut === 'ON' ? 'success' : 'warning');
+}
+
+function marquerEtapeFaite(etapeId) {
+    const el = document.getElementById('etape-' + etapeId);
+    if (!el) return;
+    const num = el.querySelector('.etape-num');
+    const titre = el.querySelector('.etape-titre');
+    if (num) { num.className = 'etape-num done'; num.textContent = '✓'; }
+    if (titre) titre.classList.add('done');
+}
+
+// ── Clôture & Rapport ──
+
+async function lancerCloture() {
+    if (!App.activeBande) { showToast('Sélectionnez une bande', 'warning'); return; }
+    if (!confirm('Lancer la clôture de ' + App.activeBande + ' ?')) return;
+    const d = await apiPost({ action:'LANCER_CLOTURE', idBande:App.activeBande });
+    if (d.success) { showToast(d.message || 'Clôture lancée ✅', 'success'); changeTab('cloture'); }
+    else showToast(d.error || 'Erreur', 'error');
+}
+
+async function chargerCloture() {
+    const div = document.getElementById('cloture-content');
+    if (!div || !App.activeBande) return;
+    const d = await apiGet({ action:'getCloture', idBande:App.activeBande });
+    if (!d.success || !d.phases || !d.phases.length) {
+        div.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;">Aucune clôture en cours.</div>'; return;
+    }
+    const icons = { ABATTAGE:'🔪', EVACUATION:'🚛', NETTOYAGE:'🧹', DESINFECTION:'🧴', VIDE_SANITAIRE:'⏳', PREPARATION:'🐣' };
+    div.innerHTML = d.phases.map(ph => `<div class="phase-card">
+        <div style="font-size:22px;">${icons[ph.phase]||'📋'}</div>
+        <div style="flex:1;">
+            <div style="font-weight:700;font-size:13px;">${escapeHtml(ph.label)}</div>
+            <div style="font-size:11px;color:#64748b;">Prévue : ${escapeHtml(ph.datePrevue)}${ph.dateReelle?' · Réalisée : '+escapeHtml(ph.dateReelle):''}</div>
+            <span class="phase-statut ${ph.statut}">${ph.statut.replace('_',' ')}</span>
+        </div>
+        ${ph.statut !== 'VALIDEE' ? `<button class="btn btn-success" style="width:auto;padding:8px 12px;margin-bottom:0;font-size:12px;" onclick="validerPhase('${escapeHtml(ph.idCloture)}','${escapeHtml(ph.phase)}','${escapeHtml(App.activeBande)}')">✓</button>` : ''}
+    </div>`).join('');
+}
+
+async function validerPhase(idCloture, phase, idBande) {
+    if (!confirm('Valider la phase ' + phase + ' ?')) return;
+    const d = await apiPost({ action:'VALIDER_PHASE', idCloture, phase, idBande });
+    if (d.success) { showToast(d.clotureComplete ? '🎉 Clôture terminée !' : 'Phase validée ✅', 'success'); chargerCloture(); }
+    else showToast(d.error || 'Erreur', 'error');
+}
+
+async function chargerRapport() {
+    const div = document.getElementById('rapport-content');
+    if (!div || !App.activeBande) { if(div) div.innerHTML='<div style="text-align:center;padding:30px;color:#94a3b8;">Sélectionnez une bande.</div>'; return; }
+    const d = await apiGet({ action:'getRapportBande', idBande:App.activeBande });
+    if (!d.success) { div.innerHTML = '<div style="padding:20px;color:var(--danger);">Erreur : ' + escapeHtml(d.error) + '</div>'; return; }
+    div.innerHTML = `
+    <div class="card"><div class="section-title" style="margin:0 0 10px;">🐔 Zootechnie — ${escapeHtml(d.idBande)}</div>
+        <div class="compta-row"><span>Effectif initial</span><strong>${formatMontant(d.effectifInitial)} sujets</strong></div>
+        <div class="compta-row"><span>Mortalité</span><strong style="color:var(--danger)">${formatMontant(d.mortaliteCumulee)} sujets</strong></div>
+        <div class="compta-row"><span>Taux de survie</span><strong style="color:var(--success)">${d.tauxSurvie}%</strong></div>
+        <div class="compta-row"><span>Poids moyen final</span><strong>${d.poidsMoyenFinal} g</strong></div>
+        <div class="compta-row"><span>IC global</span><strong>${d.icGlobal || '--'}</strong></div>
+    </div>
+    <div class="card"><div class="section-title" style="margin:0 0 10px;">💰 Finance</div>
+        <div class="compta-row"><span>Total dépenses</span><strong style="color:var(--danger)">${formatMontant(d.totalDepenses)} FCFA</strong></div>
+        <div class="compta-row"><span>Total recettes</span><strong style="color:var(--success)">${formatMontant(d.totalRecettes)} FCFA</strong></div>
+        <div class="compta-row" style="font-size:15px;"><span>Marge nette</span><strong style="color:${d.margeNette>=0?'var(--success)':'var(--danger)'}">${formatMontant(d.margeNette)} FCFA</strong></div>
+    </div>
+    <div class="card"><div class="section-title" style="margin:0 0 10px;">📦 Coûts</div>
+        <div class="compta-row"><span>Coût/kg vif</span><strong>${formatMontant(d.coutKiloVif)} FCFA</strong></div>
+        <div class="compta-row"><span>Coût/kg carcasse</span><strong>${formatMontant(d.coutKiloCarcasse)} FCFA</strong></div>
+    </div>
+    <div class="card"><div class="section-title" style="margin:0 0 10px;">🛒 Ventes</div>
+        <div class="compta-row"><span>Total ventes</span><strong>${formatMontant(d.totalVentes)} FCFA</strong></div>
+        <div class="compta-row"><span>Créances ouvertes</span><strong style="color:${d.creancesOuvertes>0?'var(--warning)':'var(--success)'}">${formatMontant(d.creancesOuvertes)} FCFA</strong></div>
+    </div>
+    <div style="text-align:center;font-size:11px;color:#94a3b8;">Rapport généré le ${d.dateGeneration}</div>`;
+}
+
+// ── Onglet "Plus" ──
+
+function renderMore() {
+    const zone = document.getElementById('app-container');
+    let html = '<div class="section-title">⋯ Modules supplémentaires</div><div class="card">';
+    if (App.role !== 'AGENT') {
+        html += '<button class="btn btn-accent" onclick="renderAnalyse()" style="margin-bottom:8px;">📈 Analyse & Graphiques</button>';
+        html += '<button class="btn btn-primary" onclick="renderJournal()" style="margin-bottom:8px;">📒 Journal Comptable</button>';
+        html += '<button class="btn btn-success" onclick="renderCloture()" style="margin-bottom:8px;">🏁 Clôture de bande</button>';
+    }
+    if (App.activeBande && App.role !== 'AGENT') {
+        html += '<button class="btn btn-warning" onclick="renderRapport()" style="color:var(--primary);">📄 Rapport de bande</button>';
+    }
+    html += '</div>';
+    zone.innerHTML = html;
+}
+
+function renderAnalyse() {
+    const zone = document.getElementById('app-container');
+    const f = App.data.finance || {};
+    const g = App.data.graphs || {};
+    let html = renderBandeSelector();
+    html += `<div class="kpi-card">
+        <div class="kpi-label">SOLDE NET — ${escapeHtml(App.activeBande||'TOUTES BANDES')}</div>
+        <div class="kpi-val">${formatMontant(f.solde||0)} FCFA</div>
+    </div>`;
+    if (f.coutKiloVif > 0) {
+        html += `<div class="stat-grid">
+            <div class="stat-box" style="border-bottom-color:var(--accent);"><span class="stat-label">Coût/kg vif</span><span class="stat-val-sm">${formatMontant(f.coutKiloVif)} F</span></div>
+            <div class="stat-box" style="border-bottom-color:var(--warning);"><span class="stat-label">Coût/kg carcasse</span><span class="stat-val-sm">${formatMontant(f.coutKiloCarcasse)} F</span></div>
+        </div>`;
+    }
+    html += '<div class="card"><span class="stat-label">Répartition des coûts</span><div class="chart-container"><canvas id="chartFinance"></canvas></div></div>';
+    if (g.poidsStd && g.poidsStd.length) html += '<div class="card"><span class="stat-label">Croissance vs Standard</span><div class="chart-container"><canvas id="chartPoids"></canvas></div></div>';
+    if (g.tempReelle && g.tempReelle.length) html += '<div class="card"><span class="stat-label">Température vs Norme</span><div class="chart-container"><canvas id="chartTemp"></canvas></div></div>';
+    html += `<div class="card"><div class="section-title" style="margin:0 0 10px;">Détail des coûts</div>
+        ${[['🌾 Aliment',f.alimentation],['🐥 Poussins',f.poussins],['💊 Santé',f.sante],["👷 Main d'œuvre",f.main_oeuvre],['📦 Divers',f.divers]]
+            .map(([l,v])=>`<div class="compta-row"><span>${l}</span><strong>${formatMontant(v||0)} FCFA</strong></div>`).join('')}
+        <div class="compta-row" style="color:var(--success);font-weight:800;"><span>✅ Recettes</span><strong>${formatMontant(f.recettes||0)} FCFA</strong></div>
+    </div>`;
+    html += '<button class="btn btn-accent" onclick="changeTab(\'more\')" style="margin-top:4px;">← Retour</button>';
+    zone.innerHTML = html;
+    setTimeout(() => {
+        const fc = document.getElementById('chartFinance');
+        if (fc) new Chart(fc, { type:'doughnut', data:{ labels:['Aliment','Poussins','Santé',"M. d'œuvre",'Divers'], datasets:[{ data:[f.alimentation||0,f.poussins||0,f.sante||0,f.main_oeuvre||0,f.divers||0], backgroundColor:['#3498db','#f1c40f','#e74c3c','#27ae60','#94a3b8'], borderWidth:0 }]}, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } }});
+        const pc = document.getElementById('chartPoids');
+        if (pc && g.poidsStd && g.poidsStd.length) new Chart(pc, { type:'line', data:{ datasets:[{ label:'Standard', data:g.poidsStd, borderColor:'#cbd5e1', borderDash:[5,5], pointRadius:0, fill:false },{ label:'Réel', data:g.poidsReel, borderColor:'#27ae60', backgroundColor:'rgba(39,174,96,0.1)', fill:true, tension:0.4 }]}, options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ type:'linear' } }, plugins:{ legend:{ position:'bottom' } } }});
+        const tc = document.getElementById('chartTemp');
+        if (tc && g.tempReelle && g.tempReelle.length) {
+            const ds = [];
+            if (g.tempStd && g.tempStd.length) ds.push({ label:'Norme', data:g.tempStd, borderColor:'#cbd5e1', borderDash:[5,5], pointRadius:0, fill:false });
+            ds.push({ label:'Réelle', data:g.tempReelle, borderColor:'#e74c3c', backgroundColor:'rgba(231,76,60,0.1)', fill:true, tension:0.3 });
+            new Chart(tc, { type:'line', data:{ datasets:ds }, options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ type:'linear' } }, plugins:{ legend:{ position:'bottom' } } }});
+        }
+    }, 100);
+}
+
+function renderJournal() {
+    const zone = document.getElementById('app-container');
+    zone.innerHTML = `${renderBandeSelector()}
+    <div class="section-title">📒 Écriture au Journal</div>
+    <div class="card">
+        <label>Type</label>
+        <select id="j-type"><option value="DEPENSE">Dépense (−)</option><option value="RECETTE">Recette (+)</option></select>
+        <label>Catégorie</label>
+        <input type="text" id="j-cat" placeholder="Ex: Salaire, Vaccin, Prestation...">
+        <label>Bénéficiaire / Fournisseur</label>
+        <input type="text" id="j-benef" placeholder="Ex: Agent Koné, Sedima...">
+        <div class="stat-grid">
+            <div><label>Quantité</label><input type="number" id="j-qte" placeholder="1" inputmode="decimal" oninput="calcMontantJournal()"></div>
+            <div><label>Prix unit. (FCFA)</label><input type="number" id="j-prix" placeholder="0" inputmode="numeric" oninput="calcMontantJournal()"></div>
+        </div>
+        <label>Montant total (FCFA)</label>
+        <input type="number" id="j-montant" placeholder="Calculé auto si qté × prix" inputmode="numeric">
+        <label>Note</label>
+        <input type="text" id="j-note" placeholder="Détail...">
+        <button class="btn btn-primary" id="btn-journal" onclick="ecrireJournal()">📒 ENREGISTRER</button>
+    </div>
+    <button class="btn btn-accent" onclick="changeTab(\'more\')" style="margin-top:4px;">← Retour</button>`;
+}
+
+function calcMontantJournal() {
+    const q = parseFloat(document.getElementById('j-qte')?.value) || 0;
+    const p = parseFloat(document.getElementById('j-prix')?.value) || 0;
+    if (q > 0 && p > 0) { const el = document.getElementById('j-montant'); if(el) el.value = Math.round(q * p); }
+}
+
+async function ecrireJournal() {
+    const cat = document.getElementById('j-cat')?.value;
+    const montant = document.getElementById('j-montant')?.value;
+    if (!cat) { showToast('Catégorie obligatoire', 'warning'); return; }
+    if (!montant || Number(montant) <= 0) { showToast('Montant invalide', 'warning'); return; }
+    if (!App.activeBande) { showToast('Sélectionnez une bande', 'warning'); return; }
+    const btn = document.getElementById('btn-journal');
+    setLoading(btn, true);
+    try {
+        const d = await apiPost({ action:'ECRITURE_JOURNAL', idBande:App.activeBande,
+            typeEcriture:document.getElementById('j-type')?.value,
+            categorie:cat, beneficiaire:document.getElementById('j-benef')?.value||'',
+            quantite:document.getElementById('j-qte')?.value||'1',
+            prixUnitaire:document.getElementById('j-prix')?.value||'0',
+            montant:Number(montant), note:document.getElementById('j-note')?.value||'' });
+        if (d.success || d.queued) { showToast(d.queued?'Sauvegardé (hors ligne)':(d.message||'Enregistré ✅'), 'success'); }
+        else showToast(d.error || 'Erreur', 'error');
+    } catch(e) { showToast('Erreur réseau', 'error'); }
+    finally { setLoading(btn, false); }
+}
+
+function renderCloture() {
+    const zone = document.getElementById('app-container');
+    zone.innerHTML = `${renderBandeSelector()}
+    <div class="section-title">🏁 Clôture de bande</div>
+    ${App.activeBande ? `<div class="card card-warning">
+        <p style="font-size:13px;margin:0 0 10px;">Lancer la clôture de <strong>${escapeHtml(App.activeBande)}</strong>. 6 phases sur 14 jours minimum.</p>
+        <button class="btn btn-danger" onclick="lancerCloture()">🏁 LANCER LA CLÔTURE</button>
+    </div>` : ''}
+    <div id="cloture-content"><div style="text-align:center;padding:20px;color:#94a3b8;">Sélectionnez une bande.</div></div>
+    <button class="btn btn-accent" onclick="changeTab(\'more\')" style="margin-top:4px;">← Retour</button>`;
+    if (App.activeBande) chargerCloture();
+}
+
+function renderRapport() {
+    const zone = document.getElementById('app-container');
+    zone.innerHTML = `<div class="section-title">📄 Rapport — ${escapeHtml(App.activeBande)}</div>
+    <div id="rapport-content"><div style="text-align:center;padding:30px;">⏳ Chargement...</div></div>
+    <button class="btn btn-accent" onclick="changeTab(\'more\')" style="margin-top:8px;">← Retour</button>`;
+    chargerRapport();
+}
+
+
+window.onload = () => {
+    if (App.token && !isSessionExpired()) {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app-main').style.display     = 'block';
+        showApp();
+    } else if (App.token && isSessionExpired()) {
+        localStorage.removeItem('aviToken');
+        localStorage.removeItem('aviLoginTime');
+        App.token = null;
+        showToast('Session expirée. Reconnectez-vous.', 'warning');
+    }
+};
+</script>
+</body>
+</html>
