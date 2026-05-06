@@ -1,0 +1,26 @@
+{
+  "name": "AviGest",
+  "short_name": "AviGest",
+  "description": "Gestion avicole Kalycoq / REVAGRO",
+  "start_url": "/AVIGEST4/",
+  "scope": "/AVIGEST4/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d1b2a",
+  "theme_color": "#0d1b2a",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
