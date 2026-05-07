@@ -1,0 +1,2568 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0d1b2a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AviGest">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>AviGest v24</title>
+
+    <!-- PWA — manifest + icône Apple -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+    <!-- OneSignal SDK (notifications push) -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;800&display=swap" rel="stylesheet">
+
+    <!-- ════════════════════════════════════
+         FONDATIONS — CSS COMPLET
+    ════════════════════════════════════ -->
+    <style>
+        :root {
+            --bg:#0d1b2a; --bg2:#142233; --bg3:#1a2d40;
+            --border:rgba(255,255,255,0.08);
+            --text:#f0f4f8; --text2:#8fa8c0;
+            --green:#00c896; --blue:#0099ff;
+            --orange:#ff9d00; --red:#ff4444; --purple:#c084fc;
+        }
+        *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+        body { font-family:'Lexend',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; }
+
+        /* ── Overlay écrans ── */
+        .screen { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:1000; }
+        .screen.hidden { display:none !important; }
+
+        /* ── Sélection rôle ── */
+        .role-logo { font-size:52px; margin-bottom:8px; }
+        .role-title { font-size:30px; font-weight:800; letter-spacing:-0.5px; margin-bottom:4px; }
+        .role-sub { font-size:12px; color:var(--text2); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:40px; }
+        .role-btns { display:flex; gap:22px; margin-bottom:48px; }
+        .role-btn { display:flex; flex-direction:column; align-items:center; gap:10px; cursor:pointer;
+                    -webkit-tap-highlight-color:transparent; touch-action:manipulation; transition:transform .15s; }
+        .role-btn:active { transform:scale(.92); }
+        .role-btn-circle { width:84px; height:84px; border-radius:50%; display:flex; align-items:center;
+                           justify-content:center; font-size:34px; border:2px solid transparent; }
+        .rbc-gerant    { background:rgba(96,165,250,.15); border-color:rgba(96,165,250,.4); }
+        .rbc-agent     { background:rgba(74,222,128,.15); border-color:rgba(74,222,128,.4); }
+        .rbc-partenaire{ background:rgba(192,132,252,.15); border-color:rgba(192,132,252,.4); }
+        .role-btn-label { font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.8px; }
+        .role-sortir { display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer;
+                       -webkit-tap-highlight-color:transparent; opacity:.7; transition:opacity .15s; }
+        .role-sortir:active { opacity:1; }
+        .role-sortir-circle { width:58px; height:58px; border-radius:50%; background:rgba(255,68,68,.12);
+                              border:2px solid rgba(255,68,68,.3); display:flex; align-items:center; justify-content:center; font-size:24px; }
+        .role-sortir-label { font-size:10px; font-weight:700; color:var(--red); text-transform:uppercase; }
+
+        /* ── PIN ── */
+        .pin-logo  { font-size:48px; margin-bottom:8px; }
+        .pin-title { font-size:26px; font-weight:800; }
+        .pin-sub   { font-size:12px; color:var(--text2); text-transform:uppercase; letter-spacing:1.5px; margin:4px 0 28px; }
+        .pin-display { display:flex; gap:14px; margin-bottom:8px; }
+        .pin-dot { width:18px; height:18px; border-radius:50%; background:var(--bg3);
+                   border:2px solid var(--border); transition:background .15s,border-color .15s,transform .15s; }
+        .pin-dot.filled { background:var(--blue); border-color:var(--blue); transform:scale(1.2); }
+        .pin-pad { display:grid; grid-template-columns:repeat(3,72px); grid-template-rows:repeat(4,72px); gap:12px; margin-top:8px; }
+        .pin-key { width:72px; height:72px; border-radius:50%; border:none; background:var(--bg2);
+                   color:var(--text); font-family:'Lexend',sans-serif; font-size:22px; font-weight:600;
+                   cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+                   transition:background .12s,transform .1s; display:flex; align-items:center;
+                   justify-content:center; user-select:none; -webkit-user-select:none; }
+        .pin-key:active,.pin-key.pressed { background:var(--bg3); transform:scale(.91); }
+        .pin-key.key-del { background:rgba(255,68,68,.12); color:var(--red); font-size:16px; }
+        .pin-key.key-ok  { background:rgba(0,200,150,.15); color:var(--green); font-size:16px; font-weight:800; }
+        .pin-key.key-ok.ready { background:var(--green); color:#0d1b2a; box-shadow:0 0 20px rgba(0,200,150,.4); }
+        .pin-key.key-empty { background:transparent; cursor:default; pointer-events:none; }
+        .pin-err { height:20px; font-size:12px; color:var(--red); text-align:center; margin-bottom:12px;
+                   opacity:0; transition:opacity .2s; }
+        .pin-err.show { opacity:1; }
+        .pin-loading { display:none; flex-direction:column; align-items:center; gap:14px; position:absolute; }
+        .pin-loading.show { display:flex; }
+        .spinner { width:38px; height:38px; border:3px solid var(--bg3); border-top-color:var(--blue);
+                   border-radius:50%; animation:spin .8s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-6px)} 80%{transform:translateX(6px)} }
+        .pin-display.shake { animation:shake .4s ease; }
+
+        /* ── App principale ── */
+        #app-main { display:none; min-height:100vh; }
+        .header { background:var(--bg2); border-bottom:1px solid var(--border); padding:12px 16px;
+                  display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:100; }
+        .header-left { display:flex; align-items:center; gap:8px; }
+        #btn-back { display:none; background:rgba(255,255,255,.08); border:none; color:var(--text);
+                    font-size:22px; line-height:1; cursor:pointer; padding:4px 10px; border-radius:8px;
+                    font-family:inherit; transition:background .15s; }
+        #btn-back:active { background:rgba(255,255,255,.18); }
+        #tb-role { font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:.8px; }
+        #tb-name { font-size:14px; font-weight:700; }
+        .offline-badge { display:none; background:var(--red); color:#fff; font-size:9px; font-weight:700;
+                         padding:3px 8px; border-radius:10px; }
+        .offline-badge.show { display:inline-block; }
+        #btn-logout { background:rgba(255,68,68,.12); border:1px solid rgba(255,68,68,.35); color:var(--red);
+                      border-radius:10px; padding:5px 12px; font-size:11px; font-weight:700; cursor:pointer;
+                      font-family:inherit; -webkit-tap-highlight-color:transparent; }
+        #btn-logout:active { background:rgba(255,68,68,.28); }
+        #app-container { padding:12px; max-width:500px; margin:0 auto; padding-bottom:28px; }
+
+        /* ── Composants UI ── */
+        .toast { position:fixed; bottom:40px; left:50%; transform:translateX(-50%) translateY(20px);
+                 background:var(--bg2); color:var(--text); padding:12px 22px; border-radius:40px;
+                 font-size:13px; font-weight:600; z-index:99999; border:1px solid var(--border);
+                 opacity:0; transition:opacity .25s,transform .25s; white-space:nowrap;
+                 max-width:90vw; text-align:center; }
+        .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+        .toast.error   { background:var(--red); color:#fff; border-color:transparent; }
+        .toast.success { background:var(--green); color:#0d1b2a; border-color:transparent; }
+        .toast.warning { background:var(--orange); color:#0d1b2a; border-color:transparent; }
+
+        .tuile { border-radius:18px; padding:18px 20px; margin-bottom:10px; display:flex; align-items:center;
+                 gap:16px; cursor:pointer; border:1px solid rgba(255,255,255,.07);
+                 transition:transform .15s,opacity .15s; -webkit-tap-highlight-color:transparent;
+                 touch-action:manipulation; user-select:none; }
+        .tuile:active { transform:scale(.97); opacity:.85; }
+        .tuile-icon { font-size:28px; flex-shrink:0; }
+        .tuile-label { font-size:16px; font-weight:800; }
+        .tuile-sub { font-size:11px; opacity:.7; margin-top:2px; }
+        .tuile-arrow { margin-left:auto; font-size:18px; opacity:.4; }
+        .t-superviser { background:linear-gradient(135deg,#0d2240,#0a3060); border-color:rgba(96,165,250,.2); }
+        .t-planifier  { background:linear-gradient(135deg,#0d2a1a,#0a3320); border-color:rgba(74,222,128,.2); }
+        .t-compta     { background:linear-gradient(135deg,#2a1f0d,#3a2800); border-color:rgba(251,191,36,.2); }
+        .t-analyser   { background:linear-gradient(135deg,#1e0d2a,#2a1040); border-color:rgba(192,132,252,.2); }
+        .t-bandes     { background:linear-gradient(135deg,#2a0d1a,#3a1028); border-color:rgba(249,168,212,.2); }
+
+        .badge { font-size:10px; font-weight:800; padding:2px 8px; border-radius:20px; margin-left:8px; }
+        .badge-red    { background:var(--red); color:#fff; animation:pulse 2s infinite; }
+        .badge-blue   { background:var(--blue); color:#fff; animation:pulse 2s infinite; }
+        .badge-green  { background:var(--green); color:#0d1b2a; }
+        .badge-orange { background:var(--orange); color:#0d1b2a; animation:pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+        .section-title { font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase;
+                         letter-spacing:1.2px; margin:20px 4px 10px; }
+        .card { background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:16px; margin-bottom:10px; }
+        .card-title { font-size:13px; font-weight:800; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+
+        .kpi-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:10px; }
+        .kpi-box { background:var(--bg3); border-radius:12px; padding:12px 8px; text-align:center; border:1px solid var(--border); }
+        .kpi-val   { font-size:20px; font-weight:800; display:block; }
+        .kpi-label { font-size:9px; color:var(--text2); text-transform:uppercase; letter-spacing:.8px; margin-top:3px; display:block; }
+
+        /* ── Tâches ── */
+        .tache-card { background:var(--bg3); border-radius:12px; padding:12px 14px; margin-bottom:8px;
+                      display:flex; align-items:center; gap:12px; border:1px solid var(--border); }
+        .tache-card.urgente { border-color:rgba(255,68,68,.4); background:rgba(255,68,68,.05); }
+        .tache-card.accomplie .tache-titre { text-decoration:line-through; color:var(--text2); }
+        .tache-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+        .dot-red    { background:var(--red); }
+        .dot-orange { background:var(--orange); }
+        .dot-blue   { background:var(--blue); }
+        .dot-green  { background:var(--green); }
+        .tache-titre { font-size:13px; font-weight:700; flex:1; }
+        .tache-meta  { font-size:10px; color:var(--text2); margin-top:2px; }
+        .tache-badge { font-size:9px; font-weight:700; padding:2px 7px; border-radius:8px; white-space:nowrap; }
+        .tb-abattage { background:rgba(255,68,68,.2); color:var(--red); }
+        .tb-quotidien{ background:rgba(0,153,255,.2); color:var(--blue); }
+        .tb-hebdo    { background:rgba(255,157,0,.2); color:var(--orange); }
+        .tb-cloture  { background:rgba(192,132,252,.2); color:var(--purple); }
+        .tb-bande    { background:rgba(249,168,212,.2); color:#f9a8d4; }
+
+        /* Bouton FAIT double-appui */
+        .btn-fait { background:rgba(0,153,255,.15); border:1px solid rgba(0,153,255,.4); color:var(--blue);
+                    border-radius:10px; padding:6px 14px; font-size:11px; font-weight:800; cursor:pointer;
+                    font-family:'Lexend',sans-serif; transition:all .2s; white-space:nowrap;
+                    -webkit-tap-highlight-color:transparent; }
+        .btn-fait.confirmer { background:rgba(255,157,0,.25); border-color:rgba(255,157,0,.8);
+                              color:var(--orange); animation:pulse 1s infinite; }
+        .btn-fait.done { background:rgba(0,200,150,.15); border-color:rgba(0,200,150,.4);
+                         color:var(--green); pointer-events:none; }
+
+        /* Bouton VALIDER gérant */
+        .btn-valider-tache { background:rgba(0,200,150,.2); border:1px solid rgba(0,200,150,.5); color:var(--green);
+                             border-radius:10px; padding:6px 14px; font-size:11px; font-weight:800; cursor:pointer;
+                             font-family:'Lexend',sans-serif; white-space:nowrap;
+                             -webkit-tap-highlight-color:transparent; animation:pulse 1.5s infinite; }
+        .btn-valider-tache:active { background:var(--green); color:#0d1b2a; }
+        .btn-valider-tache.validated { background:rgba(255,255,255,.06); border-color:var(--border);
+                                       color:var(--text2); pointer-events:none; animation:none; }
+
+        /* Bannière alertes */
+        @keyframes banniere-pulse {
+            0%,100% { box-shadow:0 0 0 0 rgba(0,153,255,.4); border-color:rgba(0,153,255,.4); }
+            50%      { box-shadow:0 0 0 6px rgba(0,153,255,0); border-color:rgba(0,153,255,.9); }
+        }
+        .banniere { border-radius:14px; padding:14px 16px; margin-bottom:12px; cursor:pointer;
+                    animation:banniere-pulse 1.8s ease-in-out infinite; }
+        .banniere-agent  { background:rgba(0,153,255,.12); border:2px solid rgba(0,153,255,.4); }
+        .banniere-gerant { background:rgba(0,200,150,.12); border:2px solid rgba(0,200,150,.4);
+                           animation-name:none; }
+        .banniere-validation { background:rgba(255,157,0,.12); border:2px solid rgba(255,157,0,.5);
+                               animation-duration:1s; }
+
+        /* ── Alertes ── */
+        .alerte { border-radius:12px; padding:11px 14px; margin-bottom:8px; display:flex; gap:10px; align-items:flex-start; font-size:12px; }
+        .alerte.critique { background:rgba(255,68,68,.08); border:1px solid rgba(255,68,68,.25); }
+        .alerte.warning  { background:rgba(255,157,0,.08);  border:1px solid rgba(255,157,0,.25); }
+        .alerte-kpi { font-weight:800; font-size:11px; }
+        .alerte.critique .alerte-kpi { color:var(--red); }
+        .alerte.warning  .alerte-kpi { color:var(--orange); }
+        .alerte-msg { color:var(--text2); margin-top:2px; line-height:1.4; }
+
+        /* ── Sessions ── */
+        .tuile-session-active { border-color:rgba(0,153,255,.5)!important;
+                                box-shadow:0 0 0 1px rgba(0,153,255,.25),0 0 18px rgba(0,153,255,.18);
+                                animation:session-glow 2.5s ease-in-out infinite; }
+        @keyframes session-glow {
+            0%,100%{box-shadow:0 0 0 1px rgba(0,153,255,.25),0 0 18px rgba(0,153,255,.18)}
+            50%{box-shadow:0 0 0 2px rgba(0,153,255,.45),0 0 32px rgba(0,153,255,.32)}
+        }
+        .session-active-badge { display:inline-block; font-size:9px; font-weight:800; color:#0d1b2a;
+                                background:var(--blue); padding:2px 8px; border-radius:20px; margin-left:8px;
+                                text-transform:uppercase; letter-spacing:.5px; animation:pulse 2s infinite; }
+
+        /* ── Formulaires ── */
+        .f-label  { font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:.8px;
+                    font-weight:700; margin-bottom:6px; display:block; }
+        .f-input  { width:100%; padding:13px 14px; background:var(--bg3); border:1px solid var(--border);
+                    border-radius:12px; color:var(--text); font-family:'Lexend',sans-serif; font-size:15px;
+                    margin-bottom:10px; outline:none; transition:border-color .15s; }
+        .f-input:focus { border-color:var(--blue); }
+        .btn-action { width:100%; padding:14px; border:none; border-radius:14px; font-family:'Lexend',sans-serif;
+                      font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center;
+                      justify-content:center; gap:8px; margin-bottom:8px;
+                      transition:opacity .15s,transform .1s; -webkit-tap-highlight-color:transparent; }
+        .btn-action:active { transform:scale(.97); opacity:.85; }
+        .btn-green { background:var(--green); color:#0d1b2a; }
+        .btn-blue  { background:var(--blue); color:#fff; }
+        .btn-orange{ background:var(--orange); color:#0d1b2a; }
+        .btn-red   { background:var(--red); color:#fff; }
+        .btn-ghost { background:transparent; border:1px solid var(--border); color:var(--text2); }
+        .choice-btn { padding:20px 12px; border-radius:16px; border:2px solid var(--border);
+                      background:var(--bg3); color:var(--text); font-family:'Lexend',sans-serif;
+                      font-size:13px; font-weight:700; cursor:pointer; text-align:center;
+                      transition:border-color .15s,background .15s; -webkit-tap-highlight-color:transparent; }
+        .choice-btn:active,.choice-btn.selected { border-color:var(--blue); background:rgba(0,153,255,.1); }
+        .choice-icon { font-size:24px; display:block; margin-bottom:6px; }
+        .form-choice-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+        .stepper { display:flex; gap:6px; margin-bottom:20px; }
+        .step-dot { flex:1; height:3px; border-radius:2px; background:var(--bg3); transition:background .3s; }
+        .step-dot.active { background:var(--blue); }
+        .step-dot.done   { background:var(--green); }
+        .form-step { display:none; }
+        .form-step.active { display:block; }
+        .form-step-title { font-size:12px; color:var(--text2); text-transform:uppercase; letter-spacing:1px;
+                           margin-bottom:14px; font-weight:700; }
+
+        /* ── Rapports & listes ── */
+        .journal-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0;
+                       border-bottom:1px solid var(--border); font-size:12px; }
+        .journal-row:last-child { border-bottom:none; }
+        .journal-cat { color:var(--text2); flex:1; }
+        .journal-mont { font-weight:800; }
+        .journal-mont.dep { color:var(--red); }
+        .journal-mont.rec { color:var(--green); }
+        .rapport-section { margin-bottom:16px; }
+        .rapport-titre { font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:1px;
+                         font-weight:700; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+        .rapport-ligne { display:flex; justify-content:space-between; font-size:13px; padding:5px 0; }
+        .rapport-ligne span:last-child { font-weight:700; }
+        .bande-header { background:linear-gradient(135deg,var(--bg2),var(--bg3)); border:1px solid var(--border);
+                        border-radius:16px; padding:16px; margin-bottom:10px; }
+        .bande-name { font-size:18px; font-weight:800; }
+        .bande-meta { font-size:11px; color:var(--text2); margin-top:4px; }
+        .bat-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .bat-card { background:var(--bg3); border:1px solid var(--border); border-radius:14px;
+                    padding:14px 12px; text-align:center; cursor:pointer; transition:transform .15s;
+                    -webkit-tap-highlight-color:transparent; }
+        .bat-card:active { transform:scale(.95); }
+        .bat-card.libre   { border-style:dashed; opacity:.6; }
+        .bat-card.encours { background:rgba(0,200,150,.08); border-color:rgba(0,200,150,.3); }
+        .bat-card.cloture { background:rgba(255,157,0,.08); border-color:rgba(255,157,0,.3); }
+        .bat-num    { font-size:10px; color:var(--text2); font-weight:600; margin-bottom:4px; }
+        .bat-icon   { font-size:22px; margin-bottom:4px; }
+        .bat-name   { font-size:12px; font-weight:700; }
+        .bat-info   { font-size:10px; color:var(--text2); margin-top:3px; }
+        .bat-statut { font-size:10px; font-weight:700; margin-top:4px; }
+        .bat-statut.encours { color:var(--green); }
+        .bat-statut.libre   { color:var(--text2); }
+        .bat-statut.cloture { color:var(--orange); }
+        .user-item { display:flex; justify-content:space-between; align-items:center; padding:11px 14px;
+                     background:var(--bg3); border-radius:12px; margin-bottom:6px; border:1px solid var(--border); }
+        .user-name { font-size:13px; font-weight:700; }
+        .user-pin  { font-size:10px; color:var(--text2); font-family:monospace; margin-top:2px; }
+        .user-badge { font-size:9px; font-weight:700; padding:2px 8px; border-radius:8px; }
+        .badge-actif    { background:rgba(0,200,150,.2); color:var(--green); }
+        .badge-inactif  { background:rgba(255,68,68,.2); color:var(--red); }
+        .badge-gerant   { background:rgba(96,165,250,.2); color:#60a5fa; }
+        .badge-agent    { background:rgba(74,222,128,.2); color:#4ade80; }
+        .badge-partenaire{ background:rgba(192,132,252,.2); color:var(--purple); }
+        .vente-card { background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin-bottom:8px; }
+        .phase-card { display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--bg3);
+                      border-radius:12px; margin-bottom:8px; border:1px solid var(--border); }
+        .phase-statut-badge { margin-left:auto; font-size:9px; font-weight:700; padding:3px 9px; border-radius:8px; }
+        .ps-validee { background:rgba(0,200,150,.2); color:var(--green); }
+        .ps-encours { background:rgba(0,153,255,.2); color:var(--blue); }
+        .ps-attente { background:rgba(255,255,255,.06); color:var(--text2); }
+        .fab-ligne { display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+        .fab-ligne .f-input { margin-bottom:0; flex:1; }
+        .fab-total { display:flex; justify-content:space-between; padding:12px; background:var(--bg3);
+                     border-radius:12px; margin-top:8px; font-weight:700; }
+        .prog-bar  { height:5px; background:var(--bg3); border-radius:3px; overflow:hidden; margin-top:6px; }
+        .prog-fill { height:100%; border-radius:3px; background:var(--green); transition:width .5s; }
+        .prog-fill.orange { background:var(--orange); }
+        .prog-fill.red    { background:var(--red); }
+        textarea { width:100%; padding:12px; background:var(--bg3); border:1px solid var(--border);
+                   border-radius:12px; color:var(--text); font-family:inherit; font-size:13px;
+                   resize:none; outline:none; margin-top:6px; }
+        textarea:focus { border-color:var(--blue); }
+    </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════
+     ÉCRAN 1 — SÉLECTION DU RÔLE
+════════════════════════════════════════ -->
+<div id="screen-role" class="screen">
+    <div class="role-logo">🐔</div>
+    <div class="role-title">AviGest</div>
+    <div class="role-sub">Qui êtes-vous ?</div>
+    <div class="role-btns">
+        <div class="role-btn" onclick="choisirRole('GERANT')">
+            <div class="role-btn-circle rbc-gerant">🧑‍💼</div>
+            <span class="role-btn-label">Gérant</span>
+        </div>
+        <div class="role-btn" onclick="choisirRole('AGENT')">
+            <div class="role-btn-circle rbc-agent">👷</div>
+            <span class="role-btn-label">Agent</span>
+        </div>
+        <div class="role-btn" onclick="choisirRole('PARTENAIRE')">
+            <div class="role-btn-circle rbc-partenaire">🤝</div>
+            <span class="role-btn-label">Partenaire</span>
+        </div>
+    </div>
+    <div class="role-sortir" onclick="doLogoutFromRole()">
+        <div class="role-sortir-circle">🚪</div>
+        <span class="role-sortir-label">Sortir</span>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     ÉCRAN 2 — LOGIN PIN
+════════════════════════════════════════ -->
+<div id="screen-pin" class="screen hidden">
+    <div class="pin-logo">🐔</div>
+    <div class="pin-title">AviGest</div>
+    <div class="pin-sub" id="pin-label">Accès sécurisé</div>
+    <div class="pin-display" id="pin-display">
+        <div class="pin-dot" id="dot-0"></div>
+        <div class="pin-dot" id="dot-1"></div>
+        <div class="pin-dot" id="dot-2"></div>
+        <div class="pin-dot" id="dot-3"></div>
+    </div>
+    <div class="pin-err" id="pin-err"></div>
+    <div class="pin-pad">
+        <button class="pin-key" onclick="pinTap('1')">1</button>
+        <button class="pin-key" onclick="pinTap('2')">2</button>
+        <button class="pin-key" onclick="pinTap('3')">3</button>
+        <button class="pin-key" onclick="pinTap('4')">4</button>
+        <button class="pin-key" onclick="pinTap('5')">5</button>
+        <button class="pin-key" onclick="pinTap('6')">6</button>
+        <button class="pin-key" onclick="pinTap('7')">7</button>
+        <button class="pin-key" onclick="pinTap('8')">8</button>
+        <button class="pin-key" onclick="pinTap('9')">9</button>
+        <button class="pin-key key-del" onclick="pinDel()">⌫</button>
+        <button class="pin-key" onclick="pinTap('0')">0</button>
+        <button class="pin-key key-ok" id="key-ok" onclick="doLogin()">OK</button>
+    </div>
+    <div class="pin-loading" id="pin-loading">
+        <div class="spinner"></div>
+        <div style="font-size:13px;color:var(--text2)">Connexion…</div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     APP PRINCIPALE
+════════════════════════════════════════ -->
+<div id="app-main">
+    <div class="header">
+        <div class="header-left">
+            <button id="btn-back" onclick="Nav.back()">‹</button>
+            <div>
+                <div id="tb-role">--</div>
+                <div id="tb-name">--</div>
+            </div>
+        </div>
+        <span class="offline-badge" id="offline-badge">📴 HORS LIGNE</span>
+        <button id="btn-logout" onclick="doLogout()">🚪 Sortir</button>
+    </div>
+    <div id="app-container"></div>
+</div>
+
+<div class="toast" id="toast-global"></div>
+
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════
+   ÉTAGE 1 — VARIABLES GLOBALES
+════════════════════════════════════════════ */
+const API        = 'https://script.google.com/macros/s/AKfycbxN3dVH77nGS4YWzHtryqmeVQKf8inqBlyIp7tV6-VJZ2Y0Pt1rG1UkWujQIP7dIESV-g/exec';
+const SESSION_MS = 12 * 3600 * 1000;
+const TIMEOUT_MS = 10000;
+const MAX_RETRY  = 3;
+
+const App = {
+    token:       localStorage.getItem('av_token')  || null,
+    role:        localStorage.getItem('av_role')   || null,
+    nom:         localStorage.getItem('av_nom')    || '',
+    idPart:      localStorage.getItem('av_idpart') || '',
+    loginTime:   parseInt(localStorage.getItem('av_lt') || '0'),
+    activeBande: localStorage.getItem('av_bande')  || '',
+    data:        {},
+    clients:     [],
+    batiments:   [],
+    isOnline:    navigator.onLine,
+    offlineQueue: JSON.parse(localStorage.getItem('av_queue') || '[]'),
+    _saisie:     {},
+    _fabLignes:  [],
+    _session:    { id:null, etapeIdx:0, reponses:{} },
+    _abattage:   { etape:1, poidsEntier:null, poidsGesier:null, nbAbattu:null },
+    _pavBuffers: {}
+};
+
+/* ════════════════════════════════════════════
+   ÉTAGE 2 — UTILITAIRES PURS
+════════════════════════════════════════════ */
+function esc(t) {
+    if (t == null) return '';
+    return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                    .replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/\//g,'&#x2F;');
+}
+function fmt(n) {
+    return Math.round(n||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'\u00a0');
+}
+let _toastTimer = null;
+function showToast(msg, type='info', duration=3000) {
+    const el = document.getElementById('toast-global');
+    if (!el) return;
+    if (_toastTimer) clearTimeout(_toastTimer);
+    el.textContent = msg;
+    el.className   = 'toast ' + type + ' show';
+    _toastTimer = setTimeout(() => el.classList.remove('show'), duration);
+}
+function setLoad(btn, loading) {
+    if (!btn) return;
+    if (loading) { btn.dataset.orig = btn.innerHTML; btn.innerHTML = '⏳'; btn.disabled = true; }
+    else { btn.innerHTML = btn.dataset.orig || btn.innerHTML; btn.disabled = false; }
+}
+const _guards = new Set();
+function guardDouble(key) {
+    if (_guards.has(key)) { showToast('Opération en cours…','warning'); return false; }
+    _guards.add(key);
+    setTimeout(() => _guards.delete(key), 3000);
+    return true;
+}
+function sanitizeNum(v, min=0, max=Infinity) {
+    const n = parseFloat(v);
+    if (isNaN(n) || n < min || n > max) return null;
+    return n;
+}
+function detectSession() {
+    const h = new Date().getHours();
+    if (h >= 5  && h < 10) return 'Matin';
+    if (h >= 10 && h < 14) return 'Midi';
+    if (h >= 14 && h < 19) return 'PM';
+    return 'Nuit';
+}
+function _dateAujourd_hui() { return new Date().toISOString().split('T')[0]; }
+
+/* ════════════════════════════════════════════
+   ÉTAGE 3 — SÉCURITÉ & SESSION
+════════════════════════════════════════════ */
+function isSessionValid() {
+    if (!App.token || !App.loginTime) return false;
+    return (Date.now() - App.loginTime) < SESSION_MS;
+}
+function handleExpired() {
+    showToast('Session expirée. Reconnectez-vous.','error',4000);
+    setTimeout(() => {
+        ['av_token','av_lt'].forEach(k => localStorage.removeItem(k));
+        App.token = null; App.loginTime = 0; location.reload();
+    }, 2500);
+}
+let _warnedExpiry = false;
+setInterval(() => {
+    if (!App.loginTime) return;
+    const remaining = SESSION_MS - (Date.now() - App.loginTime);
+    if (remaining < 3_600_000 && !_warnedExpiry) { _warnedExpiry = true; showToast("⚠️ Session expire dans moins d'1h",'warning',6000); }
+    if (remaining <= 0) handleExpired();
+}, 60_000);
+
+/* ════════════════════════════════════════════
+   ÉTAGE 4 — RÉSEAU & API
+════════════════════════════════════════════ */
+async function fetchT(url, opts={}, ms=TIMEOUT_MS) {
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), ms);
+    try {
+        const r = await fetch(url, {...opts, signal: ctrl.signal});
+        clearTimeout(tid); return r;
+    } catch(e) {
+        clearTimeout(tid);
+        if (e.name === 'AbortError') throw new Error('TIMEOUT');
+        throw e;
+    }
+}
+async function apiGet(params={}) {
+    if (params.action !== 'login' && !isSessionValid()) { handleExpired(); return {success:false}; }
+    const url = new URL(API);
+    if (App.token) url.searchParams.set('token', App.token);
+    Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
+    try {
+        const r = await fetchT(url.toString());
+        if (!r.ok) throw new Error('HTTP '+r.status);
+        const d = await r.json();
+        if (d.error && d.error.includes('Session')) { handleExpired(); return {success:false}; }
+        return d;
+    } catch(e) {
+        if (e.message === 'TIMEOUT') showToast('Connexion lente — données en cache','warning');
+        return (App.data && App.data.success) ? App.data : {success:false, error:e.message};
+    }
+}
+async function apiPost(payload) {
+    if (!isSessionValid()) { handleExpired(); return {success:false}; }
+    payload.token = App.token;
+    if (!App.isOnline) { queueRequest(payload); return {success:true, queued:true}; }
+    for (let i = 1; i <= MAX_RETRY; i++) {
+        try {
+            const r = await fetchT(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+            if (!r.ok) throw new Error('HTTP '+r.status);
+            const d = await r.json();
+            if (d.error && d.error.includes('Session')) { handleExpired(); return {success:false}; }
+            return d;
+        } catch(e) {
+            if (i < MAX_RETRY) { showToast('Réseau lent · Tentative '+(i+1)+'/'+MAX_RETRY+'…','warning',2000); await new Promise(res=>setTimeout(res,1500*i)); }
+        }
+    }
+    queueRequest(payload); return {success:true, queued:true};
+}
+function queueRequest(payload) {
+    const p = {...payload}; delete p.token;
+    App.offlineQueue.push({payload:p, ts:Date.now()});
+    localStorage.setItem('av_queue', JSON.stringify(App.offlineQueue));
+    updateOffline(); showToast('📴 Donnée sauvegardée localement','warning');
+}
+async function processQueue() {
+    if (!App.offlineQueue.length || !App.isOnline || App.isSyncing) return;
+    if (!isSessionValid()) { showToast('Session expirée — reconnectez-vous pour sync','warning',5000); return; }
+    App.isSyncing = true;
+    const failed = [];
+    for (const item of App.offlineQueue) {
+        try {
+            const r = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({...item.payload, token:App.token})});
+            const d = await r.json();
+            if (!d.success) failed.push(item);
+        } catch { failed.push(item); }
+    }
+    App.offlineQueue = failed;
+    localStorage.setItem('av_queue', JSON.stringify(failed));
+    App.isSyncing = false; updateOffline();
+    if (!failed.length) showToast('✅ Toutes les données synchronisées','success');
+    else showToast(failed.length+' élément(s) en attente','warning');
+}
+function updateOffline() {
+    const b = document.getElementById('offline-badge');
+    if (b) b.classList.toggle('show', !App.isOnline);
+}
+window.addEventListener('online',  () => { App.isOnline=true;  updateOffline(); showToast('🌐 Connexion rétablie','success'); processQueue(); });
+window.addEventListener('offline', () => { App.isOnline=false; updateOffline(); showToast('📴 Mode hors ligne activé','warning'); });
+
+/* ════════════════════════════════════════════
+   ÉTAGE 5 — NAVIGATION
+════════════════════════════════════════════ */
+const Nav = {
+    stack: [],
+    push(fn, params) { Nav.stack.push({fn, params}); Nav._run(fn, params); Nav._upBtn(); },
+    back() {
+        if (Nav.stack.length <= 1) { Nav.stack=[]; renderHome(); Nav._upBtn(); return; }
+        Nav.stack.pop();
+        const prev = Nav.stack[Nav.stack.length-1];
+        Nav._run(prev.fn, prev.params); Nav._upBtn();
+    },
+    home() { Nav.stack=[]; renderHome(); Nav._upBtn(); },
+    replace(fn, params) {
+        if (Nav.stack.length) Nav.stack[Nav.stack.length-1]={fn,params};
+        else Nav.stack.push({fn,params});
+        Nav._run(fn, params); Nav._upBtn();
+    },
+    _run(fn, params) {
+        try {
+            if (typeof window[fn]==='function') {
+                const res = window[fn](params);
+                if (res && typeof res.catch==='function') res.catch(e => { console.error('Nav async error ('+fn+'):', e); showToast("Erreur d'affichage",'error'); });
+            } else { console.error('Nav: fonction inconnue:', fn); renderHome(); }
+        } catch(e) { console.error('Nav error ('+fn+'):', e); showToast("Erreur d'affichage",'error'); }
+    },
+    _upBtn() {
+        const btn = document.getElementById('btn-back');
+        if (btn) btn.style.display = Nav.stack.length > 1 ? 'inline-block' : 'none';
+    }
+};
+function zone() { return document.getElementById('app-container'); }
+
+/* ════════════════════════════════════════════
+   ÉTAGE 6 — LOGIN (PIN + rôle)
+════════════════════════════════════════════ */
+let _pin = '';
+let _loginBusy = false;
+
+function choisirRole(role) {
+    const labels = {GERANT:'🧑‍💼 Gérant — entrez votre PIN', AGENT:'👷 Agent — entrez votre PIN', PARTENAIRE:'🤝 Partenaire — entrez votre PIN'};
+    const el = document.getElementById('pin-label');
+    if (el) el.textContent = labels[role] || 'Entrez votre PIN';
+    _pin = ''; _updateDots();
+    document.getElementById('key-ok').classList.remove('ready');
+    _hideErr();
+    document.getElementById('screen-role').classList.add('hidden');
+    document.getElementById('screen-pin').classList.remove('hidden');
+}
+
+function pinTap(digit) {
+    if (_loginBusy || _pin.length >= 4) return;
+    _pin += digit; _updateDots();
+    if (_pin.length === 4) document.getElementById('key-ok').classList.add('ready');
+    _hideErr();
+}
+function pinDel() {
+    if (_loginBusy || !_pin.length) return;
+    _pin = _pin.slice(0, -1);
+    document.getElementById('key-ok').classList.remove('ready');
+    _updateDots(); _hideErr();
+}
+function _updateDots() {
+    for (let i=0; i<4; i++) {
+        const d = document.getElementById('dot-'+i);
+        if (d) d.classList.toggle('filled', i < _pin.length);
+    }
+}
+function _showErr(msg) {
+    const e = document.getElementById('pin-err'), d = document.getElementById('pin-display');
+    if (e) { e.textContent = msg; e.classList.add('show'); }
+    if (d) { d.classList.add('shake'); setTimeout(()=>d.classList.remove('shake'), 450); }
+}
+function _hideErr() {
+    const e = document.getElementById('pin-err');
+    if (e) e.classList.remove('show');
+}
+
+async function doLogin() {
+    if (_loginBusy) return;
+    if (_pin.length !== 4) { _showErr('Saisissez 4 chiffres'); return; }
+    if (!guardDouble('login')) return;
+    _loginBusy = true;
+    document.getElementById('pin-loading').classList.add('show');
+    try {
+        const res = await fetchT(API+'?action=login&pin='+_pin);
+        if (!res.ok) throw new Error('HTTP '+res.status);
+        const d = await res.json();
+        if (d.success) {
+            App.token=d.token; App.role=d.role; App.nom=d.nom||'';
+            App.idPart=d.idPartenaire||''; App.loginTime=Date.now();
+            localStorage.setItem('av_token',d.token);
+            localStorage.setItem('av_role',d.role);
+            localStorage.setItem('av_nom',d.nom||'');
+            localStorage.setItem('av_idpart',d.idPartenaire||'');
+            localStorage.setItem('av_lt',String(App.loginTime));
+            document.getElementById('screen-pin').classList.add('hidden');
+            document.getElementById('app-main').style.display = 'block';
+            startApp();
+        } else {
+            _showErr(d.error || 'PIN incorrect');
+            _pin = ''; _updateDots();
+            document.getElementById('key-ok').classList.remove('ready');
+        }
+    } catch(e) {
+        _showErr('Erreur réseau — réessayez');
+        console.error('doLogin:', e);
+    } finally {
+        _loginBusy = false;
+        document.getElementById('pin-loading').classList.remove('show');
+    }
+}
+async function doLogout() {
+    try { await apiGet({action:'logout'}); } catch(_) {}
+    ['av_token','av_role','av_nom','av_idpart','av_lt'].forEach(k => localStorage.removeItem(k));
+    App.token=null; App.role=null; App.nom=''; App.loginTime=0; location.reload();
+}
+async function doLogoutFromRole() {
+    if (App.token) {
+        try { await apiGet({action:'logout'}); } catch(_) {}
+        ['av_token','av_role','av_nom','av_idpart','av_lt'].forEach(k => localStorage.removeItem(k));
+        App.token=null; App.role=null; App.nom=''; App.loginTime=0;
+    }
+    setTimeout(() => location.reload(), 400);
+}
+
+/* ════════════════════════════════════════════
+   ÉTAGE 7 — FONCTIONS MÉTIER
+   ─────────────────────────────────────────
+   7.1  Messagerie inter-rôles (API-based)
+   7.2  Système de tâches
+   7.3  Gérant
+   7.4  Agent
+   7.5  Partenaire
+════════════════════════════════════════════ */
+
+function _majTopbar() {
+    const r = document.getElementById('tb-role'), n = document.getElementById('tb-name');
+    if (r) r.textContent = App.role || '--';
+    if (n) n.textContent = App.nom  || '--';
+}
+
+/* ══════════════════════════════════════════
+   7.1  MESSAGERIE INTER-RÔLES (localStorage
+        cross-device via clé partagée horodatée)
+   NOTE : dans un vrai déploiement multi-appareil,
+   les messages doivent passer par le backend.
+   Ici, on stocke dans localStorage ET on signale
+   au prochain apiGet. Le backend stocke l'état
+   dans les tâches (TERMINEE → attente validation).
+══════════════════════════════════════════ */
+
+/** Stocke une alerte pour l'agent (tâche créée par le gérant) */
+function _notifierAgent(titre, type, bande) {
+    const key  = 'av_notif_agent_' + _dateAujourd_hui();
+    const msgs = JSON.parse(localStorage.getItem(key) || '[]');
+    msgs.push({ titre, type, bande: bande || App.activeBande,
+                gerant: App.nom,
+                heure: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
+                ts: Date.now(), lu: false });
+    localStorage.setItem(key, JSON.stringify(msgs));
+}
+
+/** Retourne le nb de notifications non lues pour l'agent */
+function _nbNotifsAgent() {
+    const key = 'av_notif_agent_' + _dateAujourd_hui();
+    return JSON.parse(localStorage.getItem(key) || '[]').filter(m => !m.lu).length;
+}
+
+/** Marque les notifs agent comme lues */
+function _marquerNotifsAgentLues() {
+    const key  = 'av_notif_agent_' + _dateAujourd_hui();
+    const msgs = JSON.parse(localStorage.getItem(key) || '[]').map(m => ({...m, lu:true}));
+    localStorage.setItem(key, JSON.stringify(msgs));
+}
+
+/** Stocke une notification de tâche accomplie pour le gérant */
+function _notifierGerantTacheAccomplie(tacheId, titre, bande) {
+    const key  = 'av_notif_gerant_' + _dateAujourd_hui();
+    const msgs = JSON.parse(localStorage.getItem(key) || '[]');
+    msgs.push({ tacheId, titre, bande: bande || App.activeBande,
+                agent: App.nom,
+                heure: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
+                ts: Date.now(), lu: false, valide: false });
+    localStorage.setItem(key, JSON.stringify(msgs));
+}
+
+/** Retourne le nb de tâches accomplies non validées (vue gérant) */
+function _nbTachesAValider() {
+    const key = 'av_notif_gerant_' + _dateAujourd_hui();
+    return JSON.parse(localStorage.getItem(key) || '[]').filter(m => !m.valide).length;
+}
+
+/** Bannière agent — nouvelles tâches du gérant */
+function _banniereAgentNouvellesTaches() {
+    const nb = _nbNotifsAgent();
+    if (!nb) return '';
+    return `
+    <div class="banniere banniere-agent" onclick="_voirNotifsAgent()">
+        <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-size:26px">📋</div>
+            <div style="flex:1">
+                <div style="font-size:14px;font-weight:800;color:var(--blue)">
+                    ${nb} nouvelle${nb>1?'s':''} tâche${nb>1?'s':''} du gérant
+                </div>
+                <div style="font-size:11px;color:var(--text2);margin-top:3px">Appuyer pour voir</div>
+            </div>
+            <div style="font-size:11px;font-weight:800;color:var(--blue);background:rgba(0,153,255,.25);
+                        padding:4px 10px;border-radius:20px;animation:pulse 1s infinite">NOUVEAU</div>
+        </div>
+    </div>`;
+}
+
+function _voirNotifsAgent() {
+    _marquerNotifsAgentLues();
+    const key  = 'av_notif_agent_' + _dateAujourd_hui();
+    const msgs = JSON.parse(localStorage.getItem(key) || '[]').reverse();
+    const z = zone(); if (!z) return;
+    z.innerHTML = `
+        <div class="section-title">📋 Tâches reçues du gérant — Aujourd'hui</div>
+        ${msgs.length ? msgs.map(m => `
+            <div class="card" style="border-left:3px solid var(--blue)">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                    <div style="font-weight:800;font-size:14px">${esc(m.titre)}</div>
+                    <div style="font-size:10px;color:var(--text2)">${esc(m.heure)}</div>
+                </div>
+                <div style="font-size:12px;color:var(--text2)">
+                    Gérant : ${esc(m.gerant)} · Bande : ${esc(m.bande)}
+                </div>
+                <span class="tache-badge tb-${(m.type||'quotidien').toLowerCase()}" style="margin-top:6px;display:inline-block">
+                    ${esc(m.type||'QUOTIDIEN')}
+                </span>
+            </div>`).join('') :
+            '<div style="color:var(--text2);font-size:13px;padding:8px">Aucune tâche reçue aujourd\'hui</div>'}
+        <button class="btn-action btn-ghost" onclick="Nav.home()">← Retour</button>`;
+    Nav.stack.push({fn:'_voirNotifsAgent', params:null}); Nav._upBtn();
+}
+
+/** Bannière gérant — tâches accomplies à VALIDER obligatoirement */
+function _banniereGerantTachesAValider() {
+    const nb = _nbTachesAValider();
+    if (!nb) return '';
+    return `
+    <div class="banniere banniere-validation" onclick="Nav.push('renderValidationTaches',null)">
+        <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-size:26px">⚠️</div>
+            <div style="flex:1">
+                <div style="font-size:14px;font-weight:800;color:var(--orange)">
+                    ${nb} tâche${nb>1?'s':''} à VALIDER — Action requise
+                </div>
+                <div style="font-size:11px;color:var(--text2);margin-top:3px">
+                    L'agent a terminé ces tâches · Validation obligatoire
+                </div>
+            </div>
+            <div style="font-size:11px;font-weight:800;color:var(--orange);background:rgba(255,157,0,.25);
+                        padding:4px 10px;border-radius:20px;animation:pulse 1s infinite">VALIDER</div>
+        </div>
+    </div>`;
+}
+
+/* ══════════════════════════════════════════
+   7.2  SYSTÈME TÂCHES — DOUBLE APPUI AGENT
+        + VALIDATION OBLIGATOIRE GÉRANT
+══════════════════════════════════════════ */
+
+const _tacheTimers = {};
+
+/** Premier appui — état intermédiaire "Confirmer ?" */
+function _tachePremierAppui(idTache, titre) {
+    const btn = document.getElementById('btn-fait-'+idTache);
+    if (!btn) return;
+    if (btn.dataset.confirming === 'true') { _tacheDeuxiemeAppui(idTache, titre); return; }
+    btn.dataset.confirming = 'true';
+    btn.classList.add('confirmer');
+    btn.textContent = '✅ Confirmer ? (3s)';
+    let countdown = 3;
+    const iv = setInterval(() => {
+        countdown--;
+        if (btn.dataset.confirming === 'true' && countdown > 0)
+            btn.textContent = `✅ Confirmer ? (${countdown}s)`;
+        else clearInterval(iv);
+    }, 1000);
+    _tacheTimers[idTache] = setTimeout(() => {
+        clearInterval(iv);
+        if (btn && btn.dataset.confirming === 'true') {
+            btn.dataset.confirming = 'false';
+            btn.classList.remove('confirmer');
+            btn.textContent = 'À FAIRE';
+        }
+        delete _tacheTimers[idTache];
+    }, 3000);
+}
+
+/** Deuxième appui — envoi backend + verrou + notif gérant */
+async function _tacheDeuxiemeAppui(idTache, titre) {
+    if (_tacheTimers[idTache]) { clearTimeout(_tacheTimers[idTache]); delete _tacheTimers[idTache]; }
+    const btn  = document.getElementById('btn-fait-'+idTache);
+    const card = document.getElementById('tcard-'+idTache);
+    if (btn)  { btn.dataset.confirming='false'; btn.classList.remove('confirmer'); btn.classList.add('done'); btn.textContent='✅ FAIT'; btn.onclick=null; }
+    if (card) card.classList.add('accomplie');
+    localStorage.setItem('av_done_'+idTache, 'true');
+    const r = await apiPost({action:'AGENT_TERMINE', idRow: idTache});
+    if (r.queued) showToast('📴 Tâche sauvegardée — envoi dès retour en ligne','warning',4000);
+    else if (r.success) showToast('✅ Tâche marquée comme faite — gérant notifié','success');
+    else showToast(r.error || 'Erreur envoi tâche','error');
+    // Notifier le gérant in-app
+    _notifierGerantTacheAccomplie(idTache, titre, App.activeBande);
+}
+
+/** Écran gérant — liste des tâches accomplies à valider */
+async function renderValidationTaches() {
+    const z = zone(); if (!z) return;
+    z.innerHTML = `<div style="text-align:center;padding:40px"><div class="spinner"></div></div>`;
+    // Récupérer les tâches TERMINEE depuis le backend
+    let idBande = App.activeBande;
+    if (!idBande && App.batiments.length) {
+        const enc = App.batiments.find(b=>b.statut==='EN COURS');
+        if (enc) idBande = enc.idBande;
+    }
+    const d = await apiGet({action:'dashboard', idBande: idBande||''});
+    const tachesTerminees = (d.success ? (d.tachesGestion||[]) : []);
+    const key = 'av_notif_gerant_' + _dateAujourd_hui();
+    const notifsLocales = JSON.parse(localStorage.getItem(key) || '[]');
+    // Fusionner backend + notifs locales
+    const toutesAValider = tachesTerminees.filter(t => t.statut === 'TERMINEE');
+
+    z.innerHTML = `
+        <div class="section-title">⚠️ Validation obligatoire des tâches</div>
+        <div class="card" style="background:rgba(255,157,0,.08);border-color:rgba(255,157,0,.3);margin-bottom:14px">
+            <div style="font-size:12px;color:var(--orange);font-weight:700;margin-bottom:4px">ℹ️ Pourquoi valider ?</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.5">
+                La validation confirme que vous avez pris connaissance du travail de l'agent.
+                Elle comptabilise la tâche et débloque les statistiques associées.
+            </div>
+        </div>
+        ${notifsLocales.filter(n=>!n.valide).map(n=>`
+            <div class="card" style="border-left:4px solid var(--orange)" id="vcard-${esc(n.tacheId)}">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                    <div style="font-weight:800;font-size:14px">✅ ${esc(n.titre)}</div>
+                    <div style="font-size:10px;color:var(--text2)">${esc(n.heure)}</div>
+                </div>
+                <div style="font-size:12px;color:var(--text2);margin-bottom:10px">
+                    Agent : ${esc(n.agent)} · Bande : ${esc(n.bande)}
+                </div>
+                <div style="display:flex;gap:8px">
+                    <button class="btn-valider-tache" id="btnval-${esc(n.tacheId)}"
+                            onclick="_validerTacheGerant('${esc(n.tacheId)}','${esc(n.titre)}')">
+                        ✔ Valider
+                    </button>
+                    <button class="btn-action btn-ghost" style="width:auto;padding:6px 12px;margin:0;font-size:11px"
+                            onclick="_ajouterCommentaireTache('${esc(n.tacheId)}')">
+                        💬 Commenter
+                    </button>
+                </div>
+            </div>`).join('')}
+        ${toutesAValider.filter(t => !notifsLocales.find(n => n.tacheId === t.id)).map(t=>`
+            <div class="card" style="border-left:4px solid var(--blue)">
+                <div style="font-weight:800;font-size:14px;margin-bottom:6px">✅ ${esc(t.titre)}</div>
+                <div style="font-size:12px;color:var(--text2);margin-bottom:10px">${esc(t.idBande)} · ${esc(t.date)}</div>
+                <button class="btn-action btn-green" style="width:auto;padding:8px 16px;margin:0"
+                        onclick="_validerTacheBackend('${esc(t.id)}','${esc(t.titre)}')">
+                    ✔ Valider et comptabiliser
+                </button>
+            </div>`).join('')}
+        ${(!notifsLocales.filter(n=>!n.valide).length && !toutesAValider.length) ?
+            '<div style="color:var(--text2);font-size:13px;padding:16px;text-align:center">✅ Aucune tâche en attente de validation</div>' : ''}
+        <button class="btn-action btn-ghost" onclick="Nav.back()">← Retour</button>`;
+}
+
+function _validerTacheGerant(tacheId, titre) {
+    const btn = document.getElementById('btnval-'+tacheId);
+    if (btn) { btn.classList.add('validated'); btn.textContent = '✅ Validé'; }
+    const key = 'av_notif_gerant_' + _dateAujourd_hui();
+    const msgs = JSON.parse(localStorage.getItem(key) || '[]').map(m =>
+        m.tacheId === tacheId ? {...m, valide:true} : m
+    );
+    localStorage.setItem(key, JSON.stringify(msgs));
+    showToast('✅ Tâche validée','success');
+    // Optionnel : enregistrer dans le journal
+    apiPost({action:'ECRITURE_JOURNAL', idBande:App.activeBande||'',
+             typeEcriture:'RECETTE', categorie:'Validation tâche: '+titre,
+             unite:'forfait', montant:0, note:'Validé par gérant'});
+}
+
+async function _validerTacheBackend(id, titre) {
+    showToast('✅ Tâche validée','success');
+    _validerTacheGerant(id, titre);
+}
+
+function _ajouterCommentaireTache(tacheId) {
+    const obs = prompt('Commentaire pour cette tâche (optionnel) :');
+    if (obs === null) return;
+    showToast('💬 Commentaire enregistré','success');
+}
+
+/* ══════════════════════════════════════════
+   7.2b  TÂCHES ROUTINIÈRES — générées auto
+         chaque jour si aucune n'existe encore
+══════════════════════════════════════════ */
+
+/** Vérifie et crée les tâches quotidiennes si absentes ce jour */
+async function _genererTachesRoutinieres(idBande) {
+    const keyDone = 'av_routine_done_' + _dateAujourd_hui();
+    if (localStorage.getItem(keyDone) === 'true') return;
+    const tachesRoutine = [
+        'Nettoyage abreuvoirs et eau',
+        'Relevé ambiance Matin (T° + hygro + litière)',
+        'Mortalité matin',
+        'Compteur eau matin',
+        'Aliment distribué (kg)',
+        'Relevé ambiance Midi',
+        'Relevé ambiance PM',
+        'Mortalité soir',
+        'Compteur eau soir',
+        'Santé générale du lot'
+    ];
+    const today = _dateAujourd_hui();
+    for (const titre of tachesRoutine) {
+        await apiPost({action:'CREER_TACHE', titre, date: today, idBande, typeTache:'QUOTIDIEN'});
+    }
+    localStorage.setItem(keyDone, 'true');
+    _notifierAgent('Tâches routinières du jour générées', 'QUOTIDIEN', idBande);
+}
+
+/* ════════════════════════════════════════════
+   7.3  GÉRANT — ACCUEIL
+════════════════════════════════════════════ */
+async function renderGerant() {
+    _majTopbar();
+    const z = zone(); if (!z) return;
+
+    if (!App.batiments.length) {
+        const bd = await apiGet({action:'getBatiments'});
+        if (bd.success) App.batiments = bd.batiments || [];
+    }
+    let idBande = App.activeBande;
+    if (!idBande && App.batiments.length) {
+        const enc = App.batiments.find(b=>b.statut==='EN COURS');
+        if (enc) { idBande = enc.idBande; App.activeBande = idBande; localStorage.setItem('av_bande',idBande); }
+    }
+    let kpis = {effectif:0, mortJour:0, mortCumul:0, stockSacs:'—', margeNette:0, effectifInitial:0, sorties:0};
+    let nbAlertes = 0, nbTaches = 0;
+    if (idBande) {
+        const d = await apiGet({action:'dashboard', idBande});
+        if (d.success) {
+            App.data = d;
+            kpis.effectif        = d.performance?.effectif        || 0;
+            kpis.effectifInitial = d.performance?.effectifInitial || 0;
+            kpis.mortJour        = d.terrain?.mortaliteJour       || 0;
+            kpis.mortCumul       = d.performance?.morts           || 0;
+            kpis.sorties         = d.performance?.sorties         || 0;
+            kpis.stockSacs       = d.performance?.stockSacs       ?? '—';
+            kpis.margeNette      = d.finance?.solde               || 0;
+            nbAlertes = (d.alertes||[]).filter(a=>a.niveau==='CRITIQUE').length;
+            nbTaches  = (d.tachesAgent||[]).filter(t=>t.statut==='A FAIRE').length;
+            // Générer les tâches routinières si besoin
+            await _genererTachesRoutinieres(idBande);
+        }
+    }
+    const nbAValider   = _nbTachesAValider();
+    const mortColor    = kpis.mortJour > 5 ? 'var(--red)' : kpis.mortJour > 0 ? 'var(--orange)' : 'var(--text)';
+    const margeColor   = kpis.margeNette >= 0 ? 'var(--green)' : 'var(--red)';
+    const stockColor   = (typeof kpis.stockSacs==='number' && kpis.stockSacs<=5) ? 'var(--red)' : 'var(--text)';
+    const cumulColor   = kpis.mortCumul > 0 ? 'var(--red)' : 'var(--text)';
+    const tauxSurvie   = kpis.effectifInitial > 0
+        ? Math.round(((kpis.effectifInitial - kpis.mortCumul - kpis.sorties) / kpis.effectifInitial) * 1000) / 10
+        : null;
+    const survieColor  = tauxSurvie === null ? 'var(--text)' : tauxSurvie >= 97 ? 'var(--green)' : tauxSurvie >= 94 ? 'var(--orange)' : 'var(--red)';
+
+    z.innerHTML = `
+        <div class="section-title">Tableau de bord — ${esc(idBande||'Aucune bande active')}</div>
+        ${_banniereGerantTachesAValider()}
+        <div class="kpi-row">
+            <div class="kpi-box">
+                <span class="kpi-val">${kpis.effectif.toLocaleString('fr')}</span>
+                <span class="kpi-label">Effectif actuel</span>
+            </div>
+            <div class="kpi-box">
+                <span class="kpi-val" style="color:${mortColor}">${kpis.mortJour}</span>
+                <span class="kpi-label">💀 Morts/jour</span>
+            </div>
+            <div class="kpi-box">
+                <span class="kpi-val" style="color:${stockColor}">${kpis.stockSacs}</span>
+                <span class="kpi-label">Sacs stock</span>
+            </div>
+        </div>
+        <!-- CUMUL MORTALITÉ — visible gérant uniquement -->
+        <div class="card" style="border-left:4px solid ${cumulColor};margin-bottom:10px;padding:14px 16px">
+            <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">
+                📊 Mortalité cumulée — bande entière
+            </div>
+            <div class="kpi-row" style="margin-bottom:0">
+                <div class="kpi-box">
+                    <span class="kpi-val" style="color:${cumulColor}">${kpis.mortCumul.toLocaleString('fr')}</span>
+                    <span class="kpi-label">Total morts</span>
+                </div>
+                <div class="kpi-box">
+                    <span class="kpi-val">${kpis.sorties.toLocaleString('fr')}</span>
+                    <span class="kpi-label">Sorties abattage</span>
+                </div>
+                <div class="kpi-box">
+                    <span class="kpi-val" style="color:${survieColor}">
+                        ${tauxSurvie !== null ? tauxSurvie + '%' : '—'}
+                    </span>
+                    <span class="kpi-label">Taux survie</span>
+                </div>
+            </div>
+        </div>
+        <div class="kpi-row" style="margin-bottom:16px">
+            <div class="kpi-box" style="grid-column:span 3">
+                <span class="kpi-val" style="color:${margeColor}">
+                    ${kpis.margeNette>=0?'+':''}${fmt(kpis.margeNette)} FCFA
+                </span>
+                <span class="kpi-label">Marge nette</span>
+            </div>
+        </div>
+        <div class="section-title">Actions</div>
+        <div class="tuile t-superviser" onclick="Nav.push('renderSuperviser',null)">
+            <div class="tuile-icon">👁️</div>
+            <div>
+                <div class="tuile-label">Superviser
+                    ${nbAlertes>0?`<span class="badge badge-red">${nbAlertes} alerte${nbAlertes>1?'s':''}</span>`:''}
+                    ${nbAValider>0?`<span class="badge badge-orange">⚠️ ${nbAValider} à valider</span>`:''}
+                </div>
+                <div class="tuile-sub">Terrain · Mortalité · Alertes · Tâches</div>
+            </div>
+            <div class="tuile-arrow">›</div>
+        </div>
+        <div class="tuile t-planifier" onclick="Nav.push('renderPlanifier',null)">
+            <div class="tuile-icon">📋</div>
+            <div>
+                <div class="tuile-label">Planifier
+                    ${nbTaches>0?`<span class="badge badge-blue">${nbTaches}</span>`:''}
+                </div>
+                <div class="tuile-sub">Créer tâches · Abattage · Clôture</div>
+            </div>
+            <div class="tuile-arrow">›</div>
+        </div>
+        <div class="tuile t-compta" onclick="Nav.push('renderCompta',null)">
+            <div class="tuile-icon">💰</div>
+            <div><div class="tuile-label">Comptabilité</div><div class="tuile-sub">Journal · Ventes · Fabrication · Rapport</div></div>
+            <div class="tuile-arrow">›</div>
+        </div>
+        <div class="tuile t-analyser" onclick="Nav.push('renderAnalyser',null)">
+            <div class="tuile-icon">📈</div>
+            <div><div class="tuile-label">Analyser</div><div class="tuile-sub">Coûts · Croissance · Coût/kg</div></div>
+            <div class="tuile-arrow">›</div>
+        </div>
+        <div class="tuile t-bandes" onclick="Nav.push('renderGererBandes',null)">
+            <div class="tuile-icon">🐔</div>
+            <div><div class="tuile-label">Gérer les bandes</div><div class="tuile-sub">6 poulaillers · Utilisateurs · Partenaires</div></div>
+            <div class="tuile-arrow">›</div>
+        </div>`;
+}
+
+/* ── 7.3a Superviser ── */
+async function renderSuperviser() {
+    const z = zone(); if (!z) return;
+    z.innerHTML = `<div style="text-align:center;padding:40px 20px"><div class="spinner"></div></div>`;
+    const bd = await apiGet({action:'getBatiments'});
+    if (bd.success) App.batiments = bd.batiments || [];
+    let idBande = App.activeBande;
+    if (!idBande && App.batiments.length) {
+        const enc = App.batiments.find(b=>b.statut==='EN COURS');
+        if (enc) { idBande = enc.idBande; App.activeBande = idBande; localStorage.setItem('av_bande',idBande); }
+    }
+    if (!idBande) { z.innerHTML=`<div style="padding:20px;color:var(--text2);text-align:center">Aucune bande EN COURS.</div>`; return; }
+    const d = await apiGet({action:'dashboard', idBande});
+    if (!d.success) { z.innerHTML=`<div style="padding:20px;color:var(--red);text-align:center">Erreur : ${esc(d.error||'Connexion impossible')}</div>`; return; }
+    App.data = d;
+    const terrain = d.terrain || {}, perf = d.performance || {};
+    const alertes = d.alertes || [], taches = d.tachesAgent || [], tachesG = d.tachesGestion || [];
+    const mortJour = terrain.mortaliteJour || 0;
+    const mortColor = mortJour > 5 ? 'var(--red)' : mortJour > 0 ? 'var(--orange)' : 'var(--green)';
+
+    // Tâches avec bouton valider pour celles TERMINEE
+    const tachesHTML = taches.map(t => {
+        const done = t.statut==='TERMINEE'||t.statut==='COMPTABILISEE';
+        const c = t.typeTache==='ABATTAGE'?'red':t.typeTache==='HEBDO'?'orange':'blue';
+        return `
+        <div class="tache-card ${t.typeTache==='ABATTAGE'?'urgente':''} ${done?'accomplie':''}">
+            <div class="tache-dot dot-${c}"></div>
+            <div style="flex:1">
+                <div class="tache-titre">${esc(t.titre)}</div>
+                <div class="tache-meta">${esc(t.idBande)} · ${esc(t.date)}</div>
+            </div>
+            ${done
+                ? `<button class="btn-valider-tache validated">✅ Terminée</button>`
+                : `<span class="tache-badge tb-${(t.typeTache||'quotidien').toLowerCase()}">${esc(t.typeTache)}</span>`}
+        </div>`;
+    }).join('');
+
+    z.innerHTML = `
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;
+                    padding:14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+            <div>
+                <div style="font-weight:800;font-size:15px">🐔 ${esc(idBande)}</div>
+                <div style="font-size:11px;color:var(--text2)">J${perf.ageJours||0} · ${(perf.effectif||0).toLocaleString('fr')} sujets</div>
+            </div>
+            <button class="btn-action btn-ghost" style="width:auto;padding:6px 12px;margin:0;font-size:11px"
+                    onclick="Nav.replace('renderSuperviser',null)">🔄</button>
+        </div>
+        ${_banniereGerantTachesAValider()}
+        <div class="card" style="border-left:4px solid ${mortColor};margin-bottom:12px">
+            <div class="card-title" style="color:${mortColor}">💀 Mortalité du jour</div>
+            <div class="kpi-row" style="margin-bottom:12px">
+                <div class="kpi-box"><span class="kpi-val" style="color:${mortColor}">${mortJour}</span><span class="kpi-label">Total jour</span></div>
+                <div class="kpi-box"><span class="kpi-val">${terrain.mortaliteMatin||0}</span><span class="kpi-label">🌅 Matin</span></div>
+                <div class="kpi-box"><span class="kpi-val">${terrain.mortaliteSoir||0}</span><span class="kpi-label">🌙 Soir</span></div>
+            </div>
+            <div style="height:1px;background:var(--border);margin-bottom:12px"></div>
+            <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">
+                Cumul depuis J0
+            </div>
+            <div class="kpi-row" style="margin-bottom:0">
+                <div class="kpi-box">
+                    <span class="kpi-val" style="color:${(perf.morts||0)>0?'var(--red)':'var(--text)'}">${(perf.morts||0).toLocaleString('fr')}</span>
+                    <span class="kpi-label">Total morts</span>
+                </div>
+                <div class="kpi-box">
+                    <span class="kpi-val">${(perf.sorties||0).toLocaleString('fr')}</span>
+                    <span class="kpi-label">Sorties abattage</span>
+                </div>
+                <div class="kpi-box">
+                    ${(()=>{
+                        const s = perf.effectifInitial > 0
+                            ? Math.round(((perf.effectifInitial - (perf.morts||0) - (perf.sorties||0)) / perf.effectifInitial) * 1000) / 10
+                            : null;
+                        const sc = s === null ? 'var(--text)' : s >= 97 ? 'var(--green)' : s >= 94 ? 'var(--orange)' : 'var(--red)';
+                        return `<span class="kpi-val" style="color:${sc}">${s !== null ? s + '%' : '—'}</span>
+                                <span class="kpi-label">Taux survie</span>`;
+                    })()}
+                </div>
+            </div>
+        </div>
+        <div class="card" style="margin-bottom:12px">
+            <div class="card-title">🌡️ Ambiance terrain</div>
+            <div class="kpi-row" style="margin-bottom:0">
+                <div class="kpi-box"><span class="kpi-val">${terrain.tempMax||'—'}<span style="font-size:12px">°C</span></span><span class="kpi-label">Temp. max</span></div>
+                <div class="kpi-box"><span class="kpi-val">${terrain.hygro||'—'}<span style="font-size:12px">%</span></span><span class="kpi-label">Hygro</span></div>
+                <div class="kpi-box"><span class="kpi-val">${terrain.litiere||'—'}<span style="font-size:12px">/5</span></span><span class="kpi-label">Litière</span></div>
+            </div>
+        </div>
+        <div class="section-title">⚠️ Alertes</div>
+        ${alertes.length ? alertes.map(a=>`
+            <div class="alerte ${a.niveau.toLowerCase()}">
+                <div>${a.niveau==='CRITIQUE'?'🔴':'🟡'}</div>
+                <div><div class="alerte-kpi">${esc(a.kpi)}</div><div class="alerte-msg">${esc(a.message)}</div></div>
+            </div>`).join('') : '<div style="color:var(--green);font-size:13px;padding:8px 0">✅ Aucune alerte active</div>'}
+        <div class="section-title">📋 Tâches du jour</div>
+        ${tachesHTML || '<div style="color:var(--text2);font-size:13px;padding:8px 0">Aucune tâche assignée aujourd\'hui</div>'}
+        <button class="btn-action btn-blue" onclick="Nav.push('renderCreerTache',null)">＋ Créer une tâche correctrice</button>
+        ${tachesG.length ? `
+            <div class="section-title">✅ Tâches terminées (à valider)</div>
+            ${tachesG.map(t=>`
+                <div class="tache-card">
+                    <div class="tache-dot dot-green"></div>
+                    <div style="flex:1"><div class="tache-titre">${esc(t.titre)}</div><div class="tache-meta">${esc(t.idBande)} · ${esc(t.date)}</div></div>
+                    <button class="btn-valider-tache" onclick="_validerTacheBackend('${esc(t.id)}','${esc(t.titre)}')">✔ Valider</button>
+                </div>`).join('')}` : ''}`;
+}
+
+/* ── 7.3b Planifier ── */
+function renderPlanifier() {
+    const z = zone(); if (!z) return;
+    const types=[
+        {type:'QUOTIDIEN',icon:'🔁',label:'Quotidienne',  sub:'Tâche répétée chaque jour'},
+        {type:'HEBDO',    icon:'📅',label:'Hebdomadaire', sub:'Pesée, suivi hebdo'},
+        {type:'ABATTAGE', icon:'🔪',label:'Abattage',     sub:'Planifier un abattage'},
+        {type:'CLOTURE',  icon:'🔒',label:'Clôture',      sub:"Lancer la clôture d'une bande"},
+        {type:'BANDE',    icon:'🐔',label:'Nouvelle bande',sub:'Créer une bande dans un poulailler'},
+    ];
+    z.innerHTML=`
+        <div class="section-title">Choisir le type de tâche</div>
+        ${types.map(t=>`
+            <div class="tuile" style="background:var(--bg2)" onclick="Nav.push('renderCreerTacheType','${t.type}')">
+                <div class="tuile-icon">${t.icon}</div>
+                <div><div class="tuile-label">${t.label}</div><div class="tuile-sub">${t.sub}</div></div>
+                <div class="tuile-arrow">›</div>
+            </div>`).join('')}`;
+}
+function renderCreerTache() { renderPlanifier(); }
+
+function renderCreerTacheType(type) {
+    const z = zone(); if (!z) return;
+    const labels={QUOTIDIEN:'Tâche quotidienne',HEBDO:'Pesée hebdomadaire',ABATTAGE:'Planifier abattage',CLOTURE:'Lancer clôture',BANDE:'Nouvelle bande'};
+    const bandesActives=(App.batiments||[]).filter(b=>b.statut==='EN COURS')
+        .map(b=>`<option value="${b.idBande}">${esc(b.idBande)} — Poulailler ${b.num}</option>`).join('');
+    z.innerHTML=`
+        <div class="card">
+            <div class="card-title">📋 ${esc(labels[type]||type)}</div>
+            <label class="f-label">Titre / Description</label>
+            <input class="f-input" type="text" id="tache-titre" placeholder="Ex: Pesée hebdomadaire Bande-03">
+            <label class="f-label">Date prévue</label>
+            <input class="f-input" type="date" id="tache-date" value="${new Date().toISOString().split('T')[0]}">
+            <label class="f-label">Bande concernée</label>
+            <select class="f-input" id="tache-bande">
+                <option value="">-- Sélectionner --</option>${bandesActives}
+            </select>
+            ${type==='ABATTAGE'?`
+            <label class="f-label">Nombre de sujets</label>
+            <input class="f-input" type="number" id="tache-nb" placeholder="Ex: 500" inputmode="numeric">
+            <label class="f-label">Poids estimé (kg)</label>
+            <input class="f-input" type="number" id="tache-poids" placeholder="Ex: 1050" inputmode="numeric">`:''}
+            <button class="btn-action btn-green" onclick="validerCreerTache('${type}')">✅ Créer la tâche</button>
+            <button class="btn-action btn-ghost" onclick="Nav.back()">Annuler</button>
+        </div>`;
+}
+
+async function validerCreerTache(type) {
+    const titre = document.getElementById('tache-titre')?.value.trim();
+    const date  = document.getElementById('tache-date')?.value;
+    const bande = document.getElementById('tache-bande')?.value;
+    if (!titre) { showToast('Le titre est obligatoire','warning'); return; }
+    if (!date)  { showToast('La date est obligatoire','warning'); return; }
+    if (!bande) { showToast('Sélectionnez une bande','warning'); return; }
+    const r = await apiPost({action:'CREER_TACHE', titre, date, idBande:bande, typeTache:type});
+    if (r.success) {
+        _notifierAgent(titre, type, bande);
+        showToast('✅ Tâche créée — agent notifié','success');
+        Nav.back();
+    } else showToast(r.error||'Erreur création tâche','error');
+}
+
+/* ── 7.3c Comptabilité ── */
+function renderCompta() {
+    const z=zone(); if(!z) return;
+    const idBande = App.activeBande || '—';
+    z.innerHTML=`
+        <div class="section-title">Comptabilité — ${esc(idBande)}</div>
+        <div class="tuile t-compta" onclick="Nav.push('renderJournal',null)">
+            <div class="tuile-icon">📒</div>
+            <div>
+                <div class="tuile-label">Journal</div>
+                <div class="tuile-sub">Toutes les écritures de la bande</div>
+            </div>
+            <div class="tuile-arrow">›</div>
+        </div>
+        <div class="tuile" style="background:linear-gradient(135deg,#1a2a1a,#203020);border-color:rgba(0,200,150,.2)"
+             onclick="Nav.push('renderRapportBande',null)">
+            <div class="tuile-icon">📊</div>
+            <div>
+                <div class="tuile-label">Rapport par bande</div>
+                <div class="tuile-sub">Total dépenses · Recettes · Solde</div>
+            </div>
+            <div class="tuile-arrow">›</div>
+        </div>`;
+}
+
+/* ════════════════════════════════════════════
+   JOURNAL — affichage + nouvelle écriture
+   Logique : une ligne par opération
+   Colonnes : Date · Type · Libellé · PU · Unité · Qté · Montant · Solde
+   Ventes et Fabrication aliment = lignes du journal
+   Correction par contre-écriture uniquement
+════════════════════════════════════════════ */
+async function renderJournal() {
+    const z=zone(); if(!z) return;
+    if (!App.activeBande) { showToast('Aucune bande active','warning'); return; }
+    z.innerHTML=`<div style="text-align:center;padding:40px"><div class="spinner"></div></div>`;
+
+    const d = await apiGet({action:'getJournal', idBande:App.activeBande});
+    const lignes = d.success ? (d.ecritures||[]) : [];
+
+    // Calcul solde cumulé
+    let solde = 0;
+    const lignesAvecSolde = lignes.map(l => {
+        const mnt = parseFloat(l.montant)||0;
+        solde += l.typeEcriture==='RECETTE' ? mnt : -mnt;
+        return {...l, solde};
+    });
+
+    const soldeColor = solde >= 0 ? 'var(--green)' : 'var(--red)';
+    const totalDep = lignes.filter(l=>l.typeEcriture==='DEPENSE').reduce((s,l)=>s+(parseFloat(l.montant)||0),0);
+    const totalRec = lignes.filter(l=>l.typeEcriture==='RECETTE').reduce((s,l)=>s+(parseFloat(l.montant)||0),0);
+
+    const lignesHTML = lignesAvecSolde.length ? lignesAvecSolde.map(l => {
+        const isDep = l.typeEcriture==='DEPENSE';
+        const soldeC = l.solde >= 0 ? 'var(--green)' : 'var(--red)';
+        return `
+        <div style="border-bottom:1px solid var(--border);padding:10px 0">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+                <div style="flex:1;min-width:0">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+                        <span style="font-size:9px;font-weight:800;padding:2px 6px;border-radius:6px;
+                            background:${isDep?'rgba(255,68,68,.15)':'rgba(0,200,150,.15)'};
+                            color:${isDep?'var(--red)':'var(--green)'}">
+                            ${isDep?'DEP':'REC'}
+                        </span>
+                        <span style="font-size:12px;font-weight:700;color:var(--text)">${esc(l.libelle||l.categorie)}</span>
+                    </div>
+                    <div style="font-size:10px;color:var(--text2)">
+                        ${esc(l.date)} · ${esc(l.unite||'')} · ${l.quantite?esc(String(l.quantite)):''} ${l.prixUnitaire?'× '+fmt(l.prixUnitaire)+' F':''}
+                    </div>
+                </div>
+                <div style="text-align:right;flex-shrink:0">
+                    <div style="font-size:13px;font-weight:800;color:${isDep?'var(--red)':'var(--green)'}">
+                        ${isDep?'−':'+'}${fmt(l.montant)} F
+                    </div>
+                    <div style="font-size:10px;color:${soldeC}">
+                        Solde : ${l.solde>=0?'+':''}${fmt(l.solde)} F
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }).join('') : '<div style="color:var(--text2);font-size:13px;padding:16px 0;text-align:center">Aucune écriture pour cette bande</div>';
+
+    z.innerHTML=`
+        <!-- En-tête journal -->
+        <div class="card" style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                <div>
+                    <div style="font-weight:800;font-size:15px">📒 Journal — ${esc(App.activeBande)}</div>
+                    <div style="font-size:11px;color:var(--text2);margin-top:2px">${lignes.length} écriture${lignes.length>1?'s':''}</div>
+                </div>
+                <div style="text-align:right">
+                    <div style="font-size:14px;font-weight:800;color:${soldeColor}">
+                        ${solde>=0?'+':''}${fmt(solde)} FCFA
+                    </div>
+                    <div style="font-size:10px;color:var(--text2)">Solde actuel</div>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center">
+                    <div style="font-size:12px;font-weight:800;color:var(--red)">−${fmt(totalDep)} F</div>
+                    <div style="font-size:10px;color:var(--text2);margin-top:2px">Total dépenses</div>
+                </div>
+                <div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center">
+                    <div style="font-size:12px;font-weight:800;color:var(--green)">+${fmt(totalRec)} F</div>
+                    <div style="font-size:10px;color:var(--text2);margin-top:2px">Total recettes</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Boutons saisie -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+            <button class="btn-action btn-red" style="margin:0;padding:10px 6px;font-size:11px"
+                    onclick="Nav.push('renderNouvelleEcriture','DEPENSE')">
+                📤 Dépense
+            </button>
+            <button class="btn-action btn-green" style="margin:0;padding:10px 6px;font-size:11px"
+                    onclick="Nav.push('renderNouvelleEcriture','RECETTE')">
+                📥 Recette
+            </button>
+            <button class="btn-action btn-ghost" style="margin:0;padding:10px 6px;font-size:11px"
+                    onclick="Nav.push('renderContreEcriture',null)">
+                ↩ Corriger
+            </button>
+        </div>
+
+        <!-- Lignes du journal -->
+        <div class="card">
+            ${lignesHTML}
+        </div>`;
+}
+
+/* ── Nouvelle écriture (Dépense ou Recette) — 5 étapes ── */
+function renderNouvelleEcriture(type) {
+    const z=zone(); if(!z) return;
+    App._saisie = {type, libelle:'', categorie:'', unite:'', qte:null, pu:null, montant:null, benef:''};
+
+    const categories = type==='DEPENSE'
+        ? ['Aliment','Poussin','Vaccin/Médicament','Main d\'œuvre','Eau','Électricité','Transport','Vente aliment','Fabrication aliment','Autre dépense']
+        : ['Vente poulet vif','Vente poulet abattu','Vente gésier/foie','Vente têtes/pattes','Remboursement','Autre recette'];
+
+    z.innerHTML=`
+        <div class="card">
+            <div class="card-title" style="color:${type==='DEPENSE'?'var(--red)':'var(--green)'}">
+                ${type==='DEPENSE'?'📤 Nouvelle dépense':'📥 Nouvelle recette'}
+            </div>
+            <div class="stepper">${[1,2,3,4,5].map(i=>`<div class="step-dot ${i===1?'active':''}" id="es-${i}"></div>`).join('')}</div>
+
+            <!-- Étape 1 : Catégorie -->
+            <div class="form-step active" id="ef-1">
+                <div class="form-step-title">Étape 1 — Catégorie</div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                    ${categories.map(c=>`
+                        <button class="choice-btn" style="padding:12px 16px;text-align:left;font-size:13px"
+                                onclick="ecritureChoisirCat('${esc(c)}')">${esc(c)}</button>`).join('')}
+                </div>
+            </div>
+
+            <!-- Étape 2 : Libellé -->
+            <div class="form-step" id="ef-2">
+                <div class="form-step-title">Étape 2 — Libellé / Description</div>
+                <label class="f-label">Détail de l'opération</label>
+                <input class="f-input" type="text" id="e-libelle" placeholder="Ex: Achat maïs jaune">
+                <label class="f-label">Bénéficiaire / Fournisseur (optionnel)</label>
+                <input class="f-input" type="text" id="e-benef" placeholder="Ex: Moussa Traoré">
+                <button class="btn-action btn-blue" onclick="ecritureStep(3)">Suivant →</button>
+            </div>
+
+            <!-- Étape 3 : Unité -->
+            <div class="form-step" id="ef-3">
+                <div class="form-step-title">Étape 3 — Unité de mesure</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+                    ${['kg','sac','litre','sujet','forfait','prestation','autre'].map(u=>`
+                        <button class="choice-btn" style="padding:12px 8px;font-size:11px"
+                                onclick="ecritureChoisirUnite('${u}')">${u}</button>`).join('')}
+                </div>
+            </div>
+
+            <!-- Étape 4 : Quantité + Prix -->
+            <div class="form-step" id="ef-4">
+                <div class="form-step-title">Étape 4 — Quantité & Prix</div>
+                <label class="f-label">Quantité</label>
+                <input class="f-input" type="number" id="e-qte" placeholder="Ex: 10" inputmode="numeric">
+                <label class="f-label">Prix unitaire (FCFA)</label>
+                <input class="f-input" type="number" id="e-pu" placeholder="Ex: 15 000" inputmode="numeric">
+                <div style="text-align:center;margin:6px 0 10px;font-size:11px;color:var(--text2)">— ou saisir directement —</div>
+                <label class="f-label">Montant total (FCFA)</label>
+                <input class="f-input" type="number" id="e-montant" placeholder="Ex: 150 000" inputmode="numeric">
+                <button class="btn-action btn-blue" onclick="ecritureStep(5)">Voir le résumé →</button>
+            </div>
+
+            <!-- Étape 5 : Résumé + Validation -->
+            <div class="form-step" id="ef-5">
+                <div class="form-step-title">Étape 5 — Confirmation</div>
+                <div id="e-resume" class="card" style="background:var(--bg3);margin-bottom:14px"></div>
+                <button class="btn-action btn-green" onclick="ecritureValider()">✅ Enregistrer dans le journal</button>
+                <button class="btn-action btn-ghost" onclick="ecritureStep(1)">↩ Recommencer</button>
+            </div>
+        </div>`;
+}
+
+function ecritureChoisirCat(cat) {
+    App._saisie.categorie = cat;
+    App._saisie.libelle   = cat; // pré-rempli, modifiable à l'étape 2
+    const el = document.getElementById('e-libelle');
+    if (el) el.value = cat;
+    ecritureStep(2);
+}
+function ecritureChoisirUnite(u) { App._saisie.unite = u; ecritureStep(4); }
+
+function ecritureStep(n) {
+    for(let i=1;i<=5;i++){
+        const f=document.getElementById('ef-'+i), d=document.getElementById('es-'+i);
+        if(f) f.classList.toggle('active', i===n);
+        if(d){ d.classList.remove('active','done'); if(i===n) d.classList.add('active'); else if(i<n) d.classList.add('done'); }
+    }
+    if(n===5) _ecriBuildResume();
+}
+
+function _ecriBuildResume() {
+    const s = App._saisie;
+    const q = parseFloat(document.getElementById('e-qte')?.value||'0');
+    const p = parseFloat(document.getElementById('e-pu')?.value||'0');
+    const m = parseFloat(document.getElementById('e-montant')?.value||'0');
+    s.qte     = q||null;
+    s.pu      = p||null;
+    s.montant = m || (q*p) || 0;
+    s.libelle = document.getElementById('e-libelle')?.value || s.categorie;
+    s.benef   = document.getElementById('e-benef')?.value  || '';
+    const isDep = s.type==='DEPENSE';
+    const el = document.getElementById('e-resume'); if(!el) return;
+    el.innerHTML=`
+        <div class="rapport-ligne"><span>Type</span><span style="color:${isDep?'var(--red)':'var(--green)'};font-weight:800">${s.type}</span></div>
+        <div class="rapport-ligne"><span>Catégorie</span><span>${esc(s.categorie)}</span></div>
+        <div class="rapport-ligne"><span>Libellé</span><span>${esc(s.libelle)}</span></div>
+        <div class="rapport-ligne"><span>Unité</span><span>${esc(s.unite)}</span></div>
+        ${s.qte?`<div class="rapport-ligne"><span>Quantité</span><span>${s.qte}</span></div>`:''}
+        ${s.pu?`<div class="rapport-ligne"><span>Prix unitaire</span><span>${fmt(s.pu)} FCFA</span></div>`:''}
+        <div class="rapport-ligne">
+            <span>Montant</span>
+            <span style="color:${isDep?'var(--red)':'var(--green)'};font-size:16px;font-weight:800">
+                ${isDep?'−':'+'}${fmt(s.montant)} FCFA
+            </span>
+        </div>
+        ${s.benef?`<div class="rapport-ligne"><span>Bénéficiaire</span><span>${esc(s.benef)}</span></div>`:''}`;
+}
+
+async function ecritureValider() {
+    const s = App._saisie;
+    if(!s.montant||s.montant<=0) { showToast('Montant invalide','warning'); return; }
+    if(!guardDouble('ecriture')) return;
+    const r = await apiPost({
+        action       : 'ECRITURE_JOURNAL',
+        idBande      : App.activeBande,
+        typeEcriture : s.type,
+        categorie    : s.categorie,
+        libelle      : s.libelle,
+        unite        : s.unite,
+        quantite     : s.qte||1,
+        prixUnitaire : s.pu||0,
+        montant      : s.montant,
+        beneficiaire : s.benef
+    });
+    if(r.success) { showToast('✅ Écriture enregistrée','success'); Nav.back(); }
+    else showToast(r.error||'Erreur','error');
+}
+
+/* ── Contre-écriture (correction) ── */
+function renderContreEcriture() {
+    const z=zone(); if(!z) return;
+    z.innerHTML=`
+        <div class="card">
+            <div class="card-title" style="color:var(--orange)">↩ Contre-écriture — Correction</div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:16px;background:rgba(255,157,0,.08);
+                        border:1px solid rgba(255,157,0,.2);border-radius:12px;padding:12px;line-height:1.6">
+                ℹ️ Une contre-écriture annule une opération précédente en créant une écriture inverse
+                de même montant. L'écriture originale reste visible dans le journal pour traçabilité.
+            </div>
+            <label class="f-label">Type de l'écriture à corriger</label>
+            <select class="f-input" id="ce-type">
+                <option value="DEPENSE">DÉPENSE (contre-écriture = Recette)</option>
+                <option value="RECETTE">RECETTE (contre-écriture = Dépense)</option>
+            </select>
+            <label class="f-label">Libellé de la correction</label>
+            <input class="f-input" type="text" id="ce-libelle" placeholder="Ex: Annulation achat aliment du 12/05">
+            <label class="f-label">Montant à annuler (FCFA)</label>
+            <input class="f-input" type="number" id="ce-montant" placeholder="Ex: 150 000" inputmode="numeric">
+            <button class="btn-action btn-orange" onclick="contreEcritureValider()">↩ Créer la contre-écriture</button>
+            <button class="btn-action btn-ghost" onclick="Nav.back()">Annuler</button>
+        </div>`;
+}
+
+async function contreEcritureValider() {
+    const typeOriginal = document.getElementById('ce-type')?.value;
+    const libelle      = document.getElementById('ce-libelle')?.value.trim();
+    const montant      = parseFloat(document.getElementById('ce-montant')?.value);
+    if(!libelle) { showToast('Libellé obligatoire','warning'); return; }
+    if(!montant||montant<=0) { showToast('Montant invalide','warning'); return; }
+    // La contre-écriture est l'inverse du type original
+    const typeCorrection = typeOriginal==='DEPENSE' ? 'RECETTE' : 'DEPENSE';
+    if(!guardDouble('contre-ecriture')) return;
+    const r = await apiPost({
+        action       : 'ECRITURE_JOURNAL',
+        idBande      : App.activeBande,
+        typeEcriture : typeCorrection,
+        categorie    : 'Correction',
+        libelle      : '↩ ' + libelle,
+        unite        : 'forfait',
+        quantite     : 1,
+        prixUnitaire : montant,
+        montant      : montant,
+        beneficiaire : 'Correction gérant'
+    });
+    if(r.success) { showToast('✅ Contre-écriture enregistrée','success'); Nav.back(); }
+    else showToast(r.error||'Erreur','error');
+}
+
+/* ════════════════════════════════════════════
+   RAPPORT PAR BANDE
+   Alimenté par le journal uniquement
+   Total dépenses · Total recettes · Solde
+   Consultable en temps réel
+════════════════════════════════════════════ */
+async function renderRapportBande() {
+    const z=zone(); if(!z) return;
+    if(!App.activeBande) { showToast('Aucune bande active','warning'); return; }
+    z.innerHTML=`<div style="text-align:center;padding:40px"><div class="spinner"></div></div>`;
+
+    const d = await apiGet({action:'getJournal', idBande:App.activeBande});
+    const lignes = d.success ? (d.ecritures||[]) : [];
+
+    const totalDep = lignes.filter(l=>l.typeEcriture==='DEPENSE').reduce((s,l)=>s+(parseFloat(l.montant)||0),0);
+    const totalRec = lignes.filter(l=>l.typeEcriture==='RECETTE').reduce((s,l)=>s+(parseFloat(l.montant)||0),0);
+    const solde    = totalRec - totalDep;
+    const soldeColor = solde >= 0 ? 'var(--green)' : 'var(--red)';
+
+    // Regrouper par catégorie
+    const parCat = {};
+    lignes.forEach(l => {
+        const cat = l.categorie || 'Autre';
+        if(!parCat[cat]) parCat[cat] = {dep:0, rec:0};
+        if(l.typeEcriture==='DEPENSE') parCat[cat].dep += parseFloat(l.montant)||0;
+        else parCat[cat].rec += parseFloat(l.montant)||0;
+    });
+
+    const detailHTML = Object.entries(parCat)
+        .sort((a,b) => (b[1].dep+b[1].rec)-(a[1].dep+a[1].rec))
+        .map(([cat, v]) => `
+            <div class="rapport-ligne">
+                <span style="color:var(--text2)">${esc(cat)}</span>
+                <span>
+                    ${v.dep>0?`<span style="color:var(--red)">−${fmt(v.dep)}</span> `:' '}
+                    ${v.rec>0?`<span style="color:var(--green)">+${fmt(v.rec)}</span>`:''}
+                </span>
+            </div>`).join('');
+
+    // Données zootechnie depuis le dashboard
+    const dash = App.data?.performance || {};
+    const terrain = App.data?.terrain  || {};
+
+    z.innerHTML=`
+        <div class="bande-header">
+            <div class="bande-name">📊 Rapport — ${esc(App.activeBande)}</div>
+            <div class="bande-meta">Code bande · Mis à jour en temps réel · ${lignes.length} écriture${lignes.length>1?'s':''}</div>
+        </div>
+
+        <!-- Solde principal -->
+        <div class="card" style="text-align:center;margin-bottom:12px;border:2px solid ${soldeColor}">
+            <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Solde actuel</div>
+            <div style="font-size:32px;font-weight:800;color:${soldeColor}">
+                ${solde>=0?'+':''}${fmt(solde)} FCFA
+            </div>
+        </div>
+
+        <!-- Total dépenses / recettes -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+            <div class="card" style="text-align:center;border-left:3px solid var(--red)">
+                <div style="font-size:11px;color:var(--text2);margin-bottom:6px">📤 Total dépenses</div>
+                <div style="font-size:18px;font-weight:800;color:var(--red)">−${fmt(totalDep)}</div>
+                <div style="font-size:10px;color:var(--text2)">FCFA</div>
+            </div>
+            <div class="card" style="text-align:center;border-left:3px solid var(--green)">
+                <div style="font-size:11px;color:var(--text2);margin-bottom:6px">📥 Total recettes</div>
+                <div style="font-size:18px;font-weight:800;color:var(--green)">+${fmt(totalRec)}</div>
+                <div style="font-size:10px;color:var(--text2)">FCFA</div>
+            </div>
+        </div>
+
+        <!-- Détail par catégorie -->
+        <div class="card" style="margin-bottom:12px">
+            <div class="card-title">Détail par catégorie</div>
+            ${detailHTML || '<div style="color:var(--text2);font-size:13px">Aucune écriture</div>'}
+        </div>
+
+        <button class="btn-action btn-green" onclick="partagerWhatsApp()">📲 Partager sur WhatsApp</button>`;
+}
+
+async function partagerWhatsApp(){
+    const d = await apiGet({action:'getJournal', idBande:App.activeBande});
+    const lignes = d.success ? (d.ecritures||[]) : [];
+    const dep = lignes.filter(l=>l.typeEcriture==='DEPENSE').reduce((s,l)=>s+(parseFloat(l.montant)||0),0);
+    const rec = lignes.filter(l=>l.typeEcriture==='RECETTE').reduce((s,l)=>s+(parseFloat(l.montant)||0),0);
+    const sol = rec - dep;
+    const perf = App.data?.performance || {};
+    const today = new Date().toLocaleDateString('fr-FR');
+    const txt = encodeURIComponent(
+        '🐔 RAPPORT ' + App.activeBande + ' | 📅 ' + today + '\n\n'
+        + '📊 FINANCE\n'
+        + 'Dépenses : ' + fmt(dep) + ' FCFA\n'
+        + 'Recettes  : ' + fmt(rec) + ' FCFA\n'
+        + 'Solde     : ' + (sol>=0?'+':'') + fmt(sol) + ' FCFA\n\n'
+        + '🐥 ZOOTECHNIE\n'
+        + 'Effectif  : ' + (perf.effectif||'--') + ' sujets\n'
+        + 'J+' + (perf.ageJours||0) + ' | ' + App.activeBande
+    );
+    window.open('https://wa.me/?text='+txt,'_blank');
+}
+
+function renderAnalyser(){
+    const z=zone();if(!z)return;
+    const p=App.data?.performance||{},t=App.data?.terrain||{};
+    z.innerHTML=`
+        <div class="section-title">Analyse — ${esc(App.activeBande)} · J${p.ageJours||0}</div>
+        <div class="card">
+            <div class="card-title">📈 Croissance</div>
+            <div style="background:var(--bg3);border-radius:14px;height:140px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--text2);font-size:12px;margin-bottom:10px"><span style="font-size:28px">📈</span><span>Graphique disponible en Phase 3</span></div>
+            <div class="kpi-row" style="margin-bottom:0">
+                <div class="kpi-box"><span class="kpi-val">${t.poidsMoyen||'—'}<span style="font-size:12px">g</span></span><span class="kpi-label">Poids réel</span></div>
+                <div class="kpi-box"><span class="kpi-val">${t.ic||'—'}</span><span class="kpi-label">IC</span></div>
+                <div class="kpi-box"><span class="kpi-val" style="color:var(--red)">${t.mortaliteJour||0}</span><span class="kpi-label">Morts/jour</span></div>
+            </div>
+        </div>`;
+}
+
+async function renderGererBandes(){
+    const z=zone();if(!z)return;
+    z.innerHTML=`<div style="text-align:center;padding:40px"><div class="spinner"></div></div>`;
+    const d=await apiGet({action:'getBatiments'});
+    if(d.success) App.batiments=d.batiments||[];
+    const bats=App.batiments;
+    const ic={encours:'🏠',libre:'➕',cloture:'⏳'};
+    const sc={'EN COURS':'encours',LIBRE:'libre',CLOTURE:'cloture',VIDE:'libre'};
+    const batsHTML=bats.map(b=>{
+        const s=sc[b.statut]||'libre';
+        return `
+        <div class="bat-card ${s}" onclick="Nav.push('renderDetailBatiment',${b.num})">
+            <div class="bat-num">Poulailler ${b.num}</div>
+            <div class="bat-icon">${ic[s]||'➕'}</div>
+            <div class="bat-name">${b.idBande?esc(b.idBande):'Libre'}</div>
+            ${b.effectif?`<div class="bat-info">${b.effectif.toLocaleString('fr')} sujets · J${b.ageJours}</div>`:''}
+            <div class="bat-statut ${s}">${b.statut}</div>
+        </div>`;}).join('');
+    const usD=await apiGet({action:'getUtilisateurs'});
+    const users=usD.success?(usD.utilisateurs||[]):[];
+    z.innerHTML=`
+        <div class="section-title">🏗️ 6 Poulaillers</div>
+        <div class="bat-grid">${batsHTML}</div>
+        <div class="section-title">👥 Utilisateurs</div>
+        ${users.map(u=>`
+            <div class="user-item">
+                <div><div class="user-name">${esc(u.nom)}</div><div class="user-pin">PIN : ${esc(u.pin)}</div></div>
+                <div style="display:flex;gap:6px;align-items:center">
+                    <span class="user-badge badge-${u.role.toLowerCase()}">${u.role}</span>
+                    <span class="user-badge ${u.actif?'badge-actif':'badge-inactif'}">${u.actif?'ACTIF':'INACTIF'}</span>
+                    <button style="background:var(--bg);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:4px 10px;font-size:10px;cursor:pointer;font-family:inherit" onclick="toggleUser('${esc(u.pin)}')">
+                        ${u.actif?'Désactiver':'Activer'}
+                    </button>
+                </div>
+            </div>`).join('')}
+        <button class="btn-action btn-blue" style="margin-top:8px" onclick="Nav.push('renderCreerUtilisateur',null)">＋ Créer un utilisateur</button>`;
+}
+async function toggleUser(pin){const r=await apiPost({action:'TOGGLE_UTILISATEUR',pin});if(r.success){showToast(r.message||'Compte modifié','success');Nav.replace('renderGererBandes',null);}else showToast(r.error||'Erreur','error');}
+function renderDetailBatiment(num){
+    const z=zone();if(!z)return;
+    const b=App.batiments.find(x=>x.num===parseInt(num));
+    if(!b)return;
+    const sc={'EN COURS':'encours',LIBRE:'libre',VIDE:'libre',CLOTURE:'cloture'}[b.statut]||'libre';
+    if(sc==='libre'){z.innerHTML=`<div class="bande-header"><div class="bande-name">Poulailler ${b.num}</div><div class="bande-meta" style="color:var(--text2)">Disponible — Aucune bande</div></div><button class="btn-action btn-green" onclick="Nav.push('renderCreerBande',${num})">➕ Créer une nouvelle bande</button>`;return;}
+    if(sc==='cloture'){Nav.push('renderPhaseCloture',b.idBande);return;}
+    z.innerHTML=`
+        <div class="bande-header"><div class="bande-name">${esc(b.idBande)}</div><div class="bande-meta">Poulailler ${b.num} · ${esc(b.race)} · J${b.ageJours}</div></div>
+        <button class="btn-action btn-orange" onclick="Nav.push('renderPlanifierAbattage',${num})">🔪 Planifier un abattage</button>
+        <button class="btn-action btn-red" onclick="confirmerCloture(${num})">🔒 Lancer la clôture</button>
+        <button class="btn-action btn-ghost" onclick="Nav.push('renderGererPartenaires','${esc(b.idBande)}')">🤝 Gérer les partenaires</button>`;
+}
+async function renderPhaseCloture(idBande){
+    const z=zone();if(!z)return;
+    z.innerHTML=`<div style="text-align:center;padding:40px"><div class="spinner"></div></div>`;
+    const d=await apiGet({action:'getCloture',idBande});
+    const phases=d.success?(d.phases||[]):[];
+    z.innerHTML=`
+        <div class="bande-header"><div class="bande-name">${esc(idBande)}</div><div class="bande-meta" style="color:var(--orange)">⏳ Clôture en cours</div></div>
+        ${phases.map(p=>`
+            <div class="phase-card">
+                <div style="font-size:20px">🔒</div>
+                <div><div style="font-size:13px;font-weight:700">${esc(p.phase)}</div><div style="font-size:10px;color:var(--text2)">${esc(p.datePrevue)}</div></div>
+                <span class="phase-statut-badge ${p.statut==='VALIDEE'?'ps-validee':p.statut==='EN_COURS'?'ps-encours':'ps-attente'}">${p.statut.replace('_',' ')}</span>
+            </div>`).join('')}
+        <button class="btn-action btn-blue" onclick="validerPhaseApi('${esc(idBande)}')">✅ Valider la phase en cours</button>`;
+}
+async function validerPhaseApi(idBande){
+    const d=await apiGet({action:'getCloture',idBande});
+    const phases=d.success?(d.phases||[]):[];
+    const ec=phases.find(p=>p.statut==='EN_ATTENTE')||phases[0];
+    if(!ec){showToast('Aucune phase à valider','warning');return;}
+    const r=await apiPost({action:'VALIDER_PHASE',idCloture:ec.idCloture,phase:ec.phase,idBande});
+    if(r.success){showToast('✅ Phase validée','success');Nav.replace('renderPhaseCloture',idBande);}
+    else showToast(r.error||'Erreur','error');
+}
+function renderCreerBande(num){
+    const z=zone();if(!z)return;
+    z.innerHTML=`
+        <div class="card">
+            <div class="card-title">🐔 Nouvelle bande — Poulailler ${num}</div>
+            <label class="f-label">ID de la bande</label>
+            <input class="f-input" type="text" id="nb-id" placeholder="Ex: Bande-05">
+            <label class="f-label">Date d'arrivée</label>
+            <input class="f-input" type="date" id="nb-date" value="${new Date().toISOString().split('T')[0]}">
+            <label class="f-label">Effectif initial</label>
+            <input class="f-input" type="number" id="nb-eff" placeholder="Ex: 2500" inputmode="numeric">
+            <label class="f-label">Race</label>
+            <select class="f-input" id="nb-race"><option value="Cobb 500">Cobb 500</option><option value="Ross 308">Ross 308</option></select>
+            <button class="btn-action btn-green" onclick="validerCreerBande(${num})">✅ Créer la bande</button>
+            <button class="btn-action btn-ghost" onclick="Nav.back()">Annuler</button>
+        </div>`;
+}
+async function validerCreerBande(num){
+    const id=document.getElementById('nb-id')?.value.trim();
+    const eff=parseInt(document.getElementById('nb-eff')?.value);
+    const date=document.getElementById('nb-date')?.value;
+    const race=document.getElementById('nb-race')?.value;
+    if(!id){showToast('ID de bande obligatoire','warning');return;}
+    if(!eff||eff<=0){showToast('Effectif invalide','warning');return;}
+    const r=await apiPost({action:'CREER_BANDE',idBande:id,batiment:'Batiment-'+num,dateArrivee:date,effectif:eff,race});
+    if(r.success){showToast('✅ Bande créée','success');App.activeBande=id;localStorage.setItem('av_bande',id);Nav.home();}
+    else showToast(r.error||'Erreur','error');
+}
+function renderPlanifierAbattage(num){
+    const z=zone();if(!z)return;
+    const b=App.batiments.find(x=>x.num===parseInt(num));
+    z.innerHTML=`
+        <div class="card">
+            <div class="card-title">🔪 Planifier abattage — ${b?esc(b.idBande):''}</div>
+            <label class="f-label">Date prévue</label>
+            <input class="f-input" type="date" id="ab-date" value="${new Date().toISOString().split('T')[0]}">
+            <label class="f-label">Nombre de sujets</label>
+            <input class="f-input" type="number" id="ab-nb" placeholder="Ex: 500" inputmode="numeric">
+            <label class="f-label">Poids estimé (kg)</label>
+            <input class="f-input" type="number" id="ab-poids" placeholder="Ex: 1050" inputmode="numeric">
+            <label class="f-label">Mode de sortie</label>
+            <select class="f-input" id="ab-mode"><option value="ABATTU">Abattu</option><option value="VIF">Vif</option></select>
+            <button class="btn-action btn-red" onclick="validerAbattageApi(${num})">🔪 Planifier</button>
+            <button class="btn-action btn-ghost" onclick="Nav.back()">Annuler</button>
+        </div>`;
+}
+async function validerAbattageApi(num){
+    const b=App.batiments.find(x=>x.num===parseInt(num));
+    const nb=parseInt(document.getElementById('ab-nb')?.value);
+    const poids=parseFloat(document.getElementById('ab-poids')?.value);
+    const date=document.getElementById('ab-date')?.value;
+    const mode=document.getElementById('ab-mode')?.value;
+    if(!nb||nb<=0){showToast('Nombre de sujets requis','warning');return;}
+    const r=await apiPost({action:'PLANIFIER_ABATTAGE',idBande:b?.idBande||App.activeBande,date,nbSujets:nb,poidsEstime:poids||0,mode});
+    if(r.success){
+        _notifierAgent('Abattage planifié : '+nb+' sujets le '+date,'ABATTAGE',b?.idBande||App.activeBande);
+        showToast('✅ Abattage planifié — agent notifié','success');Nav.back();
+    } else showToast(r.error||'Erreur','error');
+}
+async function confirmerCloture(num){
+    const b=App.batiments.find(x=>x.num===parseInt(num));
+    if(!confirm(`Lancer la clôture de ${b?.idBande||'cette bande'} ? Action irréversible.`)) return;
+    const r=await apiPost({action:'LANCER_CLOTURE',idBande:b?.idBande||App.activeBande});
+    if(r.success){showToast('✅ Clôture lancée','success');Nav.replace('renderGererBandes',null);}
+    else showToast(r.error||'Erreur','error');
+}
+function renderGererPartenaires(idBande){
+    const z=zone();if(!z)return;
+    const partenaires=(App.batiments||[]).find(b=>b.idBande===idBande)?.partenaires||[];
+    z.innerHTML=`
+        <div class="card">
+            <div class="card-title">🤝 Partenaires — ${esc(idBande)}</div>
+            ${partenaires.length?partenaires.map(p=>`
+                <div class="user-item">
+                    <div><div class="user-name">${esc(p.nom)}</div><div class="user-pin">Quote-part : ${p.quotePart}%</div></div>
+                </div>`).join(''):'<div style="color:var(--text2);font-size:13px">Aucun partenaire assigné</div>'}
+        </div>`;
+}
+function renderCreerUtilisateur(){
+    const z=zone();if(!z)return;
+    z.innerHTML=`
+        <div class="card">
+            <div class="card-title">👤 Créer un utilisateur</div>
+            <label class="f-label">PIN (4 chiffres)</label>
+            <input class="f-input" type="number" id="nu-pin" placeholder="Ex: 4321" inputmode="numeric" maxlength="4">
+            <label class="f-label">Nom</label>
+            <input class="f-input" type="text" id="nu-nom" placeholder="Prénom Nom">
+            <label class="f-label">Rôle</label>
+            <select class="f-input" id="nu-role"><option value="AGENT">Agent</option><option value="PARTENAIRE">Partenaire</option><option value="GERANT">Gérant</option></select>
+            <button class="btn-action btn-green" onclick="validerCreerUtilisateur()">✅ Créer</button>
+            <button class="btn-action btn-ghost" onclick="Nav.back()">Annuler</button>
+        </div>`;
+}
+async function validerCreerUtilisateur(){
+    const pin=document.getElementById('nu-pin')?.value;
+    const nom=document.getElementById('nu-nom')?.value.trim();
+    const role=document.getElementById('nu-role')?.value;
+    if(!pin||String(pin).length!==4){showToast('PIN de 4 chiffres requis','warning');return;}
+    if(!nom){showToast('Nom obligatoire','warning');return;}
+    const r=await apiPost({action:'CREER_UTILISATEUR',pin,role,nom});
+    if(r.success){showToast('✅ Utilisateur créé','success');Nav.back();}
+    else showToast(r.error||'Erreur','error');
+}
+
+/* ════════════════════════════════════════════
+   7.4  AGENT — ACCUEIL
+════════════════════════════════════════════ */
+async function renderAgent() {
+    _majTopbar();
+    const z = zone(); if (!z) return;
+    z.innerHTML = `<div style="text-align:center;padding:60px 20px"><div class="spinner" style="width:36px;height:36px"></div><div style="color:var(--text2);font-size:14px;margin-top:12px">Chargement…</div></div>`;
+
+    if (!App.activeBande) await chargerBandeActive();
+    if (!App.activeBande) {
+        z.innerHTML=`<div style="text-align:center;padding:40px 20px"><div style="font-size:48px;margin-bottom:16px">⚠️</div><div style="font-weight:800;font-size:15px;margin-bottom:8px">Aucune bande active</div><div style="color:var(--text2);font-size:13px;margin-bottom:20px">Le gérant n'a pas encore créé de bande en cours.</div><button class="btn-action btn-blue" onclick="renderAgent()">🔄 Actualiser</button></div>`;
+        return;
+    }
+    const d = await apiGet({action:'dashboard', idBande:App.activeBande});
+    if (!d.success) {
+        z.innerHTML=`<div style="text-align:center;padding:40px 20px"><div style="font-size:36px;margin-bottom:12px">📡</div><div style="font-weight:800;font-size:15px;margin-bottom:8px">Connexion impossible</div><div style="color:var(--text2);font-size:13px;margin-bottom:20px">${esc(d.error||'Vérifiez votre connexion réseau')}</div><button class="btn-action btn-blue" onclick="renderAgent()">🔄 Réessayer</button></div>`;
+        return;
+    }
+    App.data = d;
+    const perf    = d.performance     || {};
+    const terrain = d.terrain         || {};
+    const alertes = d.alertes         || [];
+    const taches  = d.tachesAgent     || [];
+    const sessionActive = d.sessionActuelle || detectSession();
+    const sessionsCompletees = d.sessionsCompletees || [];
+
+    const sessions=[
+        {id:'Matin',label:'Matin', heure:'5H – 10H', icon:'🌅',nb:6},
+        {id:'Midi', label:'Midi',  heure:'10H – 14H',icon:'☀️', nb:3},
+        {id:'PM',   label:'PM',    heure:'14H – 19H',icon:'🌤️',nb:3},
+        {id:'Nuit', label:'Nuit',  heure:'19H – 5H', icon:'🌙',nb:4},
+    ];
+    function progSession(sid) {
+        if (_verrouSessionExists(sid)) return 'TERMINE';
+        if (sessionsCompletees.includes(sid)) return 'TERMINE';
+        if (sid === sessionActive) return 'EN_COURS';
+        return 'ATTENTE';
+    }
+    const progIcon={TERMINE:'✅',EN_COURS:'⏳',ATTENTE:'○'};
+    const progCls ={TERMINE:'var(--green)',EN_COURS:'var(--orange)',ATTENTE:'var(--text2)'};
+
+    const tachesUrgentes     = taches.filter(t=>t.typeTache==='ABATTAGE'&&t.statut!=='TERMINEE'&&t.statut!=='COMPTABILISEE');
+    const tachesOrdinaires   = taches.filter(t=>t.typeTache!=='ABATTAGE');
+    const alertesCritiques   = alertes.filter(a=>a.niveau==='CRITIQUE');
+    const mortColor = terrain.mortaliteJour>5?'var(--red)':terrain.mortaliteJour>0?'var(--orange)':'var(--green)';
+    const stockColor= (perf.stockSacs||0)<=5?'var(--red)':'var(--green)';
+
+    const sessionsHTML = sessions.map(s=>{
+        const prog  = progSession(s.id);
+        const actif = s.id === sessionActive;
+        return `
+        <div class="tuile${actif?' tuile-session-active':''}" style="background:var(--bg2)"
+             onclick="Nav.push('renderSession','${s.id}')">
+            <div class="tuile-icon">${s.icon}</div>
+            <div style="flex:1">
+                <div class="tuile-label">${s.label}${actif?'<span class="session-active-badge">▶ En cours</span>':''}</div>
+                <div class="tuile-sub">${s.heure} · ${s.nb} étapes</div>
+            </div>
+            <div style="font-size:20px;color:${progCls[prog]}">${progIcon[prog]}</div>
+        </div>`;
+    }).join('');
+
+    const tachesOrdHTML = tachesOrdinaires.length ? `
+        <div class="section-title">📋 Tâches assignées</div>
+        ${tachesOrdinaires.map(t=>{
+            const done = t.statut==='TERMINEE'||t.statut==='COMPTABILISEE'||localStorage.getItem('av_done_'+t.id)==='true';
+            const c = t.typeTache==='HEBDO'?'orange':'blue';
+            return `
+            <div class="tache-card ${done?'accomplie':''}" id="tcard-${esc(t.id)}">
+                <div class="tache-dot dot-${c}"></div>
+                <div style="flex:1">
+                    <div class="tache-titre">${esc(t.titre)}</div>
+                    <div class="tache-meta">${esc(t.idBande)} · ${esc(t.date)}</div>
+                </div>
+                ${done
+                    ? `<button class="btn-fait done">✅ FAIT</button>`
+                    : `<button class="btn-fait" id="btn-fait-${esc(t.id)}"
+                               onclick="_tachePremierAppui('${esc(t.id)}','${esc(t.titre)}')">À FAIRE</button>`}
+            </div>`;
+        }).join('')}` : '';
+
+    z.innerHTML = `
+        ${_banniereAgentNouvellesTaches()}
+        ${alertesCritiques.length ? `
+            <div class="section-title" style="color:var(--red)">🔴 Alertes critiques</div>
+            ${alertesCritiques.map(a=>`
+                <div class="alerte critique">
+                    <div>🔴</div>
+                    <div><div class="alerte-kpi">${esc(a.kpi)}</div><div class="alerte-msg">${esc(a.message)}</div></div>
+                </div>`).join('')}` : ''}
+        ${tachesUrgentes.length ? `
+            <div class="section-title" style="color:var(--red)">⚠️ Urgent</div>
+            ${tachesUrgentes.map(t=>`
+                <div class="tache-card urgente" onclick="Nav.push('renderAbattage','${esc(t.id)}')" style="cursor:pointer">
+                    <div class="tache-dot dot-red"></div>
+                    <div style="flex:1"><div class="tache-titre">${esc(t.titre)}</div><div class="tache-meta">Appuyer pour commencer</div></div>
+                    <span class="tache-badge tb-abattage">🔪 ABATTAGE</span>
+                </div>`).join('')}` : ''}
+        <div class="section-title">🐔 ${esc(App.activeBande)} · J${perf.ageJours||0}</div>
+        <div class="kpi-row" style="margin-bottom:14px">
+            <div class="kpi-box"><span class="kpi-val">${(perf.effectif||0).toLocaleString('fr')}</span><span class="kpi-label">Effectif</span></div>
+            <div class="kpi-box"><span class="kpi-val" style="color:${stockColor}">${perf.stockSacs||0}</span><span class="kpi-label">Sacs stock</span></div>
+            <div class="kpi-box"><span class="kpi-val" style="color:${mortColor}">${terrain.mortaliteJour||0}</span><span class="kpi-label">💀 Morts/jour</span></div>
+        </div>
+        <div class="section-title">Sessions du jour</div>
+        ${sessionsHTML}
+        ${tachesOrdHTML}`;
+}
+
+/* ── Sessions agent ── */
+function _verrouSessionExists(sid) {
+    return localStorage.getItem(`av_lock_${App.activeBande}_${sid}_${_dateAujourd_hui()}`) === 'true';
+}
+function _poserVerrouSession(sid) {
+    localStorage.setItem(`av_lock_${App.activeBande}_${sid}_${_dateAujourd_hui()}`, 'true');
+}
+
+const SESSION_ETAPES = {
+    Matin:[
+        {id:'nettoyage',  label:'Nettoyage abreuvoirs + eau', type:'bool',    urgence:true,      question:'Abreuvoirs nettoyés et eau propre ?', options:['✅ OUI — FAIT','❌ NON — À FAIRE']},
+        {id:'aliment_m',  label:'Service aliment matin',      type:'bool',    conditionnel:true, question:'Statut aliment matin ?', options:['✅ SERVI','❌ RETIRÉ']},
+        {id:'ambiance_m', label:'Ambiance matin',             type:'ambiance',question:'Relevé ambiance matin'},
+        {id:'mortalite_m',label:'Mortalité matin',            type:'number',  question:'Nombre de morts ce matin', unite:'sujets',min:0,max:200},
+        {id:'eau_m',      label:'Compteur eau matin',         type:'number',  question:'Relevé compteur eau (litres)', unite:'L',min:0,max:99999},
+        {id:'aliment_kg', label:'Aliment distribué (kg)',     type:'number',  question:'Quantité aliment distribué', unite:'kg',min:0,max:500},
+    ],
+    Midi:[
+        {id:'ambiance_midi',label:'Ambiance midi',       type:'ambiance',question:'Relevé ambiance midi'},
+        {id:'abreuvoirs',   label:'Vérifier abreuvoirs', type:'bool',    question:'État des abreuvoirs ?', options:['✅ BON','⚠️ À CORRIGER']},
+        {id:'aliment_midi', label:'Gestion aliment midi', type:'bool',    conditionnel:true, question:'Statut aliment midi ?', options:['✅ SERVI','❌ RETIRÉ']},
+    ],
+    PM:[
+        {id:'ambiance_pm',label:'Ambiance PM',         type:'ambiance',question:'Relevé ambiance après-midi'},
+        {id:'aliment_pm', label:'Service aliment 16H', type:'bool',    conditionnel:true, question:'Statut aliment 16H ?', options:['✅ SERVI','❌ RETIRÉ']},
+        {id:'pesee',      label:'Pesée (si jour J)',   type:'pesee',   question:'Pesée hebdomadaire — poids moyen (g)'},
+    ],
+    Nuit:[
+        {id:'ambiance_n',    label:'Ambiance nuit',          type:'ambiance',   question:'Relevé ambiance nuit'},
+        {id:'mortalite_n',   label:'Mortalité soir',         type:'number',     question:'Nombre de morts ce soir', unite:'sujets',min:0,max:200},
+        {id:'eau_n',         label:'Compteur eau soir',      type:'number',     question:'Relevé compteur eau (litres)', unite:'L',min:0,max:99999},
+        {id:'sante',         label:'Santé générale',         type:'sante_color',question:'Évaluation santé générale du lot'},
+    ]
+};
+
+function renderSession(sessionId) {
+    if (_verrouSessionExists(sessionId)) {
+        const z=zone();if(!z)return;
+        z.innerHTML=`
+            <div class="card" style="text-align:center;padding:32px 20px">
+                <div style="font-size:40px;margin-bottom:12px">🔒</div>
+                <div style="font-weight:800;font-size:16px;margin-bottom:8px">Session déjà envoyée</div>
+                <div style="color:var(--text2);font-size:13px;margin-bottom:20px">Données transmises au gérant.<br>Seul le gérant peut les modifier.</div>
+                <button class="btn-action btn-ghost" onclick="Nav.home()">← Retour à l'accueil</button>
+            </div>`;
+        return;
+    }
+    App._session.id=sessionId; App._session.etapeIdx=0; App._session.reponses={};
+    App._session._litiereScore=null; App._session._santeScore=null;
+    _renderEtape();
+}
+
+function _renderEtape() {
+    const z=zone();if(!z)return;
+    const sid=App._session.id, idx=App._session.etapeIdx;
+    const etapes=SESSION_ETAPES[sid]||[], total=etapes.length;
+    if(idx>=total){_renderSessionResume();return;}
+    const e=etapes[idx];
+    const labels={Matin:'🌅 Matin',Midi:'☀️ Midi',PM:'🌤️ PM',Nuit:'🌙 Nuit'};
+    const stepperHTML=etapes.map((_,i)=>`<div class="step-dot ${i<idx?'done':i===idx?'active':''}"></div>`).join('');
+
+    let contenu='';
+    if(e.type==='bool'){
+        contenu=`<div style="display:flex;flex-direction:column;gap:12px;margin-top:8px">
+            ${e.options.map((opt,i)=>`<button class="choice-btn" style="padding:22px 16px;font-size:15px;text-align:left" onclick="_repBool(${i},'${esc(opt)}')">${esc(opt)}</button>`).join('')}
+        </div>`;
+    } else if(e.type==='ambiance'){
+        contenu=`<div style="margin-top:8px">
+            <div class="f-label" style="margin-bottom:8px">🌡️ Température (°C)</div>
+            ${_pavHTML('temp',e.id+'_temp','°C')}
+            <div class="f-label" style="margin:16px 0 8px">💧 Hygrométrie (%)</div>
+            ${_pavHTML('hygro',e.id+'_hygro','%')}
+            <div class="f-label" style="margin:16px 0 8px">🌾 État litière</div>
+            <div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px">
+                ${[{n:1,icon:'💧',l:'Très mouillée'},{n:2,icon:'⚠️',l:'Mouillée'},{n:3,icon:'😐',l:'Correcte'},{n:4,icon:'👍',l:'Bonne'},{n:5,icon:'⭐',l:'Excellente'}].map(l=>`
+                <button id="lit-${l.n}" onclick="_repLitiere(${l.n},'${e.id}')"
+                    style="flex:1;padding:10px 4px;border-radius:12px;border:2px solid var(--border);background:var(--bg3);cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent">
+                    <div style="font-size:18px">${l.icon}</div>
+                    <div style="font-size:10px;color:var(--text2);margin-top:3px">${l.n}</div>
+                </button>`).join('')}
+            </div>
+            <button class="btn-action btn-blue" onclick="_validerAmbiance('${e.id}')">Suivant →</button>
+        </div>`;
+    } else if(e.type==='number'){
+        contenu=`<div style="margin-top:8px">
+            ${_pavHTML('val_'+e.id,e.id+'_val',e.unite||'')}
+            <button class="btn-action btn-blue" style="margin-top:12px" onclick="_repNumber('${e.id}','${e.unite||''}',${e.min||0},${e.max||9999})">Suivant →</button>
+        </div>`;
+    } else if(e.type==='pesee'){
+        contenu=`<div style="margin-top:8px">
+            <div class="f-label">Poids moyen du lot (g)</div>
+            ${_pavHTML('pesee_val','pesee_val','g')}
+            <button class="btn-action btn-blue" style="margin-top:12px" onclick="_repPesee()">Suivant →</button>
+            <button class="btn-action btn-ghost" onclick="_etapeSuivante(null,'Pesée non effectuée')">○ Pas de pesée aujourd'hui</button>
+        </div>`;
+    } else if(e.type==='sante_color'){
+        contenu=`<div style="margin-top:8px">
+            <div class="f-label" style="margin-bottom:16px">État général du lot ce soir</div>
+            ${['vert','orange','rouge'].map(c=>{
+                const cfg={vert:{icon:'🟢',label:'BON — Lot en bonne santé, comportement normal',col:'var(--green)',bg:'rgba(0,200,150,.08)',border:'rgba(0,200,150,.3)'},orange:{icon:'🟡',label:'MOYEN — Quelques signes à surveiller',col:'var(--orange)',bg:'rgba(255,157,0,.08)',border:'rgba(255,157,0,.3)'},rouge:{icon:'🔴',label:'MAUVAIS — Problème visible, signaler au gérant',col:'var(--red)',bg:'rgba(255,68,68,.08)',border:'rgba(255,68,68,.3)'}}[c];
+                return `<button id="sante-${c}" onclick="_selectSanteColor('${c}')"
+                    style="display:block;width:100%;padding:20px 16px;border-radius:16px;margin-bottom:10px;
+                           border:2px solid ${cfg.border};background:${cfg.bg};cursor:pointer;font-family:'Lexend',sans-serif;
+                           font-size:15px;font-weight:800;color:${cfg.col};text-align:center;transition:all .15s;
+                           -webkit-tap-highlight-color:transparent">${cfg.icon} ${cfg.label}</button>`;}).join('')}
+            <div class="f-label" style="margin-top:4px">Observation (optionnel)</div>
+            <textarea id="sante-obs" rows="3" placeholder="Ex: Quelques sujets léthargiques au fond…"></textarea>
+            <button class="btn-action btn-blue" style="margin-top:10px" onclick="_repSante()">Terminer la session →</button>
+        </div>`;
+    }
+
+    z.innerHTML=`
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                <div style="font-size:12px;font-weight:700;color:var(--text2)">${labels[sid]||sid}</div>
+                <div style="font-size:11px;color:var(--text2)">Étape ${idx+1} / ${total}</div>
+            </div>
+            <div class="stepper">${stepperHTML}</div>
+            <div style="font-size:16px;font-weight:800;line-height:1.4;margin-bottom:4px">${esc(e.label)}</div>
+            ${e.conditionnel?'<div style="font-size:11px;color:var(--blue);margin-bottom:12px">Étape conditionnelle</div>':''}
+            ${e.urgence?'<div style="font-size:11px;color:var(--red);margin-bottom:12px">⚠️ URGENT</div>':''}
+            ${contenu}
+        </div>`;
+    App._session._litiereScore=null; App._session._santeScore=null;
+}
+
+/* ── Pavé numérique ── */
+function _pavHTML(bufferId, displayId, unite) {
+    return `
+    <div style="text-align:center;margin-bottom:8px">
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:16px 20px;display:inline-flex;align-items:baseline;gap:8px;min-width:160px;justify-content:center">
+            <span id="disp-${displayId}" style="font-size:36px;font-weight:800;color:var(--text);min-width:80px;text-align:right">—</span>
+            <span style="font-size:14px;color:var(--text2)">${esc(unite)}</span>
+        </div>
+    </div>
+    <div class="pin-pad" style="margin:0 auto 8px;grid-template-rows:repeat(4,60px);grid-template-columns:repeat(3,60px);gap:10px">
+        ${['1','2','3','4','5','6','7','8','9'].map(d=>`<button class="pin-key" style="width:60px;height:60px;font-size:18px" onclick="_pavTap('${bufferId}','${displayId}','${d}')">${d}</button>`).join('')}
+        <button class="pin-key key-del" style="width:60px;height:60px;font-size:13px" onclick="_pavDel('${bufferId}','${displayId}')">⌫</button>
+        <button class="pin-key" style="width:60px;height:60px;font-size:18px" onclick="_pavTap('${bufferId}','${displayId}','0')">0</button>
+        <button class="pin-key" style="width:60px;height:60px;font-size:13px" onclick="_pavTap('${bufferId}','${displayId}','.')">.</button>
+    </div>`;
+}
+function _pavTap(b,d,digit){ let buf=App._pavBuffers[b]||''; if(digit==='.'&&buf.includes('.'))return; if(digit==='.'&&buf==='')buf='0'; buf+=digit; App._pavBuffers[b]=buf; const el=document.getElementById('disp-'+d);if(el)el.textContent=buf; }
+function _pavDel(b,d){ let buf=App._pavBuffers[b]||''; buf=buf.slice(0,-1); App._pavBuffers[b]=buf; const el=document.getElementById('disp-'+d);if(el)el.textContent=buf||'—'; }
+function _pavGet(b){ return parseFloat(App._pavBuffers[b]||'')||null; }
+
+/* ── Réponses étapes ── */
+function _repBool(idx,label){ _etapeSuivante(idx===0?1:0,label); }
+function _repLitiere(score,etapeId){ App._session._litiereScore=score; for(let i=1;i<=5;i++){const btn=document.getElementById('lit-'+i);if(btn)btn.style.borderColor=i===score?'var(--blue)':'var(--border)';} }
+function _validerAmbiance(etapeId){
+    const temp=_pavGet('temp'),hygro=_pavGet('hygro');
+    if(temp===null){showToast('Saisissez la température','warning');return;}
+    if(hygro===null){showToast("Saisissez l'hygrométrie",'warning');return;}
+    if(App._session._litiereScore===null){showToast("Sélectionnez l'état de la litière",'warning');return;}
+    App._session.reponses[etapeId]={temp,hygro,litiere:App._session._litiereScore};
+    delete App._pavBuffers['temp']; delete App._pavBuffers['hygro'];
+    App._session.etapeIdx++; _renderEtape();
+}
+function _repNumber(etapeId,unite,min,max){
+    const val=_pavGet('val_'+etapeId);
+    if(val===null){showToast('Saisissez une valeur','warning');return;}
+    const v=sanitizeNum(val,min,max); if(v===null){showToast(`Valeur invalide (${min}–${max} ${unite})`,'warning');return;}
+    App._session.reponses[etapeId]=val; delete App._pavBuffers['val_'+etapeId]; _etapeSuivante(val,val+' '+unite);
+}
+function _repPesee(){
+    const val=_pavGet('pesee_val'); if(val===null){showToast('Saisissez le poids moyen','warning');return;}
+    App._session.reponses['pesee']=val; delete App._pavBuffers['pesee_val']; _etapeSuivante(val,val+' g');
+}
+function _selectSanteColor(couleur){
+    App._session._santeScore=couleur==='vert'?5:couleur==='orange'?3:1;
+    App._session._santeCouleur=couleur;
+    ['vert','orange','rouge'].forEach(c=>{
+        const btn=document.getElementById('sante-'+c);if(!btn)return;
+        const cfg={vert:{sel:'rgba(0,200,150,.6)','bgSel':'rgba(0,200,150,.2)',def:'rgba(0,200,150,.3)',bg:'rgba(0,200,150,.08)'},orange:{sel:'rgba(255,157,0,.6)',bgSel:'rgba(255,157,0,.2)',def:'rgba(255,157,0,.3)',bg:'rgba(255,157,0,.08)'},rouge:{sel:'rgba(255,68,68,.6)',bgSel:'rgba(255,68,68,.2)',def:'rgba(255,68,68,.3)',bg:'rgba(255,68,68,.08)'}}[c];
+        btn.style.borderColor=c===couleur?cfg.sel:cfg.def;
+        btn.style.background=c===couleur?cfg.bgSel:cfg.bg;
+        btn.style.transform=c===couleur?'scale(1.02)':'scale(1)';
+    });
+}
+function _repSante(){
+    if(App._session._santeScore===null||App._session._santeScore===undefined){showToast('Sélectionnez un état de santé','warning');return;}
+    const obs=document.getElementById('sante-obs')?.value||'';
+    const label=App._session._santeCouleur==='vert'?'🟢 BON':App._session._santeCouleur==='orange'?'🟡 MOYEN':'🔴 MAUVAIS';
+    App._session.reponses['sante']={score:App._session._santeScore,couleur:App._session._santeCouleur,label,obs};
+    _etapeSuivante(App._session._santeScore,label);
+}
+function _etapeSuivante(valeur,label){
+    const sid=App._session.id,idx=App._session.etapeIdx;
+    const e=(SESSION_ETAPES[sid]||[])[idx];
+    if(e) App._session.reponses[e.id]=valeur;
+    App._session.etapeIdx++; _renderEtape();
+}
+
+/* ── Résumé session + envoi ── */
+function _renderSessionResume(){
+    const z=zone();if(!z)return;
+    const sid=App._session.id,rep=App._session.reponses,etapes=SESSION_ETAPES[sid]||[];
+    const labels={Matin:'🌅 Matin',Midi:'☀️ Midi',PM:'🌤️ PM',Nuit:'🌙 Nuit'};
+    if(_verrouSessionExists(sid)){
+        z.innerHTML=`<div class="card" style="text-align:center;padding:32px 20px"><div style="font-size:40px;margin-bottom:12px">🔒</div><div style="font-weight:800;font-size:16px;margin-bottom:8px">Session déjà envoyée</div><div style="color:var(--text2);font-size:13px;margin-bottom:20px">Les données ont été transmises.<br>Seul le gérant peut les modifier.</div><button class="btn-action btn-ghost" onclick="Nav.home()">← Retour à l'accueil</button></div>`;
+        return;
+    }
+    const lignesHTML=etapes.map(e=>{
+        const val=rep[e.id];let affiche='—';
+        if(val!==null&&val!==undefined){
+            if(e.type==='ambiance') affiche=`${val.temp}°C · ${val.hygro}% · Litière ${val.litiere}/5`;
+            else if(e.type==='sante'||e.type==='sante_color') affiche=`${val.label||'Score '+val.score}${val.obs?' — '+val.obs.slice(0,30):''}`;
+            else affiche=String(val);
+        }
+        return `<div class="journal-row"><span class="journal-cat">${esc(e.label)}</span><span style="font-size:12px;font-weight:700;color:var(--text)">${esc(String(affiche))}</span></div>`;
+    }).join('');
+    z.innerHTML=`
+        <div class="card">
+            <div class="card-title" style="color:var(--orange)">⚠️ Vérification avant envoi</div>
+            <div style="font-size:13px;color:var(--text2);margin-bottom:16px;background:rgba(255,157,0,.08);border:1px solid rgba(255,157,0,.2);border-radius:12px;padding:12px">
+                📌 <strong style="color:var(--text)">Attention :</strong> Une fois confirmées, ces données seront verrouillées.<br>
+                Seul le <strong style="color:var(--blue)">gérant</strong> pourra les corriger.
+            </div>
+            <div class="card-title">📋 Résumé — ${esc(labels[sid])}</div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${esc(App.activeBande)} · J${App.data?.performance?.ageJours||0}</div>
+            ${lignesHTML}
+        </div>
+        <button class="btn-action btn-green" onclick="_confirmerEtEnvoyer()">✅ Je confirme — Envoyer au gérant</button>
+        <button class="btn-action btn-ghost" onclick="Nav.back()">↩ Revenir et corriger</button>`;
+}
+
+async function _confirmerEtEnvoyer(){
+    const sid=App._session.id,rep=App._session.reponses,etapes=SESSION_ETAPES[sid]||[];
+    const z=zone();if(!z)return;
+    z.innerHTML=`<div style="text-align:center;padding:60px 20px"><div class="spinner" style="width:36px;height:36px"></div><div style="color:var(--text2);font-size:14px;margin-top:12px">Envoi en cours…</div></div>`;
+    const catMap={mortalite_m:'MortaliteMatin',mortalite_n:'MortaliteSoir',eau_m:'EauMatin',eau_n:'EauSoir',aliment_kg:'Alimentation'};
+    const envois=[];
+    etapes.forEach(e=>{
+        const val=rep[e.id]; if(val===null||val===undefined)return;
+        if(e.type==='ambiance'){
+            envois.push(apiPost({action:'SAISIE_TECH',idBande:App.activeBande,cat:'Temperature',val1:val.temp,note:sid}));
+            envois.push(apiPost({action:'SAISIE_TECH',idBande:App.activeBande,cat:'Hygrometrie',val1:val.hygro,note:sid}));
+            envois.push(apiPost({action:'SAISIE_TECH',idBande:App.activeBande,cat:'Litiere',val1:val.litiere,note:sid}));
+        } else if(e.type==='sante'||e.type==='sante_color'){
+            envois.push(apiPost({action:'SAISIE_TECH',idBande:App.activeBande,cat:'SanteGeneral',val1:val.score,note:(val.label||'')+(val.obs?' | '+val.obs:'')}));
+        } else if(e.type==='number'){
+            const cat=catMap[e.id]; if(cat) envois.push(apiPost({action:'SAISIE_TECH',idBande:App.activeBande,cat,val1:val,note:sid}));
+        } else if(e.type==='pesee'&&val!==null){
+            envois.push(apiPost({action:'SAISIE_TECH',idBande:App.activeBande,cat:'PoidsMoyen',val1:val,note:sid}));
+        }
+    });
+    try { await Promise.all(envois); } catch(_) {}
+    // Créer une tâche TERMINEE pour chaque session envoyée
+    const titreSession = ({Matin:'🌅 Session Matin envoyée',Midi:'☀️ Session Midi envoyée',PM:'🌤️ Session PM envoyée',Nuit:'🌙 Session Nuit envoyée'})[sid]||sid;
+    await apiPost({action:'CREER_TACHE',titre:titreSession,date:_dateAujourd_hui(),idBande:App.activeBande,typeTache:'QUOTIDIEN'});
+    // Notifier le gérant — il devra valider
+    _notifierGerantTacheAccomplie('session_'+sid, titreSession, App.activeBande);
+    _poserVerrouSession(sid);
+    showToast('✅ Session verrouillée — gérant notifié','success',4000);
+    Nav.home();
+}
+
+/* ── Abattage agent ── */
+function renderAbattage(idTache){
+    App._abattage={etape:1,poidsEntier:null,poidsGesier:null,nbAbattu:null,idTache:idTache||''};
+    _renderEtapeAbattage();
+}
+function _renderEtapeAbattage(){
+    const z=zone();if(!z)return;
+    const et=App._abattage.etape;
+    const configs=[{n:1,label:'Poids total poulets entiers',unite:'kg',bufferId:'ab_poids'},{n:2,label:'Poids gésier + foie',unite:'kg',bufferId:'ab_gesier'},{n:3,label:'Nombre réel abattu',unite:'sujets',bufferId:'ab_nb'}];
+    const c=configs[et-1];
+    const stepperHTML=[1,2,3].map(i=>`<div class="step-dot ${i<et?'done':i===et?'active':''}"></div>`).join('');
+    z.innerHTML=`
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                <div style="font-size:12px;font-weight:700;color:var(--red)">🔪 ABATTAGE</div>
+                <div style="font-size:11px;color:var(--text2)">Étape ${et} / 3</div>
+            </div>
+            <div class="stepper">${stepperHTML}</div>
+            <div style="font-size:16px;font-weight:800;margin-bottom:4px">${esc(c.label)}</div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:16px">${esc(App.activeBande)}</div>
+            ${_pavHTML(c.bufferId,c.bufferId,c.unite)}
+            <button class="btn-action btn-red" style="margin-top:12px" onclick="_nextAbattage(${et},'${c.bufferId}')">
+                ${et<3?'Suivant →':'🔢 Voir le résumé'}
+            </button>
+        </div>`;
+}
+function _nextAbattage(etape,bufferId){
+    const val=_pavGet(bufferId); if(val===null||val<=0){showToast('Saisissez une valeur valide','warning');return;}
+    if(etape===1)App._abattage.poidsEntier=val;
+    if(etape===2)App._abattage.poidsGesier=val;
+    if(etape===3){App._abattage.nbAbattu=val;_renderResumeAbattage();return;}
+    delete App._pavBuffers[bufferId]; App._abattage.etape++; _renderEtapeAbattage();
+}
+function _renderResumeAbattage(){
+    const z=zone();if(!z)return;
+    const ab=App._abattage;
+    const pm=ab.nbAbattu>0?Math.round((ab.poidsEntier/ab.nbAbattu)*1000):0;
+    z.innerHTML=`
+        <div class="card">
+            <div class="card-title" style="color:var(--red)">🔪 Résumé abattage — Vérification</div>
+            <div style="font-size:13px;color:var(--text2);margin-bottom:12px;background:rgba(255,157,0,.08);border:1px solid rgba(255,157,0,.2);border-radius:12px;padding:12px">⚠️ Vérifiez ces chiffres. Une fois envoyés, seul le gérant pourra les corriger.</div>
+            <div class="rapport-ligne"><span>Poids total entiers</span><span>${ab.poidsEntier} kg</span></div>
+            <div class="rapport-ligne"><span>Poids gésier + foie</span><span>${ab.poidsGesier} kg</span></div>
+            <div class="rapport-ligne"><span>Nombre abattu</span><span>${ab.nbAbattu} sujets</span></div>
+            <div class="rapport-ligne"><span>Poids moyen calculé</span><span style="color:var(--green);font-size:16px">${pm} g/sujet</span></div>
+        </div>
+        <button class="btn-action btn-red" onclick="_envoyerAbattage()">✅ Je confirme — Envoyer au gérant</button>
+        <button class="btn-action btn-ghost" onclick="renderAbattage('${esc(ab.idTache||'')}')">↩ Recommencer la saisie</button>`;
+}
+async function _envoyerAbattage(){
+    const ab=App._abattage;
+    showToast('✅ Données abattage envoyées au gérant pour validation','success');
+    _notifierGerantTacheAccomplie(ab.idTache||'abattage', '🔪 Abattage terminé — à valider', App.activeBande);
+    Nav.home();
+}
+
+/* ════════════════════════════════════════════
+   7.5  PARTENAIRE
+════════════════════════════════════════════ */
+async function renderPartenaire(){
+    const z=zone();if(!z)return;
+    z.innerHTML=`<div style="text-align:center;padding:60px 20px"><div class="spinner" style="width:36px;height:36px"></div></div>`;
+    const d=await apiGet({action:'getPartenaireBandes'});
+    if(!d.success){z.innerHTML=`<div style="text-align:center;padding:40px 20px"><div style="font-size:36px;margin-bottom:12px">⚠️</div><div style="font-weight:800;font-size:15px;margin-bottom:8px">Erreur de chargement</div><div style="color:var(--text2);font-size:13px;margin-bottom:20px">${esc(d.error||'Connexion impossible')}</div><button class="btn-action btn-blue" onclick="renderPartenaire()">🔄 Réessayer</button></div>`;return;}
+    const bandes=d.bandes||[];
+    if(!bandes.length){z.innerHTML=`<div style="text-align:center;padding:60px 20px"><div style="font-size:48px;margin-bottom:16px">🐔</div><div style="font-weight:800;font-size:16px;margin-bottom:8px">Aucune bande assignée</div><div style="color:var(--text2);font-size:13px">Le gérant n'a pas encore associé votre compte.</div></div>`;return;}
+    z.innerHTML=`
+        <div style="padding:16px">
+            <div style="margin-bottom:20px"><div style="font-weight:800;font-size:17px;margin-bottom:4px">👋 Bonjour ${esc(App.nom)}</div><div style="color:var(--text2);font-size:13px">${bandes.length} bande(s) dans votre portefeuille</div></div>
+            ${bandes.map(b=>`
+                <div class="card" style="margin-bottom:12px;cursor:pointer" onclick="Nav.push('renderPartenaireBande','${esc(b.idBande)}')">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                        <div style="font-weight:800;font-size:15px">${esc(b.idBande)}</div>
+                        <span style="font-size:12px;font-weight:600">${b.statut==='EN COURS'?'🟢':'⏳'} ${esc(b.statut)}</span>
+                    </div>
+                    <div style="display:flex;gap:16px;font-size:13px;color:var(--text2)">
+                        <span>🏠 ${esc(b.batiment)}</span>
+                        <span>📅 J+${b.ageJours}</span>
+                        <span style="color:var(--purple);font-weight:600">🤝 ${b.quotePart}%</span>
+                    </div>
+                </div>`).join('')}
+        </div>`;
+}
+function renderPartenaireBande(idBande){
+    if(!idBande){Nav.back();return;}
+    const z=zone();if(!z)return;
+    z.innerHTML=`
+        <div style="padding:16px">
+            <div style="font-weight:800;font-size:17px;margin-bottom:4px">${esc(idBande)}</div>
+            <div style="color:var(--text2);font-size:13px;margin-bottom:20px">Choisissez une section</div>
+            ${[{fn:'renderPartenaireResultats',icon:'📊',titre:'Résultats financiers',sub:'Dépenses · Recettes · Marge',color:'var(--purple)'},
+               {fn:'renderPartenaireEtat',     icon:'🐔',titre:'État du lot',         sub:'Effectif · Mortalité · Poids',color:'var(--green)'},
+               {fn:'renderPartenaireCreances', icon:'💳',titre:'Mes créances',        sub:'Clients en attente',color:'var(--orange)'}].map(s=>`
+                <div class="card" style="margin-bottom:12px;cursor:pointer;border-left:3px solid ${s.color}" onclick="Nav.push('${s.fn}','${esc(idBande)}')">
+                    <div style="font-size:22px;margin-bottom:6px">${s.icon}</div>
+                    <div style="font-weight:800;font-size:15px;margin-bottom:4px">${s.titre}</div>
+                    <div style="color:var(--text2);font-size:13px">${s.sub}</div>
+                </div>`).join('')}
+        </div>`;
+}
+async function renderPartenaireResultats(idBande){
+    const z=zone();if(!z)return;
+    z.innerHTML=`<div style="text-align:center;padding:60px 20px"><div class="spinner" style="width:32px;height:32px"></div></div>`;
+    const d=await apiGet({action:'dashboard',idBande});
+    if(!d.success||!d.finance){z.innerHTML=`<div style="text-align:center;padding:40px"><div style="font-size:28px">⚠️</div></div>`;return;}
+    const f=d.finance,sc=f.solde>=0?'var(--green)':'var(--red)';
+    z.innerHTML=`
+        <div style="padding:16px">
+            <div style="margin-bottom:16px"><div style="font-weight:800;font-size:16px">📊 Résultats — ${esc(idBande)}</div><div style="color:var(--purple);font-size:12px;margin-top:4px">Quote-part : ${f.quotePart||'?'}%</div></div>
+            <div class="card" style="text-align:center;margin-bottom:16px">
+                <div style="font-size:13px;color:var(--text2);margin-bottom:6px">Marge nette (votre part)</div>
+                <div style="font-size:28px;font-weight:800;color:${sc}">${f.solde>=0?'+':''}${fmt(f.solde)} FCFA</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div class="card" style="text-align:center"><div style="font-size:11px;color:var(--text2);margin-bottom:4px">📤 Dépenses</div><div style="font-size:16px;font-weight:800;color:var(--red)">${fmt(f.totalDepenses)}</div></div>
+                <div class="card" style="text-align:center"><div style="font-size:11px;color:var(--text2);margin-bottom:4px">📥 Recettes</div><div style="font-size:16px;font-weight:800;color:var(--green)">${fmt(f.recettes)}</div></div>
+            </div>
+        </div>`;
+}
+async function renderPartenaireEtat(idBande){
+    const z=zone();if(!z)return;
+    z.innerHTML=`<div style="text-align:center;padding:60px 20px"><div class="spinner" style="width:32px;height:32px"></div></div>`;
+    const d=await apiGet({action:'dashboard',idBande});
+    if(!d.success){z.innerHTML=`<div style="text-align:center;padding:40px"><div style="font-size:28px">⚠️</div></div>`;return;}
+    const p=d.performance,t=d.terrain;
+    const effectifActuel = Math.max(0, p.effectifInitial - (p.morts||0) - (p.sorties||0));
+    const surv=p.effectifInitial>0?Math.round((effectifActuel/p.effectifInitial)*1000)/10:0;
+    z.innerHTML=`
+        <div style="padding:16px">
+            <div style="font-weight:800;font-size:16px;margin-bottom:16px">🐔 État du lot — ${esc(idBande)}</div>
+            <div class="card" style="margin-bottom:12px">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center">
+                    <div><div style="font-size:10px;color:var(--text2);margin-bottom:4px">Effectif initial</div><div style="font-size:18px;font-weight:800">${p.effectifInitial.toLocaleString('fr')}</div></div>
+                    <div><div style="font-size:10px;color:var(--green);margin-bottom:4px">Présents estimés</div><div style="font-size:18px;font-weight:800;color:var(--green)">${effectifActuel.toLocaleString('fr')}</div></div>
+                </div>
+            </div>
+            <div class="card" style="text-align:center;margin-bottom:12px">
+                <div style="font-size:12px;color:var(--text2);margin-bottom:6px">Taux de survie</div>
+                <div style="font-size:32px;font-weight:800;color:${surv>=97?'var(--green)':surv>=94?'var(--orange)':'var(--red)'}">${surv}%</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div class="card" style="text-align:center"><div style="font-size:11px;color:var(--text2);margin-bottom:4px">⚖️ Poids moyen</div><div style="font-size:18px;font-weight:800">${t.poidsMoyen||'–'} g</div></div>
+                <div class="card" style="text-align:center"><div style="font-size:11px;color:var(--text2);margin-bottom:4px">📊 IC</div><div style="font-size:18px;font-weight:800">${t.ic||'–'}</div></div>
+            </div>
+        </div>`;
+}
+async function renderPartenaireCreances(idBande){
+    const z=zone();if(!z)return;
+    z.innerHTML=`<div style="text-align:center;padding:60px 20px"><div class="spinner" style="width:32px;height:32px"></div></div>`;
+    const d=await apiGet({action:'getVentes',idBande});
+    if(!d.success){z.innerHTML=`<div style="text-align:center;padding:40px"><div style="font-size:28px">⚠️</div></div>`;return;}
+    const cr=(d.ventes||[]).filter(v=>v.montantRestant>0);
+    if(!cr.length){z.innerHTML=`<div style="padding:16px;text-align:center"><div style="font-size:40px;margin-bottom:12px">✅</div><div style="font-weight:700;font-size:15px">Aucune créance en cours</div></div>`;return;}
+    const tot=Math.round(cr.reduce((s,v)=>s+v.montantRestant,0));
+    z.innerHTML=`
+        <div style="padding:16px">
+            <div style="margin-bottom:16px"><div style="font-weight:800;font-size:16px">💳 Mes créances — ${esc(idBande)}</div><div style="color:var(--text2);font-size:12px;margin-top:4px">${cr.length} client(s) en attente</div></div>
+            <div class="card" style="text-align:center;margin-bottom:16px;background:rgba(255,157,0,.08)">
+                <div style="font-size:12px;color:var(--text2);margin-bottom:6px">💰 Total à recevoir</div>
+                <div style="font-size:26px;font-weight:800;color:var(--orange)">${fmt(tot)} FCFA</div>
+            </div>
+            ${cr.map(v=>`
+            <div class="card" style="margin-bottom:10px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px"><div style="font-weight:700;font-size:14px">${esc(v.idClient)}</div><span style="font-size:11px;color:var(--orange)">${v.statutPaiement}</span></div>
+                <div style="font-size:14px;font-weight:700;color:var(--orange)">${fmt(v.montantRestant)} FCFA restants</div>
+            </div>`).join('')}
+        </div>`;
+}
+
+/* ════════════════════════════════════════════
+   ÉTAGE 8 — DÉMARRAGE
+════════════════════════════════════════════ */
+
+/** renderHome — DÉFINIE ICI. C'est le dispatcher selon le rôle. */
+function renderHome() {
+    _majTopbar();
+    if (App.role === 'GERANT')     { const fn='renderGerant';     Nav.stack=[{fn,params:null}]; Nav._upBtn(); renderGerant(); }
+    else if (App.role === 'AGENT') { const fn='renderAgent';      Nav.stack=[{fn,params:null}]; Nav._upBtn(); renderAgent(); }
+    else if (App.role === 'PARTENAIRE') { const fn='renderPartenaire'; Nav.stack=[{fn,params:null}]; Nav._upBtn(); renderPartenaire(); }
+    else { doLogout(); }
+}
+
+async function chargerBandeActive() {
+    try {
+        const d = await apiGet({action:'getBatiments'});
+        if (!d.success) return;
+        App.batiments = d.batiments || [];
+        const enc = App.batiments.find(b => b.statut === 'EN COURS');
+        if (enc) { App.activeBande = enc.idBande; localStorage.setItem('av_bande', App.activeBande); }
+    } catch(e) { console.error('chargerBandeActive:', e); }
+}
+
+async function startApp() {
+    updateOffline();
+    _majTopbar();
+    if (App.role === 'AGENT') await chargerBandeActive();
+    renderHome();
+    // Init PWA + notifications (silencieux, en arrière-plan)
+    _initPWA();
+}
+
+/* ════════════════════════════════════════════
+   PWA — Service Worker + OneSignal
+   Enregistrement silencieux après login
+   La demande de permission n'apparaît PAS
+   au démarrage — elle se fait après renderHome
+════════════════════════════════════════════ */
+async function _initPWA() {
+    // 1. Service Worker
+    if ('serviceWorker' in navigator) {
+        try {
+            const reg = await navigator.serviceWorker.register('sw.js', { scope: '/AVIGEST4/' });
+            console.log('[SW] enregistré :', reg.scope);
+        } catch(e) {
+            console.warn('[SW] échec enregistrement :', e.message);
+        }
+    }
+
+    // 2. OneSignal — init silencieuse
+    // On attend que le SDK soit chargé (script defer)
+    try {
+        await _waitForOneSignal();
+        await OneSignalDeferred.push(async function(OneSignal) {
+            await OneSignal.init({
+                appId            : '8a6d7ad0-e39a-4e29-b187-26f9f5f4eae3',
+                // Pas de popup automatique — on demande la permission
+                // uniquement si l'utilisateur est gérant
+                autoResubscribe  : true,
+                notifyButton     : { enable: false },
+                welcomeNotification: { disable: true }
+            });
+            // Demander la permission uniquement au gérant
+            if (App.role === 'GERANT') {
+                const permission = await OneSignal.Notifications.permission;
+                if (!permission) {
+                    // Délai de 3s pour ne pas bloquer l'affichage
+                    setTimeout(async () => {
+                        try {
+                            await OneSignal.Notifications.requestPermission();
+                        } catch(_) {}
+                    }, 3000);
+                }
+            }
+            // Enregistrer l'ID d'abonnement pour debug
+            const subId = await OneSignal.User.PushSubscription.id;
+            if (subId) console.log('[OneSignal] abonné :', subId);
+        });
+    } catch(e) {
+        console.warn('[OneSignal] init ignorée :', e.message);
+    }
+}
+
+/** Attend que window.OneSignalDeferred soit disponible (SDK defer) */
+function _waitForOneSignal(maxWait=8000) {
+    return new Promise((resolve, reject) => {
+        if (window.OneSignalDeferred) { resolve(); return; }
+        const start = Date.now();
+        const iv = setInterval(() => {
+            if (window.OneSignalDeferred) { clearInterval(iv); resolve(); }
+            else if (Date.now() - start > maxWait) { clearInterval(iv); reject(new Error('OneSignal SDK non chargé')); }
+        }, 200);
+    });
+}
+
+window.onload = function() {
+    // Si session valide : aller directement à l'app
+    if (App.token && isSessionValid()) {
+        document.getElementById('screen-role').classList.add('hidden');
+        document.getElementById('screen-pin').classList.add('hidden');
+        document.getElementById('app-main').style.display = 'block';
+        startApp();
+    } else if (App.token && !isSessionValid()) {
+        // Session expirée : nettoyer et rester sur écran rôle
+        ['av_token','av_lt'].forEach(k => localStorage.removeItem(k));
+        App.token = null; App.loginTime = 0;
+        showToast('Session expirée — reconnectez-vous','warning',4000);
+        // Écran rôle déjà visible par défaut
+    }
+    // Sinon : écran rôle déjà visible par défaut (display:flex dans .screen)
+};
+</script>
+</body>
+</html>
