@@ -1808,7 +1808,17 @@ async function renderGerant() {
                 <div><div style="font-size:15px;font-weight:800">${(p.effectif||0).toLocaleString('fr')}</div><div style="font-size:9px;color:var(--text2)">Effectif</div></div>
                 <div><div style="font-size:15px;font-weight:800;color:${mortColor}">${t.mortaliteJour||0}</div><div style="font-size:9px;color:var(--text2)">💀 Morts/j</div></div>
                 <div><div style="font-size:15px;font-weight:800;color:${stockColor}">${p.stockSacs??'—'}</div><div style="font-size:9px;color:var(--text2)">Sacs</div></div>
-                <div><div style="font-size:13px;font-weight:800;color:${soldeColor}">${solde>=0?'+':''}${fmt(solde)}</div><div style="font-size:9px;color:var(--text2)">Marge F</div></div>
+                <div><div style="font-size:13px;font-weight:800;color:${soldeColor}">${solde>=0?'+':''}${fmt(solde)}</div><div style="font-size:9px;color:var(--text2)"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;text-align:center;margin-bottom:10px">
+                <div style="background:var(--bg3);border-radius:10px;padding:8px 6px;border:1px solid var(--border)">
+                    <div style="font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">🌡️ Température</div>
+                    <div style="font-size:14px;font-weight:800;color:${(t.tempMax||0)>32?'var(--red)':(t.tempMax||0)>29?'var(--orange)':'var(--text)'}">${t.tempMax||'—'}°C</div>
+                </div>
+                <div style="background:var(--bg3);border-radius:10px;padding:8px 6px;border:1px solid var(--border)">
+                    <div style="font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">💧 Hygrométrie</div>
+                    <div style="font-size:14px;font-weight:800;color:${(t.hygro||0)>80?'var(--orange)':'var(--text)'}">${t.hygro||'—'}%</div>
+                </div>
             </div>
             ${alertes.length?`<div style="background:rgba(255,68,68,.08);border:1px solid rgba(255,68,68,.2);border-radius:10px;padding:8px 12px;margin-bottom:8px;font-size:11px;color:var(--red);font-weight:700">🔴 ${alertes.length} alerte${alertes.length>1?'s':''} critique${alertes.length>1?'s':''}</div>`:''}
             <div style="display:flex;gap:8px;align-items:center;padding-top:8px;border-top:1px solid var(--border)">
@@ -1887,30 +1897,74 @@ function renderContreEcriture(){const z=zone();if(!z)return;z.innerHTML=`<div cl
 async function contreEcritureValider(){const typeOriginal=document.getElementById('ce-type')?.value;const libelle=document.getElementById('ce-libelle')?.value.trim();const montant=parseFloat(document.getElementById('ce-montant')?.value);if(!libelle){showToast('Libellé obligatoire','warning');return;}if(!montant||montant<=0){showToast('Montant invalide','warning');return;}const typeCorrection=typeOriginal==='DEPENSE'?'RECETTE':'DEPENSE';if(!guardDouble('contre-ecriture'))return;const r=await apiPost({action:'ECRITURE_JOURNAL',idBande:App.activeBande,typeEcriture:typeCorrection,categorie:'Correction',libelle:'↩ '+libelle,unite:'forfait',quantite:1,prixUnitaire:montant,montant,beneficiaire:'Correction gérant'});if(r.success){showToast('✅ Contre-écriture enregistrée','success');Nav.back();}else showToast(r.error||'Erreur','error');}
 async function renderRapportBande(){const z=zone();if(!z)return;if(!App.activeBande){showToast('Aucune bande active','warning');return;}z.innerHTML=`<div style="text-align:center;padding:40px"><div class="spinner"></div></div>`;const d=await apiGet({action:'getJournal',idBande:App.activeBande});const lignes=d.success?(d.ecritures||[]):[];const totalDep=lignes.filter(l=>l.typeEcriture==='DEPENSE').reduce((s,l)=>s+(parseFloat(l.montant)||0),0);const totalRec=lignes.filter(l=>l.typeEcriture==='RECETTE').reduce((s,l)=>s+(parseFloat(l.montant)||0),0);const solde=totalRec-totalDep;const soldeColor=solde>=0?'var(--green)':'var(--red)';const parCat={};lignes.forEach(l=>{const cat=l.categorie||'Autre';if(!parCat[cat])parCat[cat]={dep:0,rec:0};if(l.typeEcriture==='DEPENSE')parCat[cat].dep+=parseFloat(l.montant)||0;else parCat[cat].rec+=parseFloat(l.montant)||0;});const detailHTML=Object.entries(parCat).sort((a,b)=>(b[1].dep+b[1].rec)-(a[1].dep+a[1].rec)).map(([cat,v])=>`<div class="rapport-ligne"><span style="color:var(--text2)">${esc(cat)}</span><span>${v.dep>0?`<span style="color:var(--red)">−${fmt(v.dep)}</span> `:' '}${v.rec>0?`<span style="color:var(--green)">+${fmt(v.rec)}</span>`:''}</span></div>`).join('');const perf=App.data?.performance||{},terrain=App.data?.terrain||{};z.innerHTML=`<div class="bande-header"><div class="bande-name">📊 Rapport — ${esc(App.activeBande)}</div><div class="bande-meta">${lignes.length} écriture${lignes.length>1?'s':''}</div></div><div class="card" style="text-align:center;margin-bottom:12px;border:2px solid ${soldeColor}"><div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Solde actuel</div><div style="font-size:32px;font-weight:800;color:${soldeColor}">${solde>=0?'+':''}${fmt(solde)} FCFA</div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px"><div class="card" style="text-align:center;border-left:3px solid var(--red)"><div style="font-size:11px;color:var(--text2);margin-bottom:6px">📤 Total dépenses</div><div style="font-size:18px;font-weight:800;color:var(--red)">−${fmt(totalDep)}</div><div style="font-size:10px;color:var(--text2)">FCFA</div></div><div class="card" style="text-align:center;border-left:3px solid var(--green)"><div style="font-size:11px;color:var(--text2);margin-bottom:6px">📥 Total recettes</div><div style="font-size:18px;font-weight:800;color:var(--green)">+${fmt(totalRec)}</div><div style="font-size:10px;color:var(--text2)">FCFA</div></div></div><div class="card" style="margin-bottom:12px"><div class="card-title">Détail par catégorie</div>${detailHTML||'<div style="color:var(--text2);font-size:13px">Aucune écriture</div>'}</div><button class="btn-action btn-green" onclick="partagerWhatsApp()">📲 Partager sur WhatsApp</button>`;}
 async function partagerWhatsApp(){const d=await apiGet({action:'getJournal',idBande:App.activeBande});const lignes=d.success?(d.ecritures||[]):[];const dep=lignes.filter(l=>l.typeEcriture==='DEPENSE').reduce((s,l)=>s+(parseFloat(l.montant)||0),0);const rec=lignes.filter(l=>l.typeEcriture==='RECETTE').reduce((s,l)=>s+(parseFloat(l.montant)||0),0);const sol=rec-dep;const today=new Date().toLocaleDateString('fr-FR');const txt=encodeURIComponent('🐔 RAPPORT '+App.activeBande+' | 📅 '+today+'\n\n📊 FINANCE\nDépenses : '+fmt(dep)+' FCFA\nRecettes  : '+fmt(rec)+' FCFA\nSolde     : '+(sol>=0?'+':'')+fmt(sol)+' FCFA\n\n🐥 ZOOTECHNIE\nEffectif  : '+(App.data?.performance?.effectif||'--')+' sujets\nJ+'+(App.data?.performance?.ageJours||0)+' | '+App.activeBande);window.open('https://wa.me/?text='+txt,'_blank');}
-function renderAnalyser() {
+async function renderAnalyser() {
     _setNavActive('analyser');
-    /* Raccourci vers l'analyse de la bande active */
-    if (App.activeBande) {
-        Nav.push('renderAnalyseBande', App.activeBande);
-    } else {
-        /* Chercher une bande EN COURS */
-        const enc = App.batiments.find(b => b.statut === 'EN COURS');
-        if (enc) {
-            App.activeBande = enc.idBande;
-            localStorage.setItem('av_bande', enc.idBande);
-            Nav.push('renderAnalyseBande', enc.idBande);
-        } else {
-            const z = zone(); if (!z) return;
-            z.innerHTML = `
-                <div style="text-align:center;padding:40px 20px">
-                    <div style="font-size:48px;margin-bottom:16px">📈</div>
-                    <div style="font-weight:800;font-size:16px;margin-bottom:8px">Aucune bande active</div>
-                    <div style="color:var(--text2);font-size:13px;margin-bottom:20px">Les analyses s'activent dès qu'une bande est EN COURS.</div>
-                    <button class="btn-action btn-blue" style="max-width:220px;margin:0 auto"
-                        onclick="_navTap('bandes','renderGererBandes',false)">🐔 Créer une bande</button>
-                </div>`;
-        }
+    const z = zone(); if (!z) return;
+    z.innerHTML = `<div style="text-align:center;padding:40px"><div class="spinner"></div></div>`;
+
+    const bd = await apiGet({action:'getBatiments'});
+    if (bd.success) App.batiments = bd.batiments || [];
+    const bandesEnCours = App.batiments.filter(b => b.statut === 'EN COURS');
+
+    if (!bandesEnCours.length) {
+        z.innerHTML = `
+            <div style="text-align:center;padding:40px 20px">
+                <div style="font-size:48px;margin-bottom:16px">📈</div>
+                <div style="font-weight:800;font-size:16px;margin-bottom:8px">Aucune bande active</div>
+                <div style="color:var(--text2);font-size:13px;margin-bottom:20px">Les analyses s'activent dès qu'une bande est EN COURS.</div>
+                <button class="btn-action btn-blue" style="max-width:220px;margin:0 auto"
+                    onclick="_navTap('bandes','renderGererBandes',false)">🐔 Créer une bande</button>
+            </div>`;
+        return;
     }
+
+    const dashboards = await Promise.all(
+        bandesEnCours.map(b => apiGet({action:'dashboard', idBande: b.idBande}))
+    );
+
+    const bandesHTML = bandesEnCours.map((b, i) => {
+        const d  = dashboards[i] || {};
+        const p  = d.performance || {};
+        const t  = d.terrain     || {};
+        const effectifActuel = Math.max(0, (p.effectifInitial||0) - (p.morts||0) - (p.sorties||0));
+        const surv = p.effectifInitial > 0
+            ? Math.round((effectifActuel / p.effectifInitial) * 1000) / 10
+            : 0;
+        const survColor = surv>=97?'var(--green)':surv>=94?'var(--orange)':'var(--red)';
+        const icColor   = !t.ic ? 'var(--text2)' : t.ic<=1.8?'var(--green)':t.ic<=2.2?'var(--orange)':'var(--red)';
+        return `
+        <div class="card" style="margin-bottom:12px;cursor:pointer;border-left:3px solid var(--purple)"
+             onclick="Nav.push('renderAnalyseBande','${b.idBande}')">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                <div>
+                    <div style="font-weight:800;font-size:15px">📈 ${b.idBande}</div>
+                    <div style="font-size:11px;color:var(--text2)">Poulailler ${b.num} · J${p.ageJours||0}${b.race?' · '+b.race:''}</div>
+                </div>
+                <div style="font-size:20px;color:var(--text2)">›</div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center">
+                <div style="background:var(--bg3);border-radius:10px;padding:8px 4px">
+                    <div style="font-size:13px;font-weight:800;color:${survColor}">${surv}%</div>
+                    <div style="font-size:9px;color:var(--text2);margin-top:2px">Survie</div>
+                </div>
+                <div style="background:var(--bg3);border-radius:10px;padding:8px 4px">
+                    <div style="font-size:13px;font-weight:800">${t.poidsMoyen||'—'}<span style="font-size:9px">g</span></div>
+                    <div style="font-size:9px;color:var(--text2);margin-top:2px">Poids moy.</div>
+                </div>
+                <div style="background:var(--bg3);border-radius:10px;padding:8px 4px">
+                    <div style="font-size:13px;font-weight:800;color:${icColor}">${t.ic||'—'}</div>
+                    <div style="font-size:9px;color:var(--text2);margin-top:2px">IC</div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    z.innerHTML = `
+        <div style="margin-bottom:16px">
+            <div style="font-weight:800;font-size:16px">📈 Analyses</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px">${bandesEnCours.length} bande${bandesEnCours.length>1?'s':''} en cours — appuyez pour les détails</div>
+        </div>
+        ${bandesHTML}`;
 }
 
 async function renderAnalyseBande(idBande) {
@@ -1963,13 +2017,6 @@ async function renderAnalyseBande(idBande) {
                 <div style="font-size:15px;font-weight:800;color:var(--green)">+${fmt(fi.recettes||0)}</div>
                 <div style="font-size:10px;color:var(--text2)">FCFA</div>
             </div>
-        </div>
-
-        <div class="section-title">🌡️ Terrain du jour</div>
-        <div class="kpi-row" style="margin-bottom:14px">
-            <div class="kpi-box"><span class="kpi-val">${t.tempMax||'—'}<span style="font-size:11px">°C</span></span><span class="kpi-label">Temp. max</span></div>
-            <div class="kpi-box"><span class="kpi-val">${t.hygro||'—'}<span style="font-size:11px">%</span></span><span class="kpi-label">Hygro</span></div>
-            <div class="kpi-box"><span class="kpi-val">${t.litiere||'—'}<span style="font-size:11px">/5</span></span><span class="kpi-label">Litière</span></div>
         </div>
 
         <button class="btn-action btn-green" onclick="partagerWhatsApp()">📲 Partager sur WhatsApp</button>`;
