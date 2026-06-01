@@ -602,10 +602,8 @@ const NAVBAR_CONFIG = {
         { id:'analyser', icon:'📈', label:'Analyses', fn:'renderAnalyser'    },
     ],
     AGENT: [
-        { id:'accueil',  icon:'🏠', label:'Accueil',  fn:'renderAgent'               },
-        { id:'sessions', icon:'📅', label:'Sessions', fn:'_ouvrirSubmenuSessions', submenu:true },
-        { id:'taches',   icon:'📋', label:'Tâches',   fn:'_navTachesAgent'           },
-        { id:'abattage', icon:'🔪', label:'Abattage', fn:'_navAbattageAgent'         },
+        { id:'accueil', icon:'🏠', label:'Accueil', fn:'renderAgent'    },
+        { id:'taches',  icon:'📋', label:'Tâches',  fn:'_navTachesAgent' },
     ],
     PARTENAIRE: [
         { id:'bandes',    icon:'🐔', label:'Mes Bandes', fn:'renderPartenaire'           },
@@ -743,11 +741,18 @@ function fermerSubmenuSessions() {
 /* Raccourcis Agent */
 function _navTachesAgent() {
     _setNavActive('taches');
-    const taches = (App.data?.tachesAgent || []).filter(t => t.typeTache !== 'ABATTAGE');
+    const taches = (App.data?.tachesAgent || []);
+    const filtreActif = App._filtreTaches || 'TOUTES';
+    const tachesFiltrees = filtreActif === 'TOUTES' ? taches
+        : taches.filter(t => t.typeTache === filtreActif);
     const z = zone(); if (!z) return;
+    
     z.innerHTML = `
+        <div style="display:flex;gap:8px;margin-bottom:14px;padding:0 2px">
+            ${['TOUTES','QUOTIDIEN','HEBDO','ABATTAGE'].map(f => `<button onclick="App._filtreTaches='${f}';_navTachesAgent()" style="flex:1;padding:8px 4px;border-radius:12px;border:2px solid ${filtreActif===f?'var(--blue)':'var(--border)'};background:${filtreActif===f?'rgba(0,153,255,.15)':'var(--bg3)'};color:${filtreActif===f?'var(--blue)':'var(--text2)'};font-family:'Lexend',sans-serif;font-size:10px;font-weight:700;cursor:pointer">${f==='TOUTES'?'Toutes':f==='QUOTIDIEN'?'Quotid.':f==='HEBDO'?'Hebdo':'🔪 Abatt.'}</button>`).join('')}
+        </div>
         <div class="section-title">📋 Mes tâches du jour</div>
-        ${taches.length ? taches.map(t => {
+        ${tachesFiltrees.length ? tachesFiltrees.map(t => {
             const done = t.statut==='TERMINEE'||t.statut==='COMPTABILISEE'||localStorage.getItem('av_done_'+t.id)==='true';
             return `
             <div class="tache-card ${done?'accomplie':''}" id="tcard-${esc(t.id)}">
@@ -893,7 +898,7 @@ async function _probeConnection() {
     const tid  = setTimeout(() => ctrl.abort(), TIMEOUT_FAST_MS);
     try {
         /* sonde légère : juste les en-têtes, pas le corps */
-        await fetch(API + '?action=ping&t=' + Date.now(), { method:'HEAD', signal: ctrl.signal, cache:'no-store' });
+        await fetchT(API + '?action=ping&t=' + Date.now(), {}, TIMEOUT_FAST_MS);
         clearTimeout(tid);
         _setConnQuality('good');
     } catch(e) {
@@ -1445,7 +1450,8 @@ function _voirValidationsAgent() {
     Nav.stack.push({fn:'_voirValidationsAgent', params:null}); Nav._upBtn();
 }
 function _banniereAgentNouvellesTaches() {
-    const nb = _nbNotifsAgent();
+    const taches = (App.data?.tachesAgent || []).filter(t => t.statut === 'A FAIRE' && !localStorage.getItem('av_done_'+t.id));
+    const nb = taches.length;
     if (!nb) return '';
     return `
     <div class="banniere banniere-agent" onclick="_voirNotifsAgent()">
