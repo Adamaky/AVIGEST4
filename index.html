@@ -741,6 +741,32 @@ function fermerSubmenuSessions() {
 /* Raccourcis Agent */
 function _navTachesAgent() {
     _setNavActive('taches');
+    const sessionActive = detectSession();
+    const sessions = [
+        {id:'Matin', icon:'🌅', heure:'5H–10H', nb:6},
+        {id:'Midi',  icon:'☀️', heure:'10H–14H', nb:3},
+        {id:'PM',    icon:'🌤️', heure:'14H–19H', nb:3},
+        {id:'Nuit',  icon:'🌙', heure:'19H–5H',  nb:4},
+    ];
+    const sessionCourante = sessions.find(s => s.id === sessionActive);
+    const autresSessions  = sessions.filter(s => s.id !== sessionActive);
+    const verrouille = _verrouSessionExists(sessionActive);
+    const sessionHTML = `
+        <div class="section-title">⏰ Session en cours</div>
+        <div class="tuile tuile-session-active" style="background:var(--bg2);margin-bottom:8px" onclick="Nav.push('renderSession','${sessionCourante.id}')">
+            <div class="tuile-icon">${sessionCourante.icon}</div>
+            <div style="flex:1">
+                <div class="tuile-label">${sessionCourante.id} <span class="session-active-badge">▶ EN COURS</span></div>
+                <div class="tuile-sub">${sessionCourante.heure} · ${sessionCourante.nb} étapes</div>
+            </div>
+            <div style="font-size:20px">${verrouille ? '✅' : '⏳'}</div>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:16px">
+            ${autresSessions.map(s => {
+                const v = _verrouSessionExists(s.id);
+                return `<button onclick="Nav.push('renderSession','${s.id}')" style="flex:1;padding:8px 4px;border-radius:12px;border:1px solid var(--border);background:var(--bg3);font-family:'Lexend',sans-serif;font-size:10px;font-weight:700;color:${v?'var(--green)':'var(--text2)'};cursor:pointer;-webkit-tap-highlight-color:transparent">${s.icon} ${s.id}<br><span style="font-size:9px">${v?'✅ Fait':'○'}</span></button>`;
+            }).join('')}
+        </div>`;
     const taches = (App.data?.tachesAgent || []);
     const filtreActif = App._filtreTaches || 'TOUTES';
     const tachesFiltrees = filtreActif === 'TOUTES' ? taches
@@ -751,7 +777,8 @@ function _navTachesAgent() {
         <div style="display:flex;gap:8px;margin-bottom:14px;padding:0 2px">
             ${['TOUTES','QUOTIDIEN','HEBDO','ABATTAGE'].map(f => `<button onclick="App._filtreTaches='${f}';_navTachesAgent()" style="flex:1;padding:8px 4px;border-radius:12px;border:2px solid ${filtreActif===f?'var(--blue)':'var(--border)'};background:${filtreActif===f?'rgba(0,153,255,.15)':'var(--bg3)'};color:${filtreActif===f?'var(--blue)':'var(--text2)'};font-family:'Lexend',sans-serif;font-size:10px;font-weight:700;cursor:pointer">${f==='TOUTES'?'Toutes':f==='QUOTIDIEN'?'Quotid.':f==='HEBDO'?'Hebdo':'🔪 Abatt.'}</button>`).join('')}
         </div>
-        <div class="section-title">📋 Mes tâches du jour</div>
+        ${sessionHTML}
+        <div class="section-title">📋 Tâches assignées</div>
         ${tachesFiltrees.length ? tachesFiltrees.map(t => {
             const done = t.statut==='TERMINEE'||t.statut==='COMPTABILISEE'||localStorage.getItem('av_done_'+t.id)==='true';
             return `
@@ -1182,6 +1209,7 @@ function updateOffline() {
 }
 
 window.addEventListener('online',  () => { _probeConnection(); });
+window.addEventListener('popstate', () => { Nav.back(); });
 window.addEventListener('offline', () => { _setConnQuality('none'); });
 
 /* ════════════════════════════════════════════
@@ -1193,6 +1221,7 @@ const Nav = {
     stack: [],
     push(fn, params) {
         Nav.stack.push({fn, params});
+        history.pushState({fn, params}, '');
         Nav._run(fn, params);
         Nav._upBtn();
     },
@@ -2615,7 +2644,7 @@ async function renderAgent() {
     const tachesOrdinaires=taches.filter(t=>t.typeTache!=='ABATTAGE');
     const alertesCritiques=alertes.filter(a=>a.niveau==='CRITIQUE');
     const mortColor=terrain.mortaliteJour>5?'var(--red)':terrain.mortaliteJour>0?'var(--orange)':'var(--green)';
-    const stockColor=(perf.stockSacs||0)<=5?'var(--red)':'var(--green)';
+    App._tabBande = App._tabBande || {};
     /* Mettre à jour badge tâches sur onglet */
     const nbTachesEnAttente = tachesOrdinaires.filter(t=>t.statut==='A FAIRE'&&!localStorage.getItem('av_done_'+t.id)).length;
     _setNavBadge('taches', nbTachesEnAttente);
@@ -2623,8 +2652,18 @@ async function renderAgent() {
     const sessionsHTML=sessions.map(s=>{const prog=progSession(s.id);const actif=s.id===sessionActive;return `<div class="tuile${actif?' tuile-session-active':''}" style="background:var(--bg2)" onclick="Nav.push('renderSession','${s.id}')"><div class="tuile-icon">${s.icon}</div><div style="flex:1"><div class="tuile-label">${s.label}${actif?'<span class="session-active-badge">▶ En cours</span>':''}</div><div class="tuile-sub">${s.heure} · ${s.nb} étapes</div></div><div style="font-size:20px;color:${progCls[prog]}">${progIcon[prog]}</div></div>`;}).join('');
     const tachesOrdHTML=tachesOrdinaires.length?`<div class="section-title">📋 Tâches assignées</div>${tachesOrdinaires.map(t=>{const done=t.statut==='TERMINEE'||t.statut==='COMPTABILISEE'||localStorage.getItem('av_done_'+t.id)==='true';const c=t.typeTache==='HEBDO'?'orange':'blue';return `<div class="tache-card ${done?'accomplie':''}" id="tcard-${esc(t.id)}"><div class="tache-dot dot-${c}"></div><div style="flex:1"><div class="tache-titre">${esc(t.titre)}</div><div class="tache-meta">${esc(t.idBande)} · ${esc(t.date)}</div></div>${done?`<button class="btn-fait done">✅ FAIT</button>`:`<button class="btn-fait" id="btn-fait-${esc(t.id)}" onclick="_tachePremierAppui('${esc(t.id)}','${esc(t.titre)}')">À FAIRE</button>`}</div>`;}).join('')}`:'';
     z.innerHTML=`${_banniereAgentValidations()}${_banniereAgentNouvellesTaches()}${alertesCritiques.length?`<div class="section-title" style="color:var(--red)">🔴 Alertes critiques</div>${alertesCritiques.map(a=>`<div class="alerte critique"><div>🔴</div><div><div class="alerte-kpi">${esc(a.kpi)}</div><div class="alerte-msg">${esc(a.message)}</div></div></div>`).join('')}`:''}${tachesUrgentes.length?`<div class="section-title" style="color:var(--red)">⚠️ Urgent</div>${tachesUrgentes.map(t=>`<div class="tache-card urgente" onclick="Nav.push('renderAbattage','${esc(t.id)}')" style="cursor:pointer"><div class="tache-dot dot-red"></div><div style="flex:1"><div class="tache-titre">${esc(t.titre)}</div><div class="tache-meta">Appuyer pour commencer</div></div><span class="tache-badge tb-abattage">🔪 ABATTAGE</span></div>`).join('')}`:''}
-    <div class="section-title">🐔 ${esc(App.activeBande)} · J${perf.ageJours||0}</div>
-    <div class="kpi-row" style="margin-bottom:14px"><div class="kpi-box"><span class="kpi-val">${(perf.effectif||0).toLocaleString('fr')}</span><span class="kpi-label">Effectif</span></div><div class="kpi-box"><span class="kpi-val" style="color:${stockColor}">${perf.stockSacs||0}</span><span class="kpi-label">Sacs stock</span></div><div class="kpi-box"><span class="kpi-val" style="color:${mortColor}">${terrain.mortaliteJour||0}</span><span class="kpi-label">💀 Morts/jour</span></div></div>
+    <div class="section-title">🐔 Bande active — J${perf.ageJours||0}</div>
+    <div class="card" style="margin-bottom:12px;padding:0;overflow:hidden">
+        <div style="display:flex;border-bottom:1px solid var(--border)">
+            <button onclick="App._tabBande['${esc(App.activeBande)}']=0;renderAgent()" style="flex:1;padding:10px;border:none;background:${(App._tabBande[App.activeBande]||0)===0?'rgba(0,153,255,.12)':'transparent'};color:${(App._tabBande[App.activeBande]||0)===0?'var(--blue)':'var(--text2)'};font-family:'Lexend',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border-bottom:2px solid ${(App._tabBande[App.activeBande]||0)===0?'var(--blue)':'transparent'}">🐔 Effectif</button>
+            <button onclick="App._tabBande['${esc(App.activeBande)}']=1;renderAgent()" style="flex:1;padding:10px;border:none;background:${(App._tabBande[App.activeBande]||0)===1?'rgba(255,68,68,.12)':'transparent'};color:${(App._tabBande[App.activeBande]||0)===1?'var(--red)':'var(--text2)'};font-family:'Lexend',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border-bottom:2px solid ${(App._tabBande[App.activeBande]||0)===1?'var(--red)':'transparent'}">💀 Morts/jour</button>
+        </div>
+        <div style="padding:16px;text-align:center">
+            ${(App._tabBande[App.activeBande]||0)===0
+                ? `<div style="font-size:42px;font-weight:800">${(perf.effectif||0).toLocaleString('fr')}</div><div style="font-size:11px;color:var(--text2);margin-top:4px">sujets présents · ${esc(App.activeBande)}</div>`
+                : `<div style="font-size:42px;font-weight:800;color:${mortColor}">${terrain.mortaliteJour||0}</div><div style="font-size:11px;color:var(--text2);margin-top:4px">morts aujourd'hui · J${perf.ageJours||0}</div>`}
+        </div>
+    </div>
     <div class="section-title">Sessions du jour</div>${sessionsHTML}${tachesOrdHTML}`;
 }
 
