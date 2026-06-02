@@ -768,9 +768,7 @@ function _navTachesAgent() {
             }).join('')}
         </div>`;
     const taches = (App.data?.tachesAgent || []);
-    const filtreActif = App._filtreTaches || 'TOUTES';
-    const tachesFiltrees = filtreActif === 'TOUTES' ? taches
-        : taches.filter(t => t.typeTache === filtreActif);
+    const tachesFiltrees = taches;
     const z = zone(); if (!z) return;
     
     z.innerHTML = `
@@ -2699,6 +2697,16 @@ const SESSION_ETAPES={
 };
 
 function renderSession(sessionId) {
+    /* Injecter les tâches assignées à la fin de la session */
+    App._tachesAssignees = (App.data?.tachesAgent || []).filter(t =>
+        t.statut !== 'TERMINEE' && t.statut !== 'COMPTABILISEE' &&
+        !localStorage.getItem('av_done_'+t.id)
+    );
+
+    App._tachesAssignees = (App.data?.tachesAgent || []).filter(t =>
+        t.statut !== 'TERMINEE' && t.statut !== 'COMPTABILISEE' &&
+        !localStorage.getItem('av_done_'+t.id)
+    );
     /* navbar cachée pendant la saisie — géré par Nav._run() via _SCREENS_SANS_NAV */
     if (_verrouSessionExists(sessionId)) {
         const z=zone();if(!z)return;
@@ -2745,6 +2753,18 @@ function _renderSessionResume(){
     if(_verrouSessionExists(sid)){z.innerHTML=`<div class="card" style="text-align:center;padding:32px 20px"><div style="font-size:40px;margin-bottom:12px">🔒</div><div style="font-weight:800;font-size:16px;margin-bottom:8px">Session déjà envoyée</div><div style="color:var(--text2);font-size:13px;margin-bottom:20px">Les données ont été transmises.<br>Seul le gérant peut les modifier.</div><button class="btn-action btn-ghost" onclick="Nav.home()">← Retour à l'accueil</button></div>`;return;}
     const lignesHTML=etapes.map(e=>{const val=rep[e.id];let affiche='—';if(val!==null&&val!==undefined){if(e.type==='ambiance')affiche=`${val.temp}°C · ${val.hygro}% · Litière ${val.litiere}/5`;else if(e.type==='sante'||e.type==='sante_color')affiche=`${val.label||'Score '+val.score}${val.obs?' — '+val.obs.slice(0,30):''}`;else affiche=String(val);}return `<div class="journal-row"><span class="journal-cat">${esc(e.label)}</span><span style="font-size:12px;font-weight:700;color:var(--text)">${esc(String(affiche))}</span></div>`;}).join('');
     z.innerHTML=`<div class="card"><div class="card-title" style="color:var(--orange)">⚠️ Vérification avant envoi</div><div style="font-size:13px;color:var(--text2);margin-bottom:16px;background:rgba(255,157,0,.08);border:1px solid rgba(255,157,0,.2);border-radius:12px;padding:12px">📌 <strong style="color:var(--text)">Attention :</strong> Une fois confirmées, ces données seront verrouillées.<br>Seul le <strong style="color:var(--blue)">gérant</strong> pourra les corriger.</div><div class="card-title">📋 Résumé — ${esc(labels[sid])}</div><div style="font-size:12px;color:var(--text2);margin-bottom:12px">${esc(App.activeBande)} · J${App.data?.performance?.ageJours||0}</div>${lignesHTML}</div>
+    ${App._tachesAssignees?.length ? `
+    <div class="section-title" style="margin-top:8px">📋 Tâches assignées à compléter</div>
+    ${App._tachesAssignees.map(t => {
+        const done = localStorage.getItem('av_done_'+t.id)==='true';
+        return `<div class="tache-card ${done?'accomplie':''}" id="tcard-${esc(t.id)}">
+            <div class="tache-dot dot-blue"></div>
+            <div style="flex:1"><div class="tache-titre">${esc(t.titre)}</div><div class="tache-meta">${esc(t.idBande)} · ${esc(t.date)}</div></div>
+            ${done
+                ? `<button class="btn-fait done">✅ FAIT</button>`
+                : `<button class="btn-fait" id="btn-fait-${esc(t.id)}" onclick="_tachePremierAppui('${esc(t.id)}','${esc(t.titre)}')">À FAIRE</button>`}
+        </div>`;
+    }).join('')}` : ''}
     <button class="btn-action btn-green" onclick="_confirmerEtEnvoyer()">✅ Je confirme — Envoyer au gérant</button>
     <button class="btn-action btn-ghost" onclick="Nav.back()">↩ Revenir et corriger</button>`;
 }
