@@ -1596,8 +1596,6 @@ async function renderGerant() {
         ${tachesAValider.length ? '<div class="section-title" style="color:var(--green)">✅ À valider (' + tachesAValider.length + ')</div>' + aValiderHTML : ''}
         <div class="section-title">🐔 Bandes actives</div>
         ${bandesHTML}`;
-}
-
 } catch(err) {
         console.error('renderGerant erreur:', err);
         const z2 = zone();
