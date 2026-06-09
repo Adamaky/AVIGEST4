@@ -1447,6 +1447,23 @@ async function doLogoutFromRole() {
 /* ════════════════════════════════════════════
    ÉTAGE 11 — FONCTIONS MÉTIER GÉRANT
 ════════════════════════════════════════════ */
+/* ── Rendu ligne tâche accueil gérant — sans bouton dépense ── */
+function _renderTacheLigneAccueil(t) {
+    const c    = t.type_tache === 'ABATTAGE' ? 'red'
+               : t.type_tache === 'HEBDO'    ? 'orange'
+               : 'blue';
+    const ttit = esc(t.titre);
+    const tdat = esc(t.date_prevue || '');
+    const tbande = esc(t._idBande || '');
+    return '<div class="tache-card">'
+         + '<div class="tache-dot dot-' + c + '"></div>'
+         + '<div style="flex:1">'
+         +   '<div class="tache-titre">' + ttit + '</div>'
+         +   '<div class="tache-meta">' + tdat + (tbande ? ' · ' + tbande : '') + '</div>'
+         + '</div>'
+         + '</div>';
+}
+
 function _majTopbar() {
     const r = document.getElementById('tb-role'), n = document.getElementById('tb-name');
     if (r) r.textContent = App.role || '--';
