@@ -1560,7 +1560,7 @@ async function renderGerant() {
         </div>`;
     }).join('');
 
-    const aFaireHTML  = tachesAFaire.map(_renderTacheLigne).join('');
+    const aFaireHTML  = tachesAFaire.map(_renderTacheLigneAccueil).join('');
     const aValiderHTML = tachesAValider.map(t => {
         const c = t.type_tache==='ABATTAGE'?'red':t.type_tache==='HEBDO'?'orange':'blue';
         return '<div class="tache-card" style="border-color:rgba(0,200,150,.4);background:rgba(0,200,150,.05)">'
@@ -1568,10 +1568,10 @@ async function renderGerant() {
              + '<div style="flex:1"><div class="tache-titre">'+esc(t.titre)+'</div>'
              + '<div class="tache-meta">'+esc(t.date_prevue)+' · Exécutée</div></div>'
              + '<div style="display:flex;gap:6px">'
-             + '<button onclick="_validerTacheBande(\''+t.id+'\')" '
+             + '<button onclick="_validerTacheBandeAccueil(\''+t.id+'\')" '
              + 'style="background:var(--green);border:none;border-radius:8px;padding:6px 10px;'
              + 'color:#0d1b2a;font-family:Lexend,sans-serif;font-size:10px;font-weight:800;cursor:pointer">✅ OK</button>'
-             + '<button onclick="_rejeterTacheBande(\''+t.id+'\',\''+esc(t.titre)+'\')" '
+             + '<button onclick="_rejeterTacheBandeAccueil(\''+t.id+'\',\''+esc(t.titre)+'\')" '
              + 'style="background:rgba(255,68,68,.15);border:1px solid rgba(255,68,68,.4);border-radius:8px;'
              + 'padding:6px 10px;color:var(--red);font-family:Lexend,sans-serif;font-size:10px;font-weight:800;cursor:pointer">❌</button>'
              + '</div></div>';
@@ -2673,7 +2673,7 @@ async function renderTachesBande(bandeId) {
             + '</div>';
     };
 
-    const aFaireHTML  = tachesAFaire.map(_renderTacheLigne).join('');
+    const aFaireHTML  = tachesAFaire.map(_renderTacheLigneAccueil).join('');
 
     /* Construire les sections hors template literal pour éviter les backticks imbriqués */
     const sectionAValider = tachesAValider.length
