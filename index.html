@@ -1457,7 +1457,9 @@ async function renderGerant() {
     _majTopbar();
     _setNavActive('accueil');
     const z = zone(); if (!z) return;
-    z.innerHTML = `<div style="text-align:center;padding:40px"><div class="spinner"></div></div>`;
+    z.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
+
+    try {
 
     const bandesEnCours = await getBandesEnCours();
 
@@ -1475,6 +1477,25 @@ async function renderGerant() {
 
     /* Charger les dashboards en parallèle */
     const dashboards = await Promise.all(bandesEnCours.map(b => getDashboard(b.id)));
+    /* Charger tâches TERMINEE de toutes les bandes en parallèle */
+        const tachesParBande = await Promise.all(
+            bandesEnCours.map(b =>
+                sb.from('taches').select('*')
+                  .eq('ferme_id', FERME_ID)
+                  .eq('bande_id', b.id)
+                  .in('statut', ['TERMINEE'])
+                  .order('date_prevue', { ascending: false })
+            )
+        );
+
+        /* Aplatir + enrichir avec id_bande lisible */
+        const tachesAValider = tachesParBande.flatMap((res, i) =>
+            (res.data || []).map(t => ({ ...t, _idBande: bandesEnCours[i]?.id_bande || '' }))
+        );
+
+        /* Variables neutres — évite les ReferenceError */
+        const tachesAFaire    = [];
+        const tachesTerminees = [];
 
     if (bandesEnCours[0]) {
         App.activeBande = bandesEnCours[0].id;
@@ -1572,8 +1593,77 @@ async function renderGerant() {
             <div style="font-weight:800;font-size:16px">👋 Bonjour ${esc(App.nom)} <span class="realtime-dot" title="Temps réel actif"></span></div>
             <div style="font-size:12px;color:var(--text2);margin-top:2px">${bandesEnCours.length} bande${bandesEnCours.length>1?'s':''} en cours</div>
         </div>
+        ${tachesAValider.length ? '<div class="section-title" style="color:var(--green)">✅ À valider (' + tachesAValider.length + ')</div>' + aValiderHTML : ''}
         <div class="section-title">🐔 Bandes actives</div>
         ${bandesHTML}`;
+}
+
+} catch(err) {
+        console.error('renderGerant erreur:', err);
+        const z2 = zone();
+        if (z2) z2.innerHTML = '<div style="text-align:center;padding:40px 20px">'
+            + '<div style="font-size:32px;margin-bottom:12px">⚠️</div>'
+            + '<div style="font-weight:800;font-size:14px;margin-bottom:8px">Erreur de chargement</div>'
+            + '<div style="font-size:12px;color:var(--text2);margin-bottom:16px">' + esc(err.message) + '</div>'
+            + '<button onclick="renderGerant()" style="padding:10px 20px;border:none;border-radius:10px;'
+            + 'background:var(--blue);color:#fff;font-family:Lexend,sans-serif;font-size:12px;cursor:pointer">'
+            + '🔄 Réessayer</button></div>';
+    }
+}
+
+/* ── Validation tâche depuis l'accueil gérant ── */
+async function _validerTacheBandeAccueil(tacheId) {
+    if (!guardDouble('val_acc_' + tacheId)) return;
+    const r = await validerTache(tacheId);
+    if (r) {
+        showToast('✅ Tâche validée — agent notifié', 'success', 4000);
+        await renderGerant();
+    } else {
+        showToast('Erreur validation', 'error');
+    }
+}
+
+function _rejeterTacheBandeAccueil(tacheId, titre) {
+    const formId = 'form-rejet-acc-' + tacheId;
+    const ex = document.getElementById(formId);
+    if (ex) { ex.remove(); return; }
+    const titreEsc = esc(titre);
+    const form = document.createElement('div');
+    form.id = formId;
+    form.style.cssText = 'position:fixed;bottom:80px;left:12px;right:12px;'
+        + 'background:var(--bg2);border:1px solid var(--red);border-radius:16px;'
+        + 'padding:16px;z-index:900;box-shadow:0 4px 24px rgba(0,0,0,.5)';
+    form.innerHTML = '<div style="font-weight:800;font-size:13px;color:var(--red);margin-bottom:8px">'
+        + '❌ Rejeter : ' + titreEsc + '</div>'
+        + '<textarea id="motif-acc-' + tacheId + '" rows="3" '
+        + 'placeholder="Motif du rejet (obligatoire)" '
+        + 'style="width:100%;padding:10px;background:var(--bg3);border:1px solid var(--border);'
+        + 'border-radius:10px;color:var(--text);font-family:Lexend,sans-serif;'
+        + 'font-size:13px;resize:none;outline:none;margin-bottom:10px"></textarea>'
+        + '<div style="display:flex;gap:8px">'
+        + '<button onclick="_confirmerRejetAccueil(&quot;' + tacheId + '&quot;,&quot;' + formId + '&quot;)"'
+        + ' style="flex:1;padding:10px;border:none;border-radius:10px;background:var(--red);'
+        + 'color:#fff;font-family:Lexend,sans-serif;font-size:12px;font-weight:800;cursor:pointer">'
+        + 'Confirmer</button>'
+        + '<button onclick="document.getElementById(&quot;' + formId + '&quot;).remove()"'
+        + ' style="padding:10px;border:1px solid var(--border);border-radius:10px;'
+        + 'background:transparent;color:var(--text2);font-family:Lexend,sans-serif;'
+        + 'font-size:12px;cursor:pointer">Annuler</button>'
+        + '</div>';
+    document.body.appendChild(form);
+}
+
+async function _confirmerRejetAccueil(tacheId, formId) {
+    const motif = document.getElementById('motif-acc-' + tacheId)?.value.trim();
+    if (!motif) { showToast('Saisissez un motif de rejet', 'warning'); return; }
+    document.getElementById(formId)?.remove();
+    const r = await rejeterTache(tacheId, motif);
+    if (r) {
+        showToast('❌ Tâche rejetée — agent notifié', 'warning', 4000);
+        await renderGerant();
+    } else {
+        showToast('Erreur rejet', 'error');
+    }
 }
 
 function stockColor(p) { return (p.stockSacs||0)<=5?'var(--red)':'var(--text)'; }
