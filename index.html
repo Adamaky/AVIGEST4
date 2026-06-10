@@ -1681,6 +1681,169 @@ async function _confirmerRejetAccueil(tacheId, formId) {
     }
 }
 
+/* ════════════════════════════════════════════
+   GESTION DE STOCK
+════════════════════════════════════════════ */
+async function getStockBande(bandeId) {
+    const { data, error } = await sb
+        .from('lots_stock')
+        .select('*')
+        .eq('ferme_id', FERME_ID)
+        .eq('bande_id', bandeId)
+        .order('date_fabrication', { ascending: false });
+    if (error) return [];
+    return data || [];
+}
+
+async function renderStockBande(bandeId) {
+    const z = zone(); if (!z) return;
+    if (!bandeId) { Nav.back(); return; }
+    z.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
+    const lots = await getStockBande(bandeId);
+    const bid  = esc(bandeId);
+    const lotsHTML = lots.length
+        ? lots.map(function(l) {
+            const pct      = l.quantite_initiale > 0 ? Math.round((l.quantite_restante / l.quantite_initiale) * 100) : 0;
+            const pctColor = pct > 50 ? 'var(--green)' : pct > 20 ? 'var(--orange)' : 'var(--red)';
+            const statBg   = l.statut === 'EN STOCK' ? 'rgba(0,200,150,.15)' : 'rgba(255,255,255,.08)';
+            const statCol  = l.statut === 'EN STOCK' ? 'var(--green)' : 'var(--text2)';
+            return '<div class="card" style="margin-bottom:10px;border-left:3px solid ' + pctColor + '">'
+                 + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+                 +   '<div><div style="font-weight:800;font-size:14px">📦 ' + esc(l.produit) + '</div>'
+                 +   '<div style="font-size:10px;color:var(--text2);margin-top:2px">' + esc(l.reference||'') + (l.date_fabrication ? ' · ' + esc(l.date_fabrication) : '') + '</div></div>'
+                 +   '<span style="font-size:10px;font-weight:800;padding:3px 8px;border-radius:8px;background:' + statBg + ';color:' + statCol + '">' + esc(l.statut) + '</span>'
+                 + '</div>'
+                 + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;margin-bottom:8px">'
+                 +   '<div style="background:var(--bg3);border-radius:10px;padding:8px 4px"><div style="font-size:13px;font-weight:800;color:' + pctColor + '">' + fmt(l.quantite_restante) + '</div><div style="font-size:9px;color:var(--text2);margin-top:2px">' + esc(l.unite) + ' restants</div></div>'
+                 +   '<div style="background:var(--bg3);border-radius:10px;padding:8px 4px"><div style="font-size:13px;font-weight:800">' + fmt(l.cout_unitaire||0) + '</div><div style="font-size:9px;color:var(--text2);margin-top:2px">FCFA/' + esc(l.unite) + '</div></div>'
+                 +   '<div style="background:var(--bg3);border-radius:10px;padding:8px 4px"><div style="font-size:13px;font-weight:800">' + pct + '%</div><div style="font-size:9px;color:var(--text2);margin-top:2px">Restant</div></div>'
+                 + '</div>'
+                 + '<div style="background:var(--bg3);border-radius:6px;height:5px;overflow:hidden">'
+                 +   '<div style="height:100%;background:' + pctColor + ';width:' + pct + '%;transition:width .4s"></div>'
+                 + '</div></div>';
+          }).join('')
+        : '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:24px;text-align:center;margin-bottom:12px"><div style="font-size:32px;margin-bottom:8px">📦</div><div style="font-size:13px;color:var(--text2)">Aucun stock actif pour cette bande</div></div>';
+    z.innerHTML = '<div style="font-weight:800;font-size:16px;margin-bottom:16px">📦 Stocks</div>'
+        + '<button class="btn-action btn-green" onclick="Nav.push(\'renderCreerLot\',\'' + bid + '\')">➕ Nouveau lot</button>'
+        + lotsHTML;
+}
+
+function _calcCoutLot() {
+    return (App._composants || []).reduce(function(sum, c) {
+        return sum + (parseFloat(c.quantite)||0) * (parseFloat(c.prixUnitaire)||0);
+    }, 0);
+}
+
+function renderCreerLot(bandeId) {
+    const z = zone(); if (!z) return;
+    App._composants = [{ nom:'', unite:'kg', quantite:'', prixUnitaire:'' }];
+    App._lotBandeId = bandeId;
+    z.innerHTML = _buildCreerLotHTML(bandeId, 0);
+}
+
+function _buildCreerLotHTML(bandeId, coutTotal) {
+    const bid = esc(bandeId);
+    const composantsHTML = (App._composants || []).map(function(c, i) {
+        const montant = (parseFloat(c.quantite)||0) * (parseFloat(c.prixUnitaire)||0);
+        return '<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:6px;align-items:start;margin-bottom:8px;padding:10px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
+             + '<input class="f-input" style="margin:0;font-size:12px" type="text" placeholder="Composant (ex: Ma\u00EFs)" value="' + esc(c.nom) + '" oninput="_majComposant(' + i + ',\'nom\',this.value,\'' + bid + '\')">'
+             + '<input class="f-input" style="margin:0;font-size:12px;text-align:center" type="text" placeholder="kg" value="' + esc(c.unite) + '" oninput="_majComposant(' + i + ',\'unite\',this.value,\'' + bid + '\')">'
+             + '<input class="f-input" style="margin:0;font-size:12px;text-align:right" type="number" placeholder="Qt\u00E9" value="' + esc(String(c.quantite)) + '" inputmode="numeric" oninput="_majComposant(' + i + ',\'quantite\',this.value,\'' + bid + '\')">'
+             + '<input class="f-input" style="margin:0;font-size:12px;text-align:right" type="number" placeholder="Prix/u" value="' + esc(String(c.prixUnitaire)) + '" inputmode="numeric" oninput="_majComposant(' + i + ',\'prixUnitaire\',this.value,\'' + bid + '\')">'
+             + (i === 0 ? '<div style="width:28px;height:28px"></div>' : '<button onclick="_supprimerComposant(' + i + ',\'' + bid + '\')" style="width:28px;height:28px;border:none;background:rgba(255,68,68,.2);color:var(--red);border-radius:6px;cursor:pointer;font-size:16px;line-height:1">\u00D7</button>')
+             + (montant > 0 ? '<div style="grid-column:1/-1;text-align:right;font-size:10px;color:var(--text2)">= ' + fmt(montant) + ' FCFA</div>' : '')
+             + '</div>';
+    }).join('');
+    return '<div class="card">'
+         + '<div class="card-title">📦 Nouveau lot de stock</div>'
+         + '<label class="f-label">Produit</label>'
+         + '<select class="f-input" id="lot-produit"><option value="Aliment">🌾 Aliment</option><option value="Vaccin">💉 Vaccin / M\u00E9dicament</option><option value="Charbon">\u26AB Charbon</option><option value="Liti\u00E8re">🪹 Liti\u00E8re</option><option value="Autre">📦 Autre</option></select>'
+         + '<label class="f-label">Unit\u00E9 de mesure</label>'
+         + '<select class="f-input" id="lot-unite"><option value="kg">kg</option><option value="sac">sac</option><option value="dose">dose</option><option value="litre">litre</option></select>'
+         + '<label class="f-label">Quantit\u00E9 totale produite</label>'
+         + '<input class="f-input" type="number" id="lot-qtt" placeholder="Ex: 1000" inputmode="numeric">'
+         + '<label class="f-label">Date de fabrication</label>'
+         + '<input class="f-input" type="date" id="lot-date" value="' + _dateAujourd_hui() + '">'
+         + '<label class="f-label">Note (optionnel)</label>'
+         + '<input class="f-input" type="text" id="lot-note" placeholder="Ex: Fabrication semaine 23">'
+         + '<div style="margin:16px 0 8px">'
+         + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+         +   '<div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px">🧪 Composants</div>'
+         +   '<div style="font-size:10px;color:var(--text2)">Nom · Unit\u00E9 · Qt\u00E9 · Prix/u</div>'
+         + '</div>'
+         + composantsHTML
+         + '<button onclick="_ajouterComposant(\'' + bid + '\')" style="width:100%;padding:10px;border:1px dashed var(--border);border-radius:10px;background:transparent;color:var(--text2);font-family:Lexend,sans-serif;font-size:12px;cursor:pointer;margin-bottom:12px">➕ Ajouter un composant</button>'
+         + '</div>'
+         + '<div style="background:var(--bg3);border-radius:12px;padding:14px;margin-bottom:16px;border:1px solid var(--border)">'
+         + '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="color:var(--text2)">Co\u00FBt total fabrication</span><span id="lot-cout-total" style="font-weight:800">' + fmt(coutTotal) + ' FCFA</span></div>'
+         + '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text2)">Co\u00FBt unitaire (FCFA/unit\u00E9)</span><span id="lot-cout-unitaire" style="font-weight:800;color:var(--green)">\u2014</span></div>'
+         + '</div>'
+         + '<button class="btn-action btn-green" onclick="_validerCreerLot(\'' + bid + '\')">\u2705 Cr\u00E9er le lot</button>'
+         + '<button class="btn-action btn-ghost" onclick="Nav.back()">Annuler</button>'
+         + '</div>';
+}
+
+function _majComposant(idx, champ, valeur, bandeId) {
+    if (!App._composants) return;
+    App._composants[idx][champ] = valeur;
+    const cout  = _calcCoutLot();
+    const elT   = document.getElementById('lot-cout-total');
+    const elU   = document.getElementById('lot-cout-unitaire');
+    const qttEl = document.getElementById('lot-qtt');
+    const qtt   = parseFloat(qttEl ? qttEl.value : '0') || 0;
+    if (elT) elT.textContent = fmt(cout) + ' FCFA';
+    if (elU) elU.textContent = qtt > 0 ? (cout/qtt).toFixed(1) : '\u2014';
+}
+
+function _ajouterComposant(bandeId) {
+    if (!App._composants) App._composants = [];
+    App._composants.push({ nom:'', unite:'kg', quantite:'', prixUnitaire:'' });
+    const z = zone(); if (z) z.innerHTML = _buildCreerLotHTML(bandeId, _calcCoutLot());
+}
+
+function _supprimerComposant(idx, bandeId) {
+    if (!App._composants || App._composants.length <= 1) { showToast('Il faut au moins un composant','warning'); return; }
+    App._composants.splice(idx, 1);
+    const z = zone(); if (z) z.innerHTML = _buildCreerLotHTML(bandeId, _calcCoutLot());
+}
+
+async function _validerCreerLot(bandeId) {
+    const produit = document.getElementById('lot-produit')?.value || '';
+    const unite   = document.getElementById('lot-unite')?.value   || 'kg';
+    const qtt     = parseFloat(document.getElementById('lot-qtt')?.value || '0');
+    const date    = document.getElementById('lot-date')?.value    || _dateAujourd_hui();
+    const note    = document.getElementById('lot-note')?.value    || '';
+    if (!produit)         { showToast('Choisissez un produit','warning'); return; }
+    if (!qtt || qtt <= 0) { showToast('Quantit\u00E9 totale obligatoire','warning'); return; }
+    const composantsValides = (App._composants || []).filter(function(c) {
+        return c.nom.trim() && parseFloat(c.quantite) > 0 && parseFloat(c.prixUnitaire) >= 0;
+    });
+    if (!composantsValides.length) { showToast('Composants incomplets \u2014 nom, quantit\u00E9 et prix requis','warning'); return; }
+    const coutTotal = composantsValides.reduce(function(sum, c) {
+        return sum + (parseFloat(c.quantite)||0) * (parseFloat(c.prixUnitaire)||0);
+    }, 0);
+    if (!guardDouble('creer_lot_' + bandeId)) return;
+    const ref = 'LOT-' + new Date().getFullYear() + '-' + Date.now().toString().slice(-4);
+    const { data: lotData, error: lotErr } = await sb.from('lots_stock').insert({
+        ferme_id: FERME_ID, bande_id: bandeId, reference: ref, produit, unite,
+        quantite_initiale: qtt, quantite_restante: qtt, cout_total: coutTotal,
+        date_fabrication: date, note, cree_par: App.userId, statut: 'EN STOCK'
+    }).select().single();
+    if (lotErr || !lotData) { showToast('Erreur cr\u00E9ation lot','error'); console.error(lotErr); return; }
+    for (var i = 0; i < composantsValides.length; i++) {
+        var c = composantsValides[i];
+        await sb.from('composants_lot').insert({
+            ferme_id: FERME_ID, lot_id: lotData.id, nom: c.nom.trim(),
+            unite: c.unite || unite, quantite: parseFloat(c.quantite),
+            prix_unitaire: parseFloat(c.prixUnitaire)
+        });
+    }
+    App._composants = null;
+    App._lotBandeId = null;
+    showToast('\u2705 Lot cr\u00E9\u00E9 \u2014 ' + fmt(coutTotal) + ' FCFA \u00B7 ' + (qtt > 0 ? (coutTotal/qtt).toFixed(1) : '0') + ' FCFA/' + unite, 'success', 5000);
+    Nav.replace('renderStockBande', bandeId);
+}
+
 function stockColor(p) { return (p.stockSacs||0)<=5?'var(--red)':'var(--text)'; }
 
 /* ── Tâches quotidiennes ─────────────── */
@@ -2442,6 +2605,7 @@ async function _renderTabGestion(bande, container) {
         { icon:'📋', label:'Tâches',    sub:'Planifier · Suivre',          color:'#0d2a1a', fn:`Nav.push('renderTachesBande','${bande.id}')` },
         { icon:'📈', label:'Analyses',  sub:'Croissance · IC · Coûts',     color:'#0d1e2a', fn:`Nav.push('renderAnalyseBande','${bande.id}')` },
         { icon:'🔪', label:'Abattage',  sub:'Planifier un abattage',       color:'#2a0d0d', fn:`Nav.push('renderPlanAbattage','${bande.id}')` },
+        { icon:'📦', label:'Stock',     sub:'Lots · Composants · Coûts',   color:'#1a2a0d', fn:`Nav.push('renderStockBande','${bande.id}')` },
     ];
 
     container.innerHTML = `
