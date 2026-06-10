@@ -728,9 +728,53 @@ function updateOffline() {
     }
 }
 
+/* ── Confirmation quitter AviGest ─────────── */
+function _confirmerQuitter() {
+    const dialogId = 'dialog-quitter';
+    const existing = document.getElementById(dialogId);
+    if (existing) { existing.remove(); return; }
+    const dialog = document.createElement('div');
+    dialog.id = dialogId;
+    dialog.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);'
+        + 'z-index:9999;display:flex;align-items:center;justify-content:center;'
+        + 'padding:24px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)';
+    const role = App.role === 'GERANT' ? 'Gérant'
+               : App.role === 'AGENT'  ? 'Agent'
+               : 'Partenaire';
+    dialog.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);'
+        + 'border-radius:20px;padding:24px;max-width:320px;width:100%;text-align:center">'
+        + '<div style="font-size:36px;margin-bottom:12px">🚪</div>'
+        + '<div style="font-weight:800;font-size:16px;margin-bottom:8px">Quitter AviGest ?</div>'
+        + '<div style="font-size:13px;color:var(--text2);margin-bottom:24px;line-height:1.5">'
+        + 'Connecté en tant que <strong style="color:var(--text)">'
+        + role + ' \u2014 ' + esc(App.nom) + '</strong>.<br>Voulez-vous vraiment quitter ?'
+        + '</div>'
+        + '<div style="display:flex;flex-direction:column;gap:10px">'
+        + '<button onclick="doLogout()" '
+        + 'style="width:100%;padding:14px;border:none;border-radius:12px;'
+        + 'background:var(--red);color:#fff;font-family:Lexend,sans-serif;'
+        + 'font-size:13px;font-weight:800;cursor:pointer">\uD83D\uDEAA Oui, quitter</button>'
+        + '<button onclick="document.getElementById(&quot;dialog-quitter&quot;).remove()" '
+        + 'style="width:100%;padding:14px;border:1px solid var(--border);border-radius:12px;'
+        + 'background:transparent;color:var(--text2);font-family:Lexend,sans-serif;'
+        + 'font-size:13px;font-weight:700;cursor:pointer">\u2190 Rester sur AviGest</button>'
+        + '</div></div>';
+    document.body.appendChild(dialog);
+}
+
+/* ── Gestionnaire touche retour Android/iOS ── */
+function _handlePopstate() {
+    if (Nav.stack.length <= 1) {
+        history.pushState(null, '');
+        _confirmerQuitter();
+    } else {
+        Nav.back();
+    }
+}
+
 window.addEventListener('online',  () => { App.isOnline = true;  updateOffline(); processQueue(); showToast('🌐 Connexion rétablie','success',3000); });
 window.addEventListener('offline', () => { App.isOnline = false; updateOffline(); showToast('📴 Hors ligne','warning',4000); });
-window.addEventListener('popstate', () => { Nav.back(); });
+window.addEventListener('popstate', _handlePopstate);
 
 /* ════════════════════════════════════════════
    ÉTAGE 6 — REALTIME (nouveauté vs Apps Script)
@@ -1289,11 +1333,7 @@ const Nav = {
     },
     back() {
         if (Nav.stack.length <= 1) {
-            Nav.stack = [];
-            renderHome();
-            Nav._upBtn();
-            _navbarSetVisible(true);
-            _setNavActive('accueil');
+            _confirmerQuitter();
             return;
         }
         Nav.stack.pop();
