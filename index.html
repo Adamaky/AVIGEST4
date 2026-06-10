@@ -1061,11 +1061,11 @@ function initRealtime() {
             .on('postgres_changes', {
                 event:  'UPDATE',
                 schema: 'public',
-                table:  'taches'
+                table:  'taches',
+                filter: 'ferme_id=eq.' + FERME_ID
             }, payload => {
                 const t = payload.new;
-                if (t.ferme_id && t.ferme_id !== FERME_ID) return;
-                /* Ignorer si c'est l'agent qui a fait le changement */
+                /* Ignorer si statut non pertinent pour l'agent */
                 if (t.statut !== 'VALIDEE' && t.statut !== 'REJETEE') return;
 
                 const rtKey = 'av_rt_val_' + t.id;
@@ -2024,7 +2024,7 @@ async function renderGererBandes() {
 
     const bandesHTML = bandesEnCours.length
         ? bandesEnCours.map(bat => {
-            const bande = (bat.bandes||[]).find(bd => bd.statut === 'EN COURS');
+            const bande = (bat.bandes||[]).find(bd => (bd.statut === 'EN COURS' || bd.statut === 'PREPARATION') && !bd.is_deleted);
             return `
             <div class="tuile" style="background:linear-gradient(135deg,#0d2a18,#0a3520);border-color:rgba(0,200,150,.2)"
                  onclick="Nav.push('renderCycleVie','${bande?.id}')">
