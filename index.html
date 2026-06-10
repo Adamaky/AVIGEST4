@@ -2560,7 +2560,8 @@ function _toggleCheck(bandeId, itemId) {
 function _saveInv(bandeId, itemId, value) {
     const key = 'av_prep_' + bandeId;
     let st = {}; try { st = JSON.parse(localStorage.getItem(key)||'{}'); } catch(_) {}
-    st[itemId] = isNaN(parseFloat(value)) ? value : parseFloat(value)||0;
+    const strFields = ['dateArrivee','fournisseur'];
+    st[itemId] = strFields.includes(itemId) ? value : (isNaN(parseFloat(value)) ? value : parseFloat(value)||0);
     localStorage.setItem(key, JSON.stringify(st));
 }
 
