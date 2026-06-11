@@ -1741,13 +1741,6 @@ async function renderStockBande(bandeId) {
     z.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
     const lots = await getStockBande(bandeId);
     const bid  = esc(bandeId);
-    const { data: mouvements } = await sb
-        .from('mouvements_stock')
-        .select('date_mouvement, session, quantite, note, lots_stock(produit, unite, quantite_restante, seuil_alerte)')
-        .eq('ferme_id', FERME_ID)
-        .eq('bande_id', bandeId)
-        .order('created_at', { ascending: false })
-        .limit(30);
     const lotsHTML = lots.length
         ? lots.map(function(l) {
             const pct      = l.quantite_initiale > 0 ? Math.round((l.quantite_restante / l.quantite_initiale) * 100) : 0;
@@ -1770,32 +1763,9 @@ async function renderStockBande(bandeId) {
                  + '</div></div>';
           }).join('')
         : '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:24px;text-align:center;margin-bottom:12px"><div style="font-size:32px;margin-bottom:8px">📦</div><div style="font-size:13px;color:var(--text2)">Aucun stock actif pour cette bande</div></div>';
-    const alertesHTML = lots.filter(function(l) {
-        return l.seuil_alerte > 0 && l.quantite_restante <= l.seuil_alerte;
-    }).map(function(l) {
-        return '<div style="background:rgba(255,68,68,.12);border:1px solid var(--red);border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px">'
-             + '<span style="font-size:20px">🔴</span>'
-             + '<div><div style="font-weight:800;font-size:13px;color:var(--red)">Alerte rupture \u2014 ' + esc(l.produit) + '</div>'
-             + '<div style="font-size:11px;color:var(--text2)">Stock restant\u00a0: <strong>' + fmt(l.quantite_restante) + ' ' + esc(l.unite) + '</strong> \u2014 seuil\u00a0: ' + fmt(l.seuil_alerte) + ' ' + esc(l.unite) + '</div></div>'
-             + '</div>';
-    }).join('');
-    const mouvHTML = (mouvements && mouvements.length)
-        ? '<div style="font-weight:700;font-size:13px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin:20px 0 10px">📋 Historique des distributions</div>'
-          + mouvements.map(function(m) {
-              const prod = m.lots_stock ? esc(m.lots_stock.produit) : '\u2014';
-              const unite = m.lots_stock ? esc(m.lots_stock.unite) : '';
-              return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg2);border-radius:10px;margin-bottom:6px;border:1px solid var(--border)">'
-                   + '<div><div style="font-size:12px;font-weight:700">' + prod + ' \u2014 ' + esc(m.session||'') + '</div>'
-                   + '<div style="font-size:10px;color:var(--text2);margin-top:2px">' + esc(m.date_mouvement||'') + (m.note ? ' \u00b7 ' + esc(m.note) : '') + '</div></div>'
-                   + '<div style="font-size:13px;font-weight:800;color:var(--red)">-' + fmt(m.quantite) + ' ' + unite + '</div>'
-                   + '</div>';
-          }).join('')
-        : '<div style="font-size:12px;color:var(--text2);text-align:center;padding:16px">Aucune distribution enregistr\u00e9e</div>';
     z.innerHTML = '<div style="font-weight:800;font-size:16px;margin-bottom:16px">📦 Stocks</div>'
-        + alertesHTML
         + '<button class="btn-action btn-green" onclick="Nav.push(\'renderCreerLot\',\'' + bid + '\')">➕ Nouveau lot</button>'
-        + lotsHTML
-        + mouvHTML;
+        + lotsHTML;
 }
 
 function _calcCoutLot() {
@@ -1836,8 +1806,6 @@ function _buildCreerLotHTML(bandeId, coutTotal) {
          + '<input class="f-input" type="date" id="lot-date" value="' + _dateAujourd_hui() + '">'
          + '<label class="f-label">Note (optionnel)</label>'
          + '<input class="f-input" type="text" id="lot-note" placeholder="Ex: Fabrication semaine 23">'
-         + '<label class="f-label">Seuil d\u2019alerte (kg) <span style="font-size:10px;color:var(--text2)">\u2014 alerte si stock sous ce niveau</span></label>'
-         + '<input class="f-input" type="number" id="lot-seuil" placeholder="Ex: 50" inputmode="numeric" min="0">'
          + '<div style="margin:16px 0 8px">'
          + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
          +   '<div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px">🧪 Composants</div>'
@@ -1885,7 +1853,6 @@ async function _validerCreerLot(bandeId) {
     const qtt     = parseFloat(document.getElementById('lot-qtt')?.value || '0');
     const date    = document.getElementById('lot-date')?.value    || _dateAujourd_hui();
     const note    = document.getElementById('lot-note')?.value    || '';
-    const seuil   = parseFloat(document.getElementById('lot-seuil')?.value || '0') || 0;
     if (!produit)         { showToast('Choisissez un produit','warning'); return; }
     if (!qtt || qtt <= 0) { showToast('Quantit\u00E9 totale obligatoire','warning'); return; }
     const composantsValides = (App._composants || []).filter(function(c) {
@@ -1900,7 +1867,7 @@ async function _validerCreerLot(bandeId) {
     const { data: lotData, error: lotErr } = await sb.from('lots_stock').insert({
         ferme_id: FERME_ID, bande_id: bandeId, reference: ref, produit, unite,
         quantite_initiale: qtt, quantite_restante: qtt, cout_total: coutTotal,
-        date_fabrication: date, note, seuil_alerte: seuil, cree_par: App.userId, statut: 'EN STOCK'
+        date_fabrication: date, note, cree_par: App.userId, statut: 'EN STOCK'
     }).select().single();
     if (lotErr || !lotData) { showToast('Erreur cr\u00E9ation lot','error'); console.error(lotErr); return; }
     for (var i = 0; i < composantsValides.length; i++) {
@@ -2503,9 +2470,9 @@ function _renderTabPreparation(bande, container) {
         <button class="btn-action btn-green"
                 ${pct < 100 ? 'style="opacity:.5"' : ''}
                 onclick="${pct < 100
-                    ? "showToast('Complétez la checklist avant de démarrer','warning')"
-                    : "_demarrerBande('"+bande.id+"')"}">
-            ${pct === 100 ? '🚀 Démarrer la bande' : `🚀 Démarrer la bande (${pct}% complété)`}
+                    ? "showToast('Complétez la checklist avant de terminer la préparation','warning')"
+                    : (bande.prep_terminee ? "_demarrerGestion(\'"+bande.id+"\')": "_terminerPreparation(\'"+bande.id+"\')")}">
+            ${bande.prep_terminee ? '🚀 Démarrer la gestion de la bande' : pct === 100 ? '✅ Terminer la préparation' : '✅ Terminer la préparation ('+pct+'% complété)'}
         </button>`;
 }
 
@@ -2560,8 +2527,7 @@ function _toggleCheck(bandeId, itemId) {
 function _saveInv(bandeId, itemId, value) {
     const key = 'av_prep_' + bandeId;
     let st = {}; try { st = JSON.parse(localStorage.getItem(key)||'{}'); } catch(_) {}
-    const strFields = ['dateArrivee','fournisseur'];
-    st[itemId] = strFields.includes(itemId) ? value : (isNaN(parseFloat(value)) ? value : parseFloat(value)||0);
+    st[itemId] = isNaN(parseFloat(value)) ? value : parseFloat(value)||0;
     localStorage.setItem(key, JSON.stringify(st));
 }
 
@@ -2624,6 +2590,42 @@ async function _validerDepensePrep(bandeId, itemId, itemLabel) {
         .then(({data:bande}) => {
             if (bande) _renderTabPreparation(bande, document.getElementById('cycle-content'));
         });
+}
+
+async function _terminerPreparation(bandeId) {
+    if (!guardDouble('terminer_prep')) return;
+    const key = 'av_prep_' + bandeId;
+    let st = {}; try { st = JSON.parse(localStorage.getItem(key)||'{}'); } catch(_) {}
+    const effectif = parseInt(st.effectif);
+    const dateArrivee = st.dateArrivee;
+    if (!effectif || effectif <= 0) { showToast('Saisissez l\'effectif attendu','warning'); return; }
+    if (!dateArrivee) { showToast('Saisissez la date d\'arrivée','warning'); return; }
+    const { error } = await sb.from('bandes').update({
+        effectif_initial: effectif,
+        date_arrivee:     dateArrivee,
+        prep_terminee:    true
+    }).eq('id', bandeId);
+    if (error) { showToast('Erreur','error'); console.error(error); return; }
+    showToast('✅ Préparation terminée — cliquez sur Démarrer la gestion','success', 4000);
+    Nav.replace('renderCycleVie', bandeId);
+}
+
+async function _demarrerGestion(bandeId) {
+    if (!guardDouble('demarrer_gestion')) return;
+    const { error: errBande } = await sb.from('bandes').update({ statut: 'EN COURS' }).eq('id', bandeId);
+    if (errBande) { showToast('Erreur démarrage gestion','error'); console.error(errBande); return; }
+    const { data: bandePourBat } = await sb.from('bandes').select('batiment_id').eq('id', bandeId).single();
+    if (bandePourBat?.batiment_id) {
+        await sb.from('batiments').update({ statut: 'EN COURS' }).eq('id', bandePourBat.batiment_id);
+    }
+    await sb.from('taches').insert({
+        ferme_id: FERME_ID, bande_id: bandeId,
+        titre: '🐔 Phase Gestion démarrée — sessions quotidiennes actives',
+        type_tache: 'PHASE', statut: 'A FAIRE',
+        date_prevue: _dateAujourd_hui(), cree_par: App.userId
+    });
+    showToast('🚀 Phase Gestion activée — agent notifié','success', 4000);
+    Nav.replace('renderCycleVie', bandeId);
 }
 
 async function _demarrerBande(bandeId) {
@@ -2733,10 +2735,24 @@ async function _renderTabAbattage(bande, container) {
             <div class="kpi-box"><span class="kpi-val" style="color:var(--green)">${nbComptabilis}</span><span class="kpi-label">Comptab.</span></div>
         </div>
         ${lignesHTML}
-        <button class="btn-action btn-red" style="margin-top:8px"
-                onclick="Nav.push('renderPlanAbattage','${bande.id}')">
-            🔪 Planifier un nouvel abattage
-        </button>`;
+        ${bande.abattage_demarre
+            ? '<button class="btn-action btn-red" style="margin-top:8px" onclick="Nav.push(&quot;renderPlanAbattage&quot;,&quot;'+bande.id+'&quot;)">🔪 Planifier un abattage supplémentaire</button>'
+            : '<button class="btn-action btn-orange" style="margin-top:8px" onclick="_demarrerAbattage(&quot;'+bande.id+'&quot;)">🔪 Démarrer la phase abattage</button>'
+        }`;
+}
+
+async function _demarrerAbattage(bandeId) {
+    if (!guardDouble('demarrer_abattage')) return;
+    const { error } = await sb.from('bandes').update({ abattage_demarre: true }).eq('id', bandeId);
+    if (error) { showToast('Erreur','error'); console.error(error); return; }
+    await sb.from('taches').insert({
+        ferme_id: FERME_ID, bande_id: bandeId,
+        titre: '🔪 Phase Abattage démarrée — nouvelles instructions à venir',
+        type_tache: 'PHASE', statut: 'A FAIRE',
+        date_prevue: _dateAujourd_hui(), cree_par: App.userId
+    });
+    showToast('🔪 Phase Abattage activée — agent notifié','success', 4000);
+    Nav.replace('renderCycleVie', bandeId);
 }
 
 /* ── ALIAS pour compatibilité ─────────── */
@@ -2928,28 +2944,7 @@ async function renderTachesBande(bandeId) {
             + '</div>';
     };
 
-    const aFaireHTML   = tachesAFaire.map(_renderTacheLigne).join('');
-    const aValiderHTML = tachesAValider.map(t => {
-        const tid = esc(t.id), ttit = esc(t.titre);
-        return '<div class="tache-card" style="border-left:3px solid var(--green);margin-bottom:8px;padding:12px">'
-             + '<div style="display:flex;justify-content:space-between;align-items:center">'
-             + '<div><div class="tache-titre">' + ttit + '</div>'
-             + '<div class="tache-meta">' + esc(t.date_prevue||'') + '</div></div>'
-             + '<div style="display:flex;gap:6px">'
-             + '<button onclick="event.stopPropagation();_validerTacheBande(\'' + tid + '\')" style="background:rgba(0,200,150,.15);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:6px 10px;font-size:11px;font-weight:800;cursor:pointer">✅</button>'
-             + '<button onclick="event.stopPropagation();_rejeterTacheBande(\'' + tid + '\',\'' + ttit + '\')" style="background:rgba(255,68,68,.15);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:6px 10px;font-size:11px;font-weight:800;cursor:pointer">❌</button>'
-             + '</div></div></div>';
-    }).join('');
-    const termineesHTML = tachesTerminees.map(t => {
-        const statColor = t.statut === 'VALIDEE' ? 'var(--green)' : 'var(--red)';
-        const statIcon  = t.statut === 'VALIDEE' ? '✅' : '❌';
-        return '<div class="tache-card accomplie" style="margin-bottom:6px;padding:10px 12px">'
-             + '<div style="display:flex;justify-content:space-between;align-items:center">'
-             + '<div><div class="tache-titre" style="color:var(--text2)">' + esc(t.titre) + '</div>'
-             + '<div class="tache-meta">' + esc(t.date_prevue||'') + '</div></div>'
-             + '<span style="font-size:11px;font-weight:800;color:' + statColor + '">' + statIcon + ' ' + esc(t.statut) + '</span>'
-             + '</div></div>';
-    }).join('');
+    const aFaireHTML  = tachesAFaire.map(_renderTacheLigneAccueil).join('');
 
     /* Construire les sections hors template literal pour éviter les backticks imbriqués */
     const sectionAValider = tachesAValider.length
@@ -3134,7 +3129,39 @@ async function renderAgent() {
 
     const bande = bandesEnCours[0];
     App.activeBande = bande.id;
+    App.dateArrivee = bande.date_arrivee || '';
     localStorage.setItem('av_bande', bande.id);
+    localStorage.setItem('av_date_arrivee', bande.date_arrivee || '');
+
+    /* Si la bande est en PREPARATION — afficher écran préparation agent */
+    if (bande.statut === 'PREPARATION') {
+        const tachesPrep = await getTachesAgent(bande.id);
+        const tachesPrepEnCours = tachesPrep.filter(t => t.type_tache === 'BANDE' && t.statut === 'A FAIRE' && !localStorage.getItem('av_done_'+t.id));
+        const tachesPrepFaites  = tachesPrep.filter(t => t.type_tache === 'BANDE' && (t.statut === 'TERMINEE' || localStorage.getItem('av_done_'+t.id)));
+        const tachesPrepHTML = tachesPrep.filter(t => t.type_tache === 'BANDE').length
+            ? tachesPrep.filter(t => t.type_tache === 'BANDE').map(t => {
+                const tid = esc(t.id), ttit = esc(t.titre);
+                const done = t.statut === 'TERMINEE' || !!localStorage.getItem('av_done_'+t.id);
+                return '<div class="tache-card ' + (done?'accomplie':'') + '" id="tcard-'+tid+'">'
+                     + '<div style="font-size:18px;flex-shrink:0">🔧</div>'
+                     + '<div style="flex:1"><div class="tache-titre">' + ttit + '</div>'
+                     + '<div class="tache-meta">Préparation bâtiment</div></div>'
+                     + (done
+                        ? '<span style="font-size:11px;color:var(--green);font-weight:800">✅ FAIT</span>'
+                        : '<button class="btn-fait" id="btn-fait-'+tid+'" onclick="_tachePremierAppui(\''+tid+'\',\''+ttit+'\')">À FAIRE</button>')
+                     + '</div>';
+              }).join('')
+            : '<div style="color:var(--text2);font-size:13px;padding:12px;text-align:center">En attente des tâches du gérant…</div>';
+        z.innerHTML = '<div style="background:rgba(255,157,0,.1);border:1px solid rgba(255,157,0,.3);border-radius:14px;padding:16px;margin-bottom:14px">'
+            + '<div style="font-size:24px;margin-bottom:8px">🔧</div>'
+            + '<div style="font-weight:800;font-size:15px;margin-bottom:6px">Bande en préparation</div>'
+            + '<div style="font-size:12px;color:var(--text2);line-height:1.5">Le gérant prépare la bande <strong style="color:var(--text)">' + esc(bande.id_bande) + '</strong>.<br>Exécutez les tâches ci-dessous et attendez le démarrage de la gestion.</div>'
+            + '</div>'
+            + '<div class="section-title">🔧 Tâches de préparation</div>'
+            + tachesPrepHTML
+            + '<button class="btn-action btn-ghost" style="margin-top:16px" onclick="renderAgent()">🔄 Actualiser</button>';
+        return;
+    }
 
     /* Realtime déjà initialisé dans startApp — pas besoin de réinitialiser */
 
@@ -3315,14 +3342,15 @@ const SESSION_ETAPES = {
         {id:'sante',      label:'Santé générale du lot',        type:'sante_color'},
     ],
     Midi:[
-        {id:'ambiance_midi', label:'Ambiance midi',        type:'ambiance'},
-        {id:'abreuvoirs',    label:'État des abreuvoirs',  type:'bool', options:['✅ BON','⚠️ À CORRIGER']},
-        {id:'aliment_midi',  label:'Statut aliment midi',  type:'bool', options:['✅ SERVI','❌ RETIRÉ']},
+        {id:'ambiance_midi', label:'Ambiance midi',              type:'ambiance'},
+        {id:'eau_midi',      label:'Eau distribuée midi (L)',     type:'number', unite:'L',  min:0, max:99999},
+        {id:'aliment_midi',  label:'Aliment distribué midi (kg)',type:'number', unite:'kg', min:0, max:500},
     ],
     PM:[
-        {id:'ambiance_pm', label:'Ambiance PM',      type:'ambiance'},
-        {id:'aliment_pm',  label:'Aliment 16H',      type:'bool', options:['✅ SERVI','❌ RETIRÉ']},
-        {id:'pesee',       label:'Pesée (si jour J)', type:'pesee'},
+        {id:'ambiance_pm', label:'Ambiance PM',               type:'ambiance'},
+        {id:'eau_pm',      label:'Eau distribuée PM (L)',      type:'number', unite:'L',  min:0, max:99999},
+        {id:'aliment_pm',  label:'Aliment distribué PM (kg)', type:'number', unite:'kg', min:0, max:500},
+        {id:'pesee',       label:'Pesée (si jour J+7)',        type:'pesee_conditionnel'},
     ],
     Nuit:[
         {id:'ambiance_n',  label:'Ambiance nuit',         type:'ambiance'},
@@ -3374,7 +3402,19 @@ function _renderEtape() {
         </div>`;
     } else if (e.type === 'number') {
         contenu = `<div style="margin-top:8px">${_pavHTML('val_'+e.id,e.id+'_val',e.unite||'')}<button class="btn-action btn-blue" style="margin-top:12px" onclick="_repNumber('${e.id}','${e.unite||''}',${e.min||0},${e.max||9999})">Suivant →</button></div>`;
-    } else if (e.type === 'pesee') {
+    } else if (e.type === 'pesee' || e.type === 'pesee_conditionnel') {
+        /* Vérifier si c'est un jour de pesée (J0, J7, J14...) */
+        const dateArr = App.dateArrivee || localStorage.getItem('av_date_arrivee') || '';
+        let isPeseeJour = true;
+        if (dateArr && e.type === 'pesee_conditionnel') {
+            const ageJ = Math.floor((new Date() - new Date(dateArr)) / 86400000);
+            isPeseeJour = ageJ % 7 === 0;
+        }
+        if (!isPeseeJour) {
+            /* Pas un jour de pesée — passer automatiquement */
+            _etapeSuivante(null, 'Pesée non prévue aujourd\'hui');
+            return;
+        }
         contenu = `<div style="margin-top:8px"><div class="f-label">Poids moyen du lot (g)</div>${_pavHTML('pesee_val','pesee_val','g')}<button class="btn-action btn-blue" style="margin-top:12px" onclick="_repPesee()">Suivant →</button><button class="btn-action btn-ghost" onclick="_etapeSuivante(null,'Pesée non effectuée')">○ Pas de pesée aujourd'hui</button></div>`;
     } else if (e.type === 'sante_color') {
         contenu = `<div style="margin-top:8px">
@@ -3472,7 +3512,7 @@ async function _confirmerEtEnvoyer() {
         } else if (e.type === 'sante' || e.type === 'sante_color') {
             envois.push(saisieTechnique(App.activeBande, 'SanteGeneral', val.score, sid, val.label + (val.obs?' | '+val.obs:'')));
         } else if (e.type === 'number') {
-            const catMap = { mortalite_m:'MortaliteMatin', mortalite_n:'MortaliteSoir', eau_m:'EauMatin', eau_n:'EauSoir', aliment_kg:'Alimentation' };
+            const catMap = { mortalite_m:'MortaliteMatin', mortalite_n:'MortaliteSoir', eau_m:'EauMatin', eau_n:'EauSoir', aliment_kg:'Alimentation', eau_midi:'EauMidi', aliment_midi:'AlimentMidi', eau_pm:'EauPM', aliment_pm:'AlimentPM' };
             const cat = catMap[e.id];
             if (cat) envois.push(saisieTechnique(App.activeBande, cat, val, sid));
         } else if (e.type === 'pesee' && val !== null) {
@@ -3482,9 +3522,12 @@ async function _confirmerEtEnvoyer() {
 
     await Promise.all(envois);
 
-    /* Imputation stock automatique si aliment saisi */
-    const qteAliment = rep['aliment_kg'];
-    if (qteAliment !== null && qteAliment !== undefined && parseFloat(qteAliment) > 0) {
+    /* Imputation stock automatique — toutes sessions confondues */
+    const qteAlimentMatin = parseFloat(rep['aliment_kg']||0) || 0;
+    const qteAlimentMidi  = parseFloat(rep['aliment_midi']||0) || 0;
+    const qteAlimentPM    = parseFloat(rep['aliment_pm']||0) || 0;
+    const qteAlimentTotal = qteAlimentMatin + qteAlimentMidi + qteAlimentPM;
+    if (qteAlimentTotal > 0) {
         const { data: lots, error: lotsErr } = await sb
             .from('lots_stock')
             .select('id, quantite_restante, unite, produit')
@@ -3498,18 +3541,17 @@ async function _confirmerEtEnvoyer() {
             z.innerHTML = '<div style="padding:24px;text-align:center">'
                 + '<div style="font-size:36px;margin-bottom:12px">📦</div>'
                 + '<div style="font-weight:800;font-size:15px;margin-bottom:8px">Aucun lot de stock disponible</div>'
-                + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">Contactez le g\u00E9rant pour cr\u00E9er un lot avant d\u2019envoyer la session.</div>'
+                + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">Contactez le gérant pour créer un lot avant d’envoyer la session.</div>'
                 + '<button class="btn-action btn-ghost" onclick="Nav.back()">Retour</button>'
                 + '</div>';
             return;
         }
         const lot = lots[0];
-        const qte = parseFloat(qteAliment);
-        if (qte > parseFloat(lot.quantite_restante)) {
+        if (qteAlimentTotal > parseFloat(lot.quantite_restante)) {
             z.innerHTML = '<div style="padding:24px;text-align:center">'
                 + '<div style="font-size:36px;margin-bottom:12px">⚠️</div>'
                 + '<div style="font-weight:800;font-size:15px;margin-bottom:8px">Stock insuffisant</div>'
-                + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">Stock restant\u00a0: <strong>' + lot.quantite_restante + ' ' + lot.unite + '</strong>. Vous avez saisi\u00a0: <strong>' + qte + ' ' + lot.unite + '</strong>.</div>'
+                + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">Stock restant : <strong>' + lot.quantite_restante + ' ' + lot.unite + '</strong>. Total saisi : <strong>' + qteAlimentTotal + ' ' + lot.unite + '</strong>.</div>'
                 + '<button class="btn-action btn-ghost" onclick="Nav.back()">Corriger la saisie</button>'
                 + '</div>';
             return;
@@ -3519,7 +3561,7 @@ async function _confirmerEtEnvoyer() {
             lot_id: lot.id,
             bande_id: App.activeBande,
             type_mouvement: 'SORTIE',
-            quantite: qte,
+            quantite: qteAlimentTotal,
             date_mouvement: _dateAujourd_hui(),
             session: sid,
             agent_id: App.userId,
