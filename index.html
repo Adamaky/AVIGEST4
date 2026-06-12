@@ -607,6 +607,7 @@ async function getStock(bandeId) {
 async function creerTache(titre, bandeId, typeTache, datePrevue) {
     return await sbInsert('taches', {
         titre,
+        ferme_id:    FERME_ID,
         bande_id:    bandeId,
         type_tache:  typeTache,
         date_prevue: datePrevue || _dateAujourd_hui(),
@@ -1053,7 +1054,8 @@ function initRealtime() {
             .on('postgres_changes', {
                 event:  'INSERT',
                 schema: 'public',
-                table:  'taches'
+                table:  'taches',
+                filter: 'ferme_id=eq.' + FERME_ID
             }, payload => {
                 const t = payload.new;
                 /* Vérifier ferme_id si présent dans le payload */
@@ -1140,7 +1142,8 @@ function initRealtime() {
             .on('postgres_changes', {
                 event:  'UPDATE',
                 schema: 'public',
-                table:  'taches'
+                table:  'taches',
+                filter: 'ferme_id=eq.' + FERME_ID
             }, payload => {
                 const t = payload.new;
                 const ancienStatut = payload.old?.statut;
@@ -1182,7 +1185,8 @@ function initRealtime() {
             .on('postgres_changes', {
                 event:  'INSERT',
                 schema: 'public',
-                table:  'saisies_techniques'
+                table:  'saisies_techniques',
+                filter: 'ferme_id=eq.' + FERME_ID
             }, payload => {
                 const s = payload.new;
                 if (s.ferme_id && s.ferme_id !== FERME_ID) return;
@@ -2436,7 +2440,7 @@ function _renderTabPreparation(bande, container) {
                    oninput="_saveInv('${bande.id}','effectif',this.value)">
             <label class="f-label">Date d'arrivée prévue</label>
             <input class="f-input" type="date" id="prep-date"
-                   value="${st.dateArrivee||new Date().toISOString().split('T')[0]}"
+                   value="${(st.dateArrivee && st.dateArrivee.match(/^\d{4}-\d{2}-\d{2}$/)) ? st.dateArrivee : new Date().toISOString().split('T')[0]}"
                    oninput="_saveInv('${bande.id}','dateArrivee',this.value)">
             <label class="f-label">Fournisseur poussins</label>
             <input class="f-input" type="text" id="prep-fournisseur"
