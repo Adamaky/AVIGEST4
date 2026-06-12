@@ -708,6 +708,7 @@ async function processQueue() {
     const failed = [];
     for (const item of queue) {
         const { table, payload } = item;
+        if (!table || typeof table !== 'string') continue;
         const { error } = await sb.from(table).insert({ ...payload, ferme_id: FERME_ID });
         if (error) { item.retries = (item.retries||0)+1; if (item.retries < 5) failed.push(item); }
     }
