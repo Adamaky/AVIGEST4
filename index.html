@@ -2650,6 +2650,48 @@ async function _terminerPreparation(bandeId) {
     const dateArrivee = document.getElementById('prep-date')?.value || st.dateArrivee;
     if (!effectif || effectif <= 0) { showToast('Saisissez l\'effectif attendu','warning'); return; }
     if (!dateArrivee) { showToast('Saisissez la date d\'arrivée','warning'); return; }
+    // Récupérer les lignes stocks
+    const stocks = st.stocks || [];
+    if (stocks.length > 0) {
+        // Insérer dans lots_stock
+        const lotsData = stocks.map(l => ({
+            ferme_id: FERME_ID,
+            bande_id: bandeId,
+            reference: 'PREP-' + bandeId.slice(0,8),
+            produit: l.article,
+            unite: l.unite,
+            quantite_initiale: l.quantite,
+            quantite_restante: l.quantite,
+            cout_unitaire: l.prixUnitaire,
+            cout_total: l.quantite * l.prixUnitaire,
+            date_fabrication: dateArrivee,
+            statut: 'DISPONIBLE'
+        }));
+        const { error: errLots } = await sbInsert('lots_stock', lotsData[0]);
+        if (errLots) { showToast('Erreur stocks: ' + errLots.message, 'error'); return; }
+        if (lotsData.length > 1) {
+            for (let i = 1; i < lotsData.length; i++) {
+                await sbInsert('lots_stock', lotsData[i]);
+            }
+        }
+        // Insérer dans journal
+        for (const l of stocks) {
+            await sbInsert('journal', {
+                ferme_id: FERME_ID,
+                bande_id: bandeId,
+                date_ecriture: dateArrivee,
+                type_ecriture: 'DEPENSE',
+                categorie: 'PREPARATION',
+                libelle: l.article,
+                unite: l.unite,
+                quantite: l.quantite,
+                prix_unitaire: l.prixUnitaire,
+                montant: l.quantite * l.prixUnitaire,
+                role: 'GERANT',
+                saisi_par: App.userId
+            });
+        }
+    }
     const { error } = await sb.from('bandes').update({
         effectif_initial: effectif,
         date_arrivee:     dateArrivee,
