@@ -2460,7 +2460,7 @@ function _renderTabPreparation(bande, container) {
                    oninput="_saveInv('${bande.id}','effectif',this.value)">
             <label class="f-label">Date d'arrivée prévue</label>
             <input class="f-input" type="date" id="prep-date"
-                   value="${(st.dateArrivee && st.dateArrivee.match(/^\d{4}-\d{2}-\d{2}$/)) ? st.dateArrivee : new Date().toISOString().split('T')[0]}"
+                   value="${(st.dateArrivee && String(st.dateArrivee).match(/^\d{4}-\d{2}-\d{2}$/)) ? st.dateArrivee : new Date().toISOString().split('T')[0]}"
                    oninput="_saveInv('${bande.id}','dateArrivee',this.value)">
             <label class="f-label">Fournisseur poussins</label>
             <input class="f-input" type="text" id="prep-fournisseur"
