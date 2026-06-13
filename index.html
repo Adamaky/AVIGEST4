@@ -404,6 +404,22 @@
 ════════════════════════════════════════════ */
 const SUPABASE_URL  = 'https://jzlmnpxcnrcajludtkpt.supabase.co';
 const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp6bG1ucHhjbnJjYWpsdWR0a3B0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MDA5MDYsImV4cCI6MjA5NTk3NjkwNn0.afnf8oc6IRuYpAH-8qCCLc67pALc0_vWzLZi9ei2P28';
+// Identifiant unique et stable par appareil
+function _getDeviceId() {
+  let did = localStorage.getItem('avi_device_id');
+  if (!did) {
+    const raw = navigator.userAgent + screen.width + screen.height + Intl.DateTimeFormat().resolvedOptions().timeZone;
+    let hash = 0;
+    for (let i = 0; i < raw.length; i++) {
+      hash = ((hash << 5) - hash) + raw.charCodeAt(i);
+      hash |= 0;
+    }
+    did = 'AVI_' + Math.abs(hash).toString(36);
+    localStorage.setItem('avi_device_id', did);
+  }
+  return did;
+}
+const DEVICE_ID = _getDeviceId();
 const FERME_ID      = 'e56574a9-54c1-430d-b480-b9bdd1090dd7';
 const SESSION_MS    = 12 * 3600 * 1000;
 const CACHE_TTL_MS  = 8 * 60 * 60 * 1000;
@@ -1427,8 +1443,84 @@ function _hideErr() {
     if (e) e.classList.remove('show');
 }
 
+function _afficherEcranBlocage(connectedAt) {
+  const depuis = connectedAt
+    ? new Date(connectedAt).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})
+    : '--:--';
+  const estGerant = (localStorage.getItem('av_role') === 'GERANT') ||
+                    (window._pinSaisi === '0000');
+  const boutonForcer = estGerant
+    ? '<button onclick="_forcerDeconnexion()" style="margin-top:12px;padding:10px 20px;background:#e74c3c;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;">Forcer la deconnexion</button>'
+    : '';
+  document.getElementById('app').innerHTML =
+    '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;padding:24px;text-align:center;background:#f8f9fa;">' +
+    '<div style="font-size:48px;margin-bottom:16px;">🔒</div>' +
+    '<h2 style="color:#2c3e50;margin-bottom:12px;">Session active sur un autre appareil</h2>' +
+    '<p style="color:#7f8c8d;font-size:15px;max-width:300px;line-height:1.5;">Deconnectez-vous d\'abord sur l\'autre appareil pour acceder a AviGest.</p>' +
+    '<p style="color:#95a5a6;font-size:13px;margin-top:8px;">Session ouverte a ' + depuis + '</p>' +
+    boutonForcer +
+    '</div>';
+}
+
+async function _forcerDeconnexion() {
+  if (!confirm('Forcer la deconnexion de l\'autre appareil ?')) return;
+  try {
+    await supabase
+      .from('sessions_actives')
+      .delete()
+      .eq('user_pin', window._pinSaisi)
+      .eq('ferme_id', FERME_ID);
+    location.reload();
+  } catch(e) {
+    alert('Erreur : ' + e.message);
+  }
+}
+
 async function doLogin() {
+    // === VERROU CROSS-DEVICE ===
+    try {
+        // 1. Purger les sessions expirées (> 2h)
+        await supabase.rpc('fn_purger_sessions_expirees');
+
+        // 2. Vérifier si une session active existe pour ce PIN
+        const { data: sessionExistante } = await supabase
+            .from('sessions_actives')
+            .select('device_id, connected_at')
+            .eq('user_pin', _pin)
+            .eq('ferme_id', FERME_ID)
+            .maybeSingle();
+
+        if (sessionExistante && sessionExistante.device_id !== DEVICE_ID) {
+            // Autre appareil actif — bloquer
+            _afficherEcranBlocage(sessionExistante.connected_at);
+            return;
+        }
+
+        if (sessionExistante && sessionExistante.device_id === DEVICE_ID) {
+            // Même appareil — mettre à jour last_seen_at
+            await supabase
+                .from('sessions_actives')
+                .update({ last_seen_at: new Date().toISOString() })
+                .eq('user_pin', _pin)
+                .eq('ferme_id', FERME_ID);
+        } else {
+            // Nouvelle session — créer le verrou
+            await supabase
+                .from('sessions_actives')
+                .insert({
+                    user_pin: _pin,
+                    ferme_id: FERME_ID,
+                    device_id: DEVICE_ID
+                });
+        }
+    } catch(e) {
+        console.warn('Verrou cross-device:', e.message);
+        // En cas d'erreur réseau, on laisse passer (fail open)
+    }
+    // === FIN VERROU ===
+
     if (_loginBusy) return;
+    window._pinSaisi = _pin;
     if (_pin.length !== 4) { _showErr('Saisissez 4 chiffres'); return; }
     _loginBusy = true;
     document.getElementById('pin-loading').classList.add('show');
@@ -1481,6 +1573,18 @@ async function doLogout() {
     ['av_user_id','av_role','av_nom','av_idpart','av_lt','av_bande'].forEach(k => localStorage.removeItem(k));
     if (App._realtimeChannel) sb.removeChannel(App._realtimeChannel);
     App.userId = null; App.role = null; App.nom = ''; App.loginTime = 0;
+    // === SUPPRESSION VERROU AU LOGOUT ===
+    try {
+        clearInterval(window._hearbeatInterval);
+        await supabase
+            .from('sessions_actives')
+            .delete()
+            .eq('device_id', DEVICE_ID)
+            .eq('ferme_id', FERME_ID);
+    } catch(e) {
+        console.warn('Logout verrou:', e.message);
+    }
+    // === FIN SUPPRESSION VERROU ===
     location.reload();
 }
 
@@ -4088,6 +4192,20 @@ async function startApp() {
     _majTopbar();
     processQueue();
     renderHome();
+    // === HEARTBEAT SESSION (toutes les 2 min) ===
+    if (window._hearbeatInterval) clearInterval(window._hearbeatInterval);
+    window._hearbeatInterval = setInterval(async function() {
+        try {
+            await supabase
+                .from('sessions_actives')
+                .update({ last_seen_at: new Date().toISOString() })
+                .eq('device_id', DEVICE_ID)
+                .eq('ferme_id', FERME_ID);
+        } catch(e) {
+            console.warn('Heartbeat:', e.message);
+        }
+    }, 120000);
+    // === FIN HEARTBEAT ===
     initNavbar();
     /* Initialiser le badge cloche avec les notifs du jour */
     const notifs = _getNotifsAujourdhui();
