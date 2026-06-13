@@ -3959,11 +3959,123 @@ function _reinitRealtime() {
     setTimeout(() => renderDiagnostic(), 500);
 }
 
+async function _genererRapportHebdo(bande, semaineNum) {
+    try {
+        const dateDebut = new Date(bande.date_arrivee);
+        dateDebut.setDate(dateDebut.getDate() + (semaineNum - 1) * 7);
+        const dateFin = new Date(dateDebut);
+        dateFin.setDate(dateFin.getDate() + 6);
+        const dateDebutStr = dateDebut.toISOString().split('T')[0];
+        const dateFinStr = dateFin.toISOString().split('T')[0];
+        const { data: morts } = await sb.from('saisies_techniques').select('valeur').eq('ferme_id', FERME_ID).eq('bande_id', bande.id).in('categorie', ['MortaliteMatin','MortaliteSoir']).gte('date_saisie', dateDebutStr).lte('date_saisie', dateFinStr);
+        const mortaliteSemaine = (morts||[]).reduce((s,m) => s+(parseFloat(m.valeur)||0), 0);
+        const { data: mortsTotal } = await sb.from('saisies_techniques').select('valeur').eq('ferme_id', FERME_ID).eq('bande_id', bande.id).in('categorie', ['MortaliteMatin','MortaliteSoir']);
+        const totalMorts = (mortsTotal||[]).reduce((s,m) => s+(parseFloat(m.valeur)||0), 0);
+        const effectifVivants = Math.max(1, (bande.effectif_initial||1) - totalMorts);
+        const { data: pesees } = await sb.from('saisies_techniques').select('valeur').eq('ferme_id', FERME_ID).eq('bande_id', bande.id).eq('categorie', 'Pesee').gte('date_saisie', dateDebutStr).lte('date_saisie', dateFinStr).order('date_saisie', { ascending: false }).limit(1);
+        const poidsMoyen = pesees && pesees.length > 0 ? parseFloat(pesees[0].valeur)||0 : null;
+        const { data: aliments } = await sb.from('saisies_techniques').select('valeur').eq('ferme_id', FERME_ID).eq('bande_id', bande.id).eq('categorie', 'Aliment').gte('date_saisie', dateDebutStr).lte('date_saisie', dateFinStr);
+        const consoAliment = (aliments||[]).reduce((s,a) => s+(parseFloat(a.valeur)||0), 0);
+        const { data: stocks } = await sb.from('vue_stock_actuel').select('produit, solde, unite').eq('ferme_id', FERME_ID).eq('bande_id', bande.id);
+        const { data: tachesRetard } = await sb.from('taches').select('titre, date_echeance').eq('ferme_id', FERME_ID).eq('bande_id', bande.id).eq('statut', 'EN RETARD');
+        const { data: depenses } = await sb.from('journal').select('montant').eq('ferme_id', FERME_ID).eq('bande_id', bande.id).eq('type_ecriture', 'DEPENSE');
+        const totalDepenses = (depenses||[]).reduce((s,d) => s+(parseFloat(d.montant)||0), 0);
+        const cru = totalDepenses > 0 ? Math.round(totalDepenses / effectifVivants) : 0;
+        const contenuGerant = { mortalite_semaine: mortaliteSemaine, effectif_vivants: effectifVivants, poids_moyen: poidsMoyen, conso_aliment: consoAliment, stocks: stocks||[], taches_retard: tachesRetard||[], cru: cru };
+        const contenuAgent = { mortalite_semaine: mortaliteSemaine, effectif_vivants: effectifVivants, poids_moyen: poidsMoyen, conso_aliment: consoAliment, stocks: stocks||[], taches_retard: tachesRetard||[] };
+        await sb.from('rapports_hebdo').insert({ ferme_id: FERME_ID, bande_id: bande.id, semaine_num: semaineNum, date_rapport: dateFinStr, contenu_gerant: contenuGerant, contenu_agent: contenuAgent, lu_gerant: false, lu_agent: false });
+        console.log('Rapport S' + semaineNum + ' généré pour ' + bande.id_bande);
+    } catch(e) {
+        console.error('_genererRapportHebdo erreur:', e);
+    }
+}
+async function _afficherRapportModal(rapport, role) {
+    try {
+        const contenu = role === 'GERANT' ? rapport.contenu_gerant : rapport.contenu_agent;
+        if (!contenu) return;
+        const { data: bande } = await sb.from('bandes').select('id_bande').eq('id', rapport.bande_id).single();
+        const nomBande = bande ? bande.id_bande : 'Bande inconnue';
+        const tachesHTML = (contenu.taches_retard||[]).length > 0
+            ? (contenu.taches_retard).map(t => '<div style="color:var(--red);font-size:12px">⚠️ ' + t.titre + '</div>').join('')
+            : '<div style="color:var(--text2);font-size:12px">Aucune tâche en retard</div>';
+        const stocksHTML = (contenu.stocks||[]).length > 0
+            ? (contenu.stocks).map(s => '<div style="font-size:12px">' + s.produit + ' : ' + s.solde + ' ' + s.unite + '</div>').join('')
+            : '<div style="color:var(--text2);font-size:12px">Aucun stock enregistré</div>';
+        const cruHTML = role === 'GERANT'
+            ? '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bg3)"><span>CRU actuel</span><strong>' + (contenu.cru||0).toLocaleString('fr') + ' FCFA</strong></div>'
+            : '';
+        const modal = document.createElement('div');
+        modal.id = 'rapport-modal';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+        modal.innerHTML = '<div style="background:var(--bg2);border-radius:16px;padding:20px;max-width:420px;width:100%;max-height:80vh;overflow-y:auto">' +
+            '<div style="font-weight:800;font-size:16px;margin-bottom:4px">📊 Rapport Semaine ' + rapport.semaine_num + '</div>' +
+            '<div style="color:var(--text2);font-size:12px;margin-bottom:16px">' + nomBande + ' — ' + rapport.date_rapport + '</div>' +
+            '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bg3)"><span>Mortalité semaine</span><strong>' + (contenu.mortalite_semaine||0) + ' sujets</strong></div>' +
+            '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bg3)"><span>Effectif vivant</span><strong>' + (contenu.effectif_vivants||0) + ' sujets</strong></div>' +
+            '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bg3)"><span>Poids moyen</span><strong>' + (contenu.poids_moyen ? contenu.poids_moyen + ' g' : 'Non saisi') + '</strong></div>' +
+            '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bg3)"><span>Conso. aliment</span><strong>' + (contenu.conso_aliment||0) + ' kg</strong></div>' +
+            cruHTML +
+            '<div style="padding:8px 0;border-bottom:1px solid var(--bg3)"><div style="margin-bottom:4px">Tâches en retard</div>' + tachesHTML + '</div>' +
+            '<div style="padding:8px 0;margin-bottom:16px"><div style="margin-bottom:4px">Stock restant</div>' + stocksHTML + '</div>' +
+            '<button onclick="_marquerRapportLu(\'' + rapport.id + '\',\'' + role + '\')" style="width:100%;padding:12px;background:var(--green);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer">✅ J\'ai lu ce rapport</button>' +
+            '</div>';
+        document.body.appendChild(modal);
+    } catch(e) {
+        console.error('_afficherRapportModal erreur:', e);
+    }
+}
+
+async function _marquerRapportLu(rapportId, role) {
+    try {
+        const champ = role === 'GERANT' ? { lu_gerant: true, date_lu_gerant: new Date().toISOString() } : { lu_agent: true, date_lu_agent: new Date().toISOString() };
+        await sb.from('rapports_hebdo').update(champ).eq('id', rapportId);
+        const modal = document.getElementById('rapport-modal');
+        if (modal) modal.remove();
+        const { data: suivant } = await sb.from('rapports_hebdo').select('*').eq('ferme_id', FERME_ID).eq(role === 'GERANT' ? 'lu_gerant' : 'lu_agent', false).order('date_rapport', { ascending: true }).limit(1);
+        if (suivant && suivant.length > 0) {
+            _setNotifBadgeHeader(suivant.length);
+            setTimeout(() => _afficherRapportModal(suivant[0], role), 500);
+        } else {
+            _setNotifBadgeHeader(0);
+        }
+    } catch(e) {
+        console.error('_marquerRapportLu erreur:', e);
+    }
+}
+async function _verifierRapportsNonLus() {
+    try {
+        if (!App.role || App.role === 'PARTENAIRE') return;
+        const { data: bandes } = await sb.from('bandes').select('id, id_bande, date_arrivee, effectif_initial').eq('ferme_id', FERME_ID).eq('statut', 'EN COURS').eq('is_deleted', false);
+        if (!bandes || !bandes.length) return;
+        for (const bande of bandes) {
+            const dateArrivee = new Date(bande.date_arrivee);
+            const aujourdhui = new Date();
+            const ageJours = Math.floor((aujourdhui - dateArrivee) / (1000 * 60 * 60 * 24));
+            const semainesDues = Math.floor(ageJours / 7);
+            if (semainesDues < 1) continue;
+            const { data: existants } = await sb.from('rapports_hebdo').select('semaine_num').eq('ferme_id', FERME_ID).eq('bande_id', bande.id).order('semaine_num', { ascending: false });
+            const semainesExistantes = (existants||[]).map(r => r.semaine_num);
+            const dernierNum = semainesExistantes.length > 0 ? Math.max(...semainesExistantes) : 0;
+            for (let s = dernierNum + 1; s <= semainesDues; s++) {
+                await _genererRapportHebdo(bande, s);
+            }
+        }
+        const champLu = App.role === 'GERANT' ? 'lu_gerant' : 'lu_agent';
+        const { data: nonLus } = await sb.from('rapports_hebdo').select('*').eq('ferme_id', FERME_ID).eq(champLu, false).order('date_rapport', { ascending: true });
+        if (nonLus && nonLus.length > 0) {
+            _setNotifBadgeHeader(nonLus.length);
+            setTimeout(() => _afficherRapportModal(nonLus[0], App.role), 1000);
+        }
+    } catch(e) {
+        console.error('_verifierRapportsNonLus erreur:', e);
+    }
+}
 /* ════════════════════════════════════════════
    ÉTAGE 14 — DÉMARRAGE
 ════════════════════════════════════════════ */
 function renderHome() {
     _majTopbar();
+    _verifierRapportsNonLus();
     if (App.role === 'GERANT')      { const fn='renderGerant';     Nav.stack=[{fn,params:null}]; Nav._upBtn(); renderGerant(); }
     else if (App.role === 'AGENT')  { const fn='renderAgent';      Nav.stack=[{fn,params:null}]; Nav._upBtn(); renderAgent(); }
     else if (App.role === 'PARTENAIRE') { const fn='renderPartenaire'; Nav.stack=[{fn,params:null}]; Nav._upBtn(); renderPartenaire(); }
