@@ -1466,7 +1466,7 @@ function _afficherEcranBlocage(connectedAt) {
 async function _forcerDeconnexion() {
   if (!confirm('Forcer la deconnexion de l\'autre appareil ?')) return;
   try {
-    await supabase
+    await sb
       .from('sessions_actives')
       .delete()
       .eq('user_pin', window._pinSaisi)
@@ -1481,13 +1481,13 @@ async function doLogin() {
     // === VERROU CROSS-DEVICE ===
     try {
         // 1. Purger les sessions expirées (> 2h)
-        await supabase
+        await sb
           .from('sessions_actives')
           .delete()
           .lt('last_seen_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString());
 
         // 2. Vérifier si une session active existe pour ce PIN
-        const { data: sessionExistante } = await supabase
+        const { data: sessionExistante } = await sb
             .from('sessions_actives')
             .select('device_id, connected_at')
             .eq('user_pin', _pin)
@@ -1502,14 +1502,14 @@ async function doLogin() {
 
         if (sessionExistante && sessionExistante.device_id === DEVICE_ID) {
             // Même appareil — mettre à jour last_seen_at
-            await supabase
+            await sb
                 .from('sessions_actives')
                 .update({ last_seen_at: new Date().toISOString() })
                 .eq('user_pin', _pin)
                 .eq('ferme_id', FERME_ID);
         } else {
             // Nouvelle session — créer le verrou
-            await supabase
+            await sb
                 .from('sessions_actives')
                 .insert({
                     user_pin: _pin,
@@ -1580,7 +1580,7 @@ async function doLogout() {
     // === SUPPRESSION VERROU AU LOGOUT ===
     try {
         clearInterval(window._hearbeatInterval);
-        await supabase
+        await sb
             .from('sessions_actives')
             .delete()
             .eq('device_id', DEVICE_ID)
@@ -4200,7 +4200,7 @@ async function startApp() {
     if (window._hearbeatInterval) clearInterval(window._hearbeatInterval);
     window._hearbeatInterval = setInterval(async function() {
         try {
-            await supabase
+            await sb
                 .from('sessions_actives')
                 .update({ last_seen_at: new Date().toISOString() })
                 .eq('device_id', DEVICE_ID)
