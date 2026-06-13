@@ -2089,11 +2089,36 @@ async function renderGererBandes() {
         ${bandesHTML}`;
 }
 
+async function _genererIdBande() {
+    try {
+        const annee = new Date().getFullYear();
+        const prefixe = 'Bande-' + annee + '-';
+        const { data, error } = await sb
+            .from('bandes')
+            .select('id_bande')
+            .eq('ferme_id', FERME_ID)
+            .like('id_bande', prefixe + '%')
+            .order('id_bande', { ascending: false })
+            .limit(1);
+        if (error) throw error;
+        if (data && data.length > 0) {
+            const dernierNum = parseInt(data[0].id_bande.split('-')[2], 10);
+            const suivant = String(dernierNum + 1).padStart(3, '0');
+            return prefixe + suivant;
+        }
+        return prefixe + '001';
+    } catch (e) {
+        console.error('_genererIdBande erreur:', e);
+        return '';
+    }
+}
+
 async function _ouvrirCreerBande() {
     const z = zone(); if (!z) return;
     const batiments = await getBatiments();
     const libres = batiments.filter(b => b.statut === 'LIBRE');
     if (!libres.length) { showToast('Tous les poulaillers sont occupés','warning'); return; }
+    const idSuggere = await _genererIdBande();
     const options = libres.map(b => `<option value="${b.id}">Poulailler ${b.numero}</option>`).join('');
     z.innerHTML = `
         <div class="card">
@@ -2104,7 +2129,8 @@ async function _ouvrirCreerBande() {
             <label class="f-label">Poulailler disponible</label>
             <select class="f-input" id="nb-bat"><option value="">-- Choisir --</option>${options}</select>
             <label class="f-label">ID de la bande</label>
-            <input class="f-input" type="text" id="nb-id" placeholder="Ex: Bande-01">
+            <input class="f-input" type="text" id="nb-id" placeholder="Ex: Bande-2026-001" value="${idSuggere}">
+            ${!idSuggere ? '<div style="font-size:11px;color:var(--orange);margin-top:4px">⚠️ Réseau indisponible — saisir manuellement</div>' : ''}
             <label class="f-label">Race</label>
             <select class="f-input" id="nb-race">
                 <option value="Cobb 500">Cobb 500</option>
@@ -2122,6 +2148,10 @@ async function _validerCreerBande() {
     const race  = document.getElementById('nb-race')?.value;
     if (!batId) { showToast('Choisissez un poulailler','warning'); return; }
     if (!id)    { showToast('ID de bande obligatoire','warning'); return; }
+        const formatOk = /^Bande-\d{4}-\d{3}$/.test(id);
+        if (!formatOk) { showToast('Format invalide — ex: Bande-2026-001','warning'); return; }
+        const { data: doublon } = await sb.from('bandes').select('id').eq('ferme_id', FERME_ID).eq('id_bande', id).limit(1);
+        if (doublon && doublon.length > 0) { showToast('Cet ID existe déjà','warning'); return; }
     if (!guardDouble('creer_bande')) return;
 
     /* Créer la bande en statut PREPARATION — le bâtiment reste LIBRE */
