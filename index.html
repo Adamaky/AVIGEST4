@@ -1452,7 +1452,8 @@ function _afficherEcranBlocage(connectedAt) {
   const boutonForcer = estGerant
     ? '<button onclick="_forcerDeconnexion()" style="margin-top:12px;padding:10px 20px;background:#e74c3c;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;">Forcer la deconnexion</button>'
     : '';
-  document.getElementById('app').innerHTML =
+  const _conteneur = document.getElementById('app-main') || document.getElementById('app-container') || document.body;
+  _conteneur.innerHTML =
     '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;padding:24px;text-align:center;background:#f8f9fa;">' +
     '<div style="font-size:48px;margin-bottom:16px;">🔒</div>' +
     '<h2 style="color:#2c3e50;margin-bottom:12px;">Session active sur un autre appareil</h2>' +
