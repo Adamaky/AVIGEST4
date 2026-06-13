@@ -2664,7 +2664,7 @@ async function _terminerPreparation(bandeId) {
             quantite_restante: l.quantite,
             cout_total: l.quantite * l.prixUnitaire,
             date_fabrication: dateArrivee,
-            statut: 'DISPONIBLE'
+            statut: 'EN STOCK'
         }));
         const { error: errLots } = await sbInsert('lots_stock', lotsData[0]);
         if (errLots) { showToast('Erreur stocks: ' + errLots.message, 'error'); return; }
