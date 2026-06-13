@@ -1481,7 +1481,10 @@ async function doLogin() {
     // === VERROU CROSS-DEVICE ===
     try {
         // 1. Purger les sessions expirées (> 2h)
-        await supabase.rpc('fn_purger_sessions_expirees');
+        await supabase
+          .from('sessions_actives')
+          .delete()
+          .lt('last_seen_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString());
 
         // 2. Vérifier si une session active existe pour ce PIN
         const { data: sessionExistante } = await supabase
