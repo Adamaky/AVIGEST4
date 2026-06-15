@@ -1552,6 +1552,7 @@ async function doLogin() {
             App.role      = data.role;
             App.nom       = data.nom;
             App.idPart    = data.id_partenaire || '';
+            await sb.rpc('set_ferme_id', { p_ferme_id: FERME_ID });
             App.loginTime = Date.now();
 
             localStorage.setItem('av_user_id', data.id);
