@@ -424,7 +424,11 @@ const FERME_ID      = 'e56574a9-54c1-430d-b480-b9bdd1090dd7';
 const SESSION_MS    = 12 * 3600 * 1000;
 const CACHE_TTL_MS  = 8 * 60 * 60 * 1000;
 
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  global: {
+    headers: { 'x-ferme-id': FERME_ID }
+  }
+});
 
 /* ════════════════════════════════════════════
    ÉTAGE 2 — ÉTAT GLOBAL
@@ -1552,7 +1556,7 @@ async function doLogin() {
             App.role      = data.role;
             App.nom       = data.nom;
             App.idPart    = data.id_partenaire || '';
-            await sb.rpc('set_ferme_id', { p_ferme_id: FERME_ID });
+            // RLS header injecté au niveau du client sb (ligne 427)
             App.loginTime = Date.now();
 
             localStorage.setItem('av_user_id', data.id);
