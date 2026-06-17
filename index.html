@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -3762,47 +3762,34 @@ async function _confirmerEtEnvoyer() {
     const qteAlimentPM    = parseFloat(rep['aliment_pm']||0) || 0;
     const qteAlimentTotal = qteAlimentMatin + qteAlimentMidi + qteAlimentPM;
     if (qteAlimentTotal > 0) {
-        const { data: lots, error: lotsErr } = await sb
-            .from('lots_stock')
-            .select('id, quantite_restante, unite, produit')
-            .eq('ferme_id', FERME_ID)
-            .eq('bande_id', App.activeBande)
-            .eq('produit', 'Aliment')
-            .eq('statut', 'EN STOCK')
-            .order('created_at', { ascending: true })
-            .limit(1);
-        if (lotsErr || !lots || lots.length === 0) {
-            z.innerHTML = '<div style="padding:24px;text-align:center">'
-                + '<div style="font-size:36px;margin-bottom:12px">📦</div>'
-                + '<div style="font-weight:800;font-size:15px;margin-bottom:8px">Aucun lot de stock disponible</div>'
-                + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">Contactez le gérant pour créer un lot avant d’envoyer la session.</div>'
-                + '<button class="btn-action btn-ghost" onclick="Nav.back()">Retour</button>'
-                + '</div>';
-            return;
-        }
-        const lot = lots[0];
-        if (qteAlimentTotal > parseFloat(lot.quantite_restante)) {
+        const { data: rpcData, error: rpcErr } = await sb.rpc('imputer_aliment', {
+            p_bande_id : App.activeBande,
+            p_quantite : qteAlimentTotal,
+            p_session  : sid,
+            p_agent_id : App.userId,
+            p_ferme_id : FERME_ID
+        });
+        if (rpcErr) {
             z.innerHTML = '<div style="padding:24px;text-align:center">'
                 + '<div style="font-size:36px;margin-bottom:12px">⚠️</div>'
-                + '<div style="font-weight:800;font-size:15px;margin-bottom:8px">Stock insuffisant</div>'
-                + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">Stock restant : <strong>' + lot.quantite_restante + ' ' + lot.unite + '</strong>. Total saisi : <strong>' + qteAlimentTotal + ' ' + lot.unite + '</strong>.</div>'
+                + '<div style="font-weight:800;font-size:15px;margin-bottom:8px">Erreur stock</div>'
+                + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">'
+                + rpcErr.message + '</div>'
                 + '<button class="btn-action btn-ghost" onclick="Nav.back()">Corriger la saisie</button>'
                 + '</div>';
             return;
         }
-        await sb.from('mouvements_stock').insert({
-            ferme_id: FERME_ID,
-            lot_id: lot.id,
-            bande_id: App.activeBande,
-            type_mouvement: 'SORTIE',
-            quantite: qteAlimentTotal,
-            date_mouvement: _dateAujourd_hui(),
-            session: sid,
-            agent_id: App.userId,
-            note: 'Distribution automatique session ' + sid
-        });
+        if (rpcData && rpcData.ok === false) {
+            z.innerHTML = '<div style="padding:24px;text-align:center">'
+                + '<div style="font-size:36px;margin-bottom:12px">⚠️</div>'
+                + '<div style="font-weight:800;font-size:15px;margin-bottom:8px">Stock bloqué</div>'
+                + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">'
+                + rpcData.raison + '</div>'
+                + '<button class="btn-action btn-ghost" onclick="Nav.back()">Corriger la saisie</button>'
+                + '</div>';
+            return;
+        }
     }
-
     /* Créer une tâche "Session envoyée" */
     const titreSession = ({Matin:'🌅 Session Matin envoyée',Midi:'☀️ Session Midi envoyée',PM:'🌤️ Session PM envoyée',Nuit:'🌙 Session Nuit envoyée'})[sid]||sid;
     await creerTache(titreSession, App.activeBande, 'QUOTIDIEN', _dateAujourd_hui());
