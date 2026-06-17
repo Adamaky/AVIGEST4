@@ -1,0 +1,9 @@
+-- Migration 002 : Module Stock
+-- Appliqué : juin 2026
+-- Tables créées :
+--   lots_stock, composants_lot, mouvements_stock
+-- Triggers créés :
+--   fn_decrementer_stock, trig_decrementer_stock
+--   fn_update_timestamp, trig_lots_stock_updated_at
+-- (Appliqué manuellement dans Supabase SQL Editor)
+-- Fichier documentaire — ne pas ré-exécuter
