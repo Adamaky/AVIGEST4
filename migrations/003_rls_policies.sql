@@ -1,0 +1,8 @@
+-- Migration 003 : Activation RLS + policies ferme_isolation
+-- Appliqué : juin 2026
+-- Tables couvertes : bandes, batiments, clients, clotures,
+-- config, fermes, journal, mouvements_stock, paiements,
+-- partenaires_bandes, saisies_techniques, taches,
+-- utilisateurs, ventes
+-- (Appliqué manuellement dans Supabase SQL Editor)
+-- Fichier documentaire — ne pas ré-exécuter
