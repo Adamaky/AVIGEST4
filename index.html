@@ -3920,7 +3920,7 @@ function _pavHTML(bufferId, displayId, unite) {
 }
 function _pavTap(b,d,digit) { let buf=App._pavBuffers[b]||''; if(digit==='.'&&buf.includes('.'))return; if(digit==='.'&&buf==='')buf='0'; buf+=digit; App._pavBuffers[b]=buf; const el=document.getElementById('disp-'+d); if(el)el.textContent=buf; }
 function _pavDel(b,d) { let buf=App._pavBuffers[b]||''; buf=buf.slice(0,-1); App._pavBuffers[b]=buf; const el=document.getElementById('disp-'+d); if(el)el.textContent=buf||'—'; }
-function _pavGet(b) { return parseFloat(App._pavBuffers[b]||'')||null; }
+function _pavGet(b) { const n=parseFloat(App._pavBuffers[b]||''); return isNaN(n)?null:n; }
 function _repBool(idx,label) { _etapeSuivante(idx===0?1:0,label); }
 function _repLitiere(score,etapeId) { App._session._litiereScore=score; for(let i=1;i<=5;i++){const btn=document.getElementById('lit-'+i);if(btn)btn.style.borderColor=i===score?'var(--blue)':'var(--border)';} }
 function _validerAmbiance(etapeId) { const temp=_pavGet('temp'),hygro=_pavGet('hygro'); if(temp===null){showToast('Saisissez la température','warning');return;} if(hygro===null){showToast("Saisissez l'hygrométrie",'warning');return;} if(App._session._litiereScore===null){showToast("Sélectionnez l'état de la litière",'warning');return;} App._session.reponses[etapeId]={temp,hygro,litiere:App._session._litiereScore}; delete App._pavBuffers['temp']; delete App._pavBuffers['hygro']; App._session.etapeIdx++; _renderEtape(); }
