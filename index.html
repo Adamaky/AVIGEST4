@@ -1770,7 +1770,15 @@ async function renderGerant() {
         </div>
         ${tachesAValider.length ? '<div class="section-title" style="color:var(--green)">✅ À valider (' + tachesAValider.length + ')</div>' + aValiderHTML : ''}
         <div class="section-title">🐔 Bandes actives</div>
-       ${bandesHTML}`;
+       ${bandesHTML}
+        <div class="section-title" style="margin-top:16px">&#128230; Stock</div>
+        <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;margin-bottom:8px">
+            <div>
+                <div style="font-weight:800;font-size:14px">&#128230; Stock global</div>
+                <div style="font-size:11px;color:var(--text2);margin-top:2px">Lots &middot; Niveaux &middot; Alertes</div>
+            </div>
+            <button onclick="Nav.push('renderStockGerant')" style="padding:8px 16px;background:var(--blue);border:none;border-radius:10px;color:#fff;font-family:Lexend,sans-serif;font-size:12px;font-weight:700;cursor:pointer">Voir &#8250;</button>
+        </div>`;
 } catch(err) {
         console.error('renderGerant erreur:', err);
         const z2 = zone();
@@ -1842,6 +1850,73 @@ async function _confirmerRejetAccueil(tacheId, formId) {
 /* ════════════════════════════════════════════
    GESTION DE STOCK
 ════════════════════════════════════════════ */
+async function renderStockGerant() {
+    const z = zone(); if (!z) return;
+    z.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
+    try {
+        const { data: lots, error } = await sb.rpc('get_stock_dashboard', { p_ferme_id: FERME_ID });
+        if (error) throw error;
+        const liste = lots || [];
+        const lotsHTML = liste.length
+            ? liste.map(function(l) {
+                const pct      = l.quantite_initiale > 0 ? Math.round((l.quantite_restante / l.quantite_initiale) * 100) : 0;
+                const pctColor = pct > 50 ? 'var(--green)' : pct > 20 ? 'var(--orange)' : 'var(--red)';
+                const alerteBadge = l.en_alerte
+                    ? '<span style="font-size:10px;font-weight:800;padding:3px 8px;border-radius:8px;background:rgba(255,68,68,.15);color:var(--red)">&#9888; Alerte stock</span>'
+                    : '<span style="font-size:10px;font-weight:800;padding:3px 8px;border-radius:8px;background:rgba(0,200,150,.15);color:var(--green)">&#10003; Stock OK</span>';
+                const consomme7jTxt = l.consomme_7j > 0
+                    ? '-' + fmt(l.consomme_7j) + ' ' + esc(l.unite) + ' (7j)'
+                    : 'Aucun mouvement';
+                const derniereTxt = l.derniere_imputation
+                    ? new Date(l.derniere_imputation).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
+                    : '--';
+                const lid = esc(l.lot_id);
+                return '<div class="card" style="margin-bottom:12px;border-left:4px solid ' + pctColor + '">'
+                     + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'
+                     +   '<div>'
+                     +     '<div style="font-weight:800;font-size:15px">&#128230; ' + esc(l.produit) + '</div>'
+                     +     '<div style="font-size:10px;color:var(--text2);margin-top:2px">' + esc(l.reference || '') + ' &middot; ' + esc(l.unite) + '</div>'
+                     +   '</div>'
+                     +   alerteBadge
+                     + '</div>'
+                     + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;margin-bottom:10px">'
+                     +   '<div style="background:var(--bg3);border-radius:10px;padding:8px 4px">'
+                     +     '<div style="font-size:14px;font-weight:800;color:' + pctColor + '">' + fmt(l.quantite_restante) + '</div>'
+                     +     '<div style="font-size:9px;color:var(--text2);margin-top:2px">' + esc(l.unite) + ' restants</div>'
+                     +   '</div>'
+                     +   '<div style="background:var(--bg3);border-radius:10px;padding:8px 4px">'
+                     +     '<div style="font-size:14px;font-weight:800">' + pct + '%</div>'
+                     +     '<div style="font-size:9px;color:var(--text2);margin-top:2px">du stock init.</div>'
+                     +   '</div>'
+                     +   '<div style="background:var(--bg3);border-radius:10px;padding:8px 4px">'
+                     +     '<div style="font-size:12px;font-weight:800;color:var(--orange)">' + consomme7jTxt + '</div>'
+                     +     '<div style="font-size:9px;color:var(--text2);margin-top:2px">Conso. 7 jours</div>'
+                     +   '</div>'
+                     + '</div>'
+                     + '<div style="background:var(--bg3);border-radius:6px;height:6px;overflow:hidden;margin-bottom:10px">'
+                     +   '<div style="height:100%;background:' + pctColor + ';width:' + pct + '%;transition:width .4s"></div>'
+                     + '</div>'
+                     + '<div style="display:flex;justify-content:space-between;align-items:center">'
+                     +   '<div style="font-size:10px;color:var(--text2)">Derni&egrave;re imp. : ' + derniereTxt + '</div>'
+                     +   '<button onclick="renderDetailLot(\'' + lid + '\')" style="padding:6px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:Lexend,sans-serif;font-size:11px;font-weight:700;cursor:pointer">Voir d&eacute;tail &#8250;</button>'
+                     + '</div>'
+                     + '</div>';
+              }).join('')
+            : '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:32px;text-align:center">'
+            +   '<div style="font-size:36px;margin-bottom:10px">&#128230;</div>'
+            +   '<div style="font-size:14px;font-weight:700;margin-bottom:6px">Aucun lot en stock</div>'
+            +   '<div style="font-size:12px;color:var(--text2)">Cr&eacute;ez un lot depuis la fiche d\'une bande</div>'
+            + '</div>';
+        z.innerHTML = '<div style="font-weight:800;font-size:18px;margin-bottom:4px">&#128230; Stock global</div>'
+            + '<div style="font-size:12px;color:var(--text2);margin-bottom:16px">' + liste.length + ' lot' + (liste.length > 1 ? 's' : '') + ' actif' + (liste.length > 1 ? 's' : '') + '</div>'
+            + lotsHTML;
+    } catch(e) {
+        const z2 = zone(); if (!z2) return;
+        z2.innerHTML = '<div style="padding:24px;text-align:center;color:var(--red)">Erreur chargement stock : ' + esc(String(e.message||e)) + '</div>';
+        console.error('renderStockGerant erreur:', e);
+    }
+}
+
 async function getStockBande(bandeId) {
     const { data, error } = await sb
         .from('lots_stock')
