@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="AviGest">
     <meta name="mobile-web-app-capable" content="yes">
-    <title>AviGest v26</title>
+    <title>AviGest v26.1</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;800&display=swap" rel="stylesheet">
@@ -1778,6 +1778,13 @@ async function renderGerant() {
                 <div style="font-size:11px;color:var(--text2);margin-top:2px">Lots &middot; Niveaux &middot; Alertes</div>
             </div>
             <button onclick="Nav.push('renderStockGerant')" style="padding:8px 16px;background:var(--blue);border:none;border-radius:10px;color:#fff;font-family:Lexend,sans-serif;font-size:12px;font-weight:700;cursor:pointer">Voir &#8250;</button>
+        </div>
+        <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;margin-bottom:8px">
+            <div>
+                <div style="font-weight:800;font-size:14px">⏳ Imputations à valider</div>
+                <div style="font-size:11px;color:var(--text2);margin-top:2px">Valider · Rejeter · Journal</div>
+            </div>
+            <button onclick="Nav.push('renderValidationGerant')" style="padding:8px 16px;background:var(--orange);border:none;border-radius:10px;color:#0d1b2a;font-family:Lexend,sans-serif;font-size:12px;font-weight:700;cursor:pointer">Voir &#8250;</button>
         </div>`;
 } catch(err) {
         console.error('renderGerant erreur:', err);
@@ -2163,6 +2170,10 @@ function _buildCreerLotHTML(bandeId, coutTotal) {
          + '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="color:var(--text2)">Co\u00FBt total fabrication</span><span id="lot-cout-total" style="font-weight:800">' + fmt(coutTotal) + ' FCFA</span></div>'
          + '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text2)">Co\u00FBt unitaire (FCFA/unit\u00E9)</span><span id="lot-cout-unitaire" style="font-weight:800;color:var(--green)">\u2014</span></div>'
          + '</div>'
+         + '<label style="display:flex;align-items:center;gap:10px;margin-bottom:14px;cursor:pointer;padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border)">'
+         + '<input type="checkbox" id="lot-impute-journal" style="width:18px;height:18px;accent-color:var(--blue);cursor:pointer">'
+         + '<span style="font-size:12px;color:var(--text2);line-height:1.4">G\u00E9n\u00E9rer \u00E9criture comptable<br><span style="font-size:10px;opacity:.7">Aliment, vaccin, m\u00E9dicament</span></span>'
+         + '</label>'
          + '<button class="btn-action btn-green" onclick="_validerCreerLot(\'' + bid + '\')">\u2705 Cr\u00E9er le lot</button>'
          + '<button class="btn-action btn-ghost" onclick="Nav.back()">Annuler</button>'
          + '</div>';
@@ -2197,7 +2208,8 @@ async function _validerCreerLot(bandeId) {
     const unite   = document.getElementById('lot-unite')?.value   || 'kg';
     const qtt     = parseFloat(document.getElementById('lot-qtt')?.value || '0');
     const date    = document.getElementById('lot-date')?.value    || _dateAujourd_hui();
-    const note    = document.getElementById('lot-note')?.value    || '';
+    const note          = document.getElementById('lot-note')?.value    || '';
+    const imputeJournal = document.getElementById('lot-impute-journal')?.checked || false;
     if (!produit)         { showToast('Choisissez un produit','warning'); return; }
     if (!qtt || qtt <= 0) { showToast('Quantit\u00E9 totale obligatoire','warning'); return; }
     const composantsValides = (App._composants || []).filter(function(c) {
@@ -2212,7 +2224,8 @@ async function _validerCreerLot(bandeId) {
     const { data: lotData, error: lotErr } = await sb.from('lots_stock').insert({
         ferme_id: FERME_ID, bande_id: bandeId, reference: ref, produit, unite,
         quantite_initiale: qtt, quantite_restante: qtt, cout_total: coutTotal,
-        date_fabrication: date, note, cree_par: App.userId, statut: 'EN STOCK'
+        date_fabrication: date, note, cree_par: App.userId, statut: 'EN STOCK',
+        impute_journal: imputeJournal
     }).select().single();
     if (lotErr || !lotData) { showToast('Erreur cr\u00E9ation lot','error'); console.error(lotErr); return; }
     for (var i = 0; i < composantsValides.length; i++) {
@@ -3704,6 +3717,21 @@ async function _navTachesAgent() {
     const nbEnAttente = tachesAssignees.length + tachesBande.length;
     _setNavBadge('taches', nbEnAttente);
 
+    const rejetsSessions = new Set();
+    if (App.activeBande) {
+        const { data: rejets } = await sb
+            .from('journal')
+            .select('note')
+            .eq('ferme_id', FERME_ID)
+            .eq('bande_id', App.activeBande)
+            .eq('statut', 'REJETE');
+        (rejets || []).forEach(r => {
+            if (r.note) ['Matin','Midi','PM','Nuit'].forEach(sid => {
+                if (r.note.includes(sid)) rejetsSessions.add(sid);
+            });
+        });
+    }
+
     const tachesHTML = tachesAssignees.length ? tachesAssignees.map(t => {
         const c = t.type_tache==='ABATTAGE'?'red':t.type_tache==='HEBDO'?'orange':'blue';
         return `<div class="tache-card ${t.type_tache==='ABATTAGE'?'urgente':''}" id="tcard-${esc(t.id)}">
@@ -3718,7 +3746,7 @@ async function _navTachesAgent() {
         <div class="tuile tuile-session-active" style="background:var(--bg2);margin-bottom:8px" onclick="Nav.push('renderSession','${sessionCourante.id}')">
             <div class="tuile-icon">${sessionCourante.icon}</div>
             <div style="flex:1">
-                <div class="tuile-label">${sessionCourante.id} <span class="session-active-badge">▶ EN COURS</span></div>
+                <div class="tuile-label">${rejetsSessions.has(sessionCourante.id) ? '🔴 ' : ''}${sessionCourante.id} <span class="session-active-badge">▶ EN COURS</span></div>
                 <div class="tuile-sub">${sessionCourante.heure} · ${sessionCourante.nb} étapes</div>
             </div>
             <div style="font-size:20px">${verrouille ? '✅' : '⏳'}</div>
@@ -3731,7 +3759,7 @@ async function _navTachesAgent() {
               let _actif = true;
               if (_plagesT[s.id]) { _actif = _hN >= _plagesT[s.id][0] && _hN < _plagesT[s.id][1]; }
               else if (s.id === 'Nuit') { _actif = _hN >= 19 || _hN < 5; }
-              return `<button onclick="${_actif ? "Nav.push('renderSession','"+s.id+"')" : 'void(0)'}" style="flex:1;padding:8px 4px;border-radius:12px;border:1px solid var(--border);background:var(--bg3);font-family:Lexend,sans-serif;font-size:10px;font-weight:700;color:${v?'var(--green)':'var(--text2)'};cursor:${_actif?'pointer':'not-allowed'};opacity:${_actif?'1':'0.35'}">${s.icon} ${s.id}<br><span style="font-size:9px">${v?'✅':_actif?'○':'🔒'}</span></button>`;
+              return `<button onclick="${_actif ? "Nav.push('renderSession','"+s.id+"')" : 'void(0)'}" style="flex:1;padding:8px 4px;border-radius:12px;border:1px solid var(--border);background:var(--bg3);font-family:Lexend,sans-serif;font-size:10px;font-weight:700;color:${v?'var(--green)':'var(--text2)'};cursor:${_actif?'pointer':'not-allowed'};opacity:${_actif?'1':'0.35'}">${s.icon} ${rejetsSessions.has(s.id) ? '🔴 ' : ''}${s.id}<br><span style="font-size:9px">${v?'✅':_actif?'○':'🔒'}</span></button>`;
             }).join('')}
         </div>
         ${tachesBande.length ? `
@@ -3807,23 +3835,27 @@ const SESSION_ETAPES = {
         {id:'eau_m',      label:'Compteur eau matin (litres)',  type:'number', unite:'L',      min:0, max:99999},
         {id:'aliment_kg', label:'Aliment distribué (kg)',       type:'number', unite:'kg',     min:0, max:500},
         {id:'sante',      label:'Santé générale du lot',        type:'sante_color'},
+        {id:'litiere_stock', label:'Litière utilisée ?',        type:'litiere_stock'},
     ],
     Midi:[
         {id:'ambiance_midi', label:'Ambiance midi',              type:'ambiance'},
         {id:'eau_midi',      label:'Eau distribuée midi (L)',     type:'number', unite:'L',  min:0, max:99999},
         {id:'aliment_midi',  label:'Aliment distribué midi (kg)',type:'number', unite:'kg', min:0, max:500},
+        {id:'litiere_stock', label:'Litière utilisée ?',         type:'litiere_stock'},
     ],
     PM:[
         {id:'ambiance_pm', label:'Ambiance PM',               type:'ambiance'},
         {id:'eau_pm',      label:'Eau distribuée PM (L)',      type:'number', unite:'L',  min:0, max:99999},
         {id:'aliment_pm',  label:'Aliment distribué PM (kg)', type:'number', unite:'kg', min:0, max:500},
         {id:'pesee',       label:'Pesée (si jour J+7)',        type:'pesee_conditionnel'},
+        {id:'litiere_stock', label:'Litière utilisée ?',       type:'litiere_stock'},
     ],
     Nuit:[
         {id:'ambiance_n',  label:'Ambiance nuit',         type:'ambiance'},
         {id:'mortalite_n', label:'Mortalité soir',         type:'number', unite:'sujets', min:0, max:200},
         {id:'eau_n',       label:'Compteur eau soir (L)',  type:'number', unite:'L',      min:0, max:99999},
         {id:'sante_n',     label:'Santé générale du lot',  type:'sante_color'},
+        {id:'litiere_stock', label:'Litière utilisée ?',   type:'litiere_stock'},
     ]
 };
 
@@ -3917,6 +3949,11 @@ function _renderEtape() {
             <textarea id="sante-obs" rows="3" placeholder="Ex: Quelques sujets léthargiques…"></textarea>
             <button class="btn-action btn-blue" style="margin-top:10px" onclick="_repSante()">Terminer →</button>
         </div>`;
+    } else if (e.type === 'litiere_stock') {
+        contenu = `<div id="litiere-choix-wrap" style="display:flex;flex-direction:column;gap:12px;margin-top:8px">
+            <button class="choice-btn" style="padding:22px 16px;font-size:15px;text-align:left" onclick="_afficherPaveLitiere()">✅ OUI — Saisir la quantité</button>
+            <button class="choice-btn" style="padding:22px 16px;font-size:15px;text-align:left" onclick="_etapeSuivante(null,'Litière non utilisée')">○ Non, passer</button>
+        </div>`;
     }
     z.innerHTML = `<div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -3960,6 +3997,35 @@ function _validerAmbiance(etapeId) { const temp=_pavGet('temp'),hygro=_pavGet('h
     App._session.etapeIdx++; _renderEtape(); }
 function _repNumber(etapeId,unite,min,max) { const val=_pavGet('val_'+etapeId); if(val===null){showToast('Saisissez une valeur','warning');return;} const v=sanitizeNum(val,min,max); if(v===null){showToast(`Valeur invalide (${min}–${max} ${unite})`,'warning');return;} App._session.reponses[etapeId]=val; delete App._pavBuffers['val_'+etapeId]; _etapeSuivante(val,val+' '+unite); }
 function _repPesee() { const val=_pavGet('pesee_val'); if(val===null){showToast('Saisissez le poids moyen','warning');return;} App._session.reponses['pesee']=val; delete App._pavBuffers['pesee_val']; _etapeSuivante(val,val+' g'); }
+function _afficherPaveLitiere() {
+    const wrap = document.getElementById('litiere-choix-wrap');
+    if (!wrap) return;
+    App._pavBuffers['litiere_qte'] = '';
+    wrap.innerHTML = _pavHTML('litiere_qte','litiere_qte','sacs')
+        + '<button class="btn-action btn-green" style="margin-top:12px" onclick="_confirmerLitiereStock()">✅ Confirmer</button>'
+        + '<button class="btn-action btn-ghost" onclick="_etapeSuivante(null,\'Litière non utilisée\')">○ Non, passer</button>';
+}
+async function _confirmerLitiereStock() {
+    const quantite = _pavGet('litiere_qte');
+    if (quantite === null) { showToast('Saisissez une quantité','warning'); return; }
+    const sid = App._session.id;
+    const bandeId = App.activeBande;
+    if (bandeId) {
+        try {
+            const { error } = await sb.rpc('imputer_stock_type_b', {
+                p_bande_id:    bandeId,
+                p_type_produit:'litiere',
+                p_quantite:    quantite,
+                p_session:     sid,
+                p_note:        null
+            });
+            if (error) showToast('Erreur litière : ' + error.message, 'error');
+            else showToast('✅ Litière imputée (' + quantite + ' sacs)', 'success', 3000);
+        } catch(err) { showToast('Erreur : ' + err.message, 'error'); }
+    }
+    delete App._pavBuffers['litiere_qte'];
+    _etapeSuivante(quantite, quantite + ' sacs');
+}
     function _surchargerScore(label) {
       const score = label==='BON'?5:label==='PASSABLE'?3:1;
       App._session.reponses['sante'] = {score, label, obs:'', auto:false};
@@ -4335,6 +4401,89 @@ function _reinitRealtime() {
     showToast('🔄 Canaux Realtime réinitialisés', 'success', 3000);
     /* Recharger le panneau */
     setTimeout(() => renderDiagnostic(), 500);
+}
+
+async function _getJournalConfirme(bande_id) {
+  const { data, error } = await sb
+    .from('journal')
+    .select('*')
+    .eq('ferme_id', FERME_ID)
+    .eq('bande_id', bande_id)
+    .eq('statut', 'CONFIRME')
+    .order('date_ecriture', { ascending: false });
+  if (error) return [];
+  return data || [];
+}
+
+async function _getJournalEnAttente(ferme_id) {
+  const { data, error } = await sb
+    .from('journal')
+    .select('*')
+    .eq('ferme_id', ferme_id)
+    .eq('statut', 'EN_ATTENTE')
+    .order('date_ecriture', { ascending: false });
+  if (error) return [];
+  return data || [];
+}
+
+async function renderValidationGerant() {
+  const imputations = await _getJournalEnAttente(FERME_ID);
+  let html = '<div class="section-header"><h2>✅ Imputations à valider</h2></div>';
+  if (!imputations || imputations.length === 0) {
+    html += '<div class="empty-state"><p>Aucune imputation en attente de validation.</p></div>';
+  } else {
+    html += '<div class="list-container">';
+    imputations.forEach(function(imp) {
+      const montant = imp.montant ? imp.montant.toLocaleString('fr-FR') + ' FCFA' : '0 FCFA';
+      const date = imp.date_ecriture || '';
+      const note = imp.note || '';
+      const id = imp.id;
+      html += '<div class="card" style="margin-bottom:12px;padding:16px;">';
+      html += '<div style="font-weight:bold;margin-bottom:6px;">' + (imp.categorie || 'Alimentation') + '</div>';
+      html += '<div style="color:#888;font-size:14px;margin-bottom:4px;">' + note + '</div>';
+      html += '<div style="font-size:13px;margin-bottom:10px;">Date : ' + date + ' &nbsp;|&nbsp; Montant : <strong>' + montant + '</strong></div>';
+      html += '<div style="display:flex;gap:10px;">';
+      html += '<button class="btn btn-success" style="flex:1;" onclick="_validerImputation(\'' + id + '\')">✅ Valider</button>';
+      html += '<button class="btn btn-danger" style="flex:1;" onclick="_rejeterImputation(\'' + id + '\')">❌ Rejeter</button>';
+      html += '</div></div>';
+    });
+    html += '</div>';
+  }
+  html += '<div style="margin-top:16px;"><button class="btn btn-secondary" onclick="renderGerant()">← Retour</button></div>';
+  const z = zone(); if (!z) return; z.innerHTML = html;
+}
+
+async function _validerImputation(journalId) {
+  const r = await sb.rpc('valider_imputation_gerant', {
+    p_journal_id: journalId,
+    p_action: 'VALIDER',
+    p_note_rejet: null
+  });
+  if (r.data && r.data.success) {
+    showToast('✅ Imputation validée — écriture confirmée dans le journal', 'success', 3000);
+    await renderValidationGerant();
+  } else {
+    showToast('Erreur lors de la validation', 'error');
+  }
+}
+
+async function _rejeterImputation(journalId) {
+  const note = prompt('Motif du rejet (obligatoire) :');
+  if (!note || note.trim() === '') {
+    showToast('Saisissez un motif de rejet', 'warning');
+    return;
+  }
+  const r = await sb.rpc('valider_imputation_gerant', {
+    p_journal_id: journalId,
+    p_action: 'REJETER',
+    p_note_rejet: note.trim()
+  });
+  if (r.data && r.data.success) {
+    showToast('❌ Imputation rejetée — agent notifié', 'warning', 3000);
+    await renderValidationGerant();
+  } else {
+    showToast('Erreur lors du rejet', 'error');
+  }
 }
 
 async function _genererRapportHebdo(bande, semaineNum) {
