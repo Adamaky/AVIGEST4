@@ -1,0 +1,6 @@
+﻿-- Migration 007 — Fondations B7/B8
+-- Date : 18 juin 2026
+ALTER TABLE lots_stock ADD COLUMN IF NOT EXISTS impute_journal BOOLEAN DEFAULT false;
+ALTER TABLE journal ADD COLUMN IF NOT EXISTS statut VARCHAR(20) DEFAULT 'CONFIRME' CHECK (statut IN ('EN_ATTENTE', 'CONFIRME', 'REJETE'));
+ALTER TABLE journal ADD COLUMN IF NOT EXISTS note_rejet TEXT;
+UPDATE journal SET statut = 'CONFIRME' WHERE statut IS NULL;

@@ -1,0 +1,3 @@
+﻿-- Migration 009 — Voir contenu complet fourni en session
+-- imputer_stock_type_b() RPC generique Type B
+-- Executee manuellement dans Supabase SQL Editor le 18/06/2026

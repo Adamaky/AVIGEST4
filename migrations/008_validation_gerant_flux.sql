@@ -1,0 +1,3 @@
+﻿-- Migration 008 — Voir contenu complet fourni en session
+-- imputer_aliment() v3 + valider_imputation_gerant()
+-- Executee manuellement dans Supabase SQL Editor le 18/06/2026
