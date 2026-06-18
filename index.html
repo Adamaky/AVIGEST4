@@ -3152,9 +3152,9 @@ async function _renderTabGestion(bande, container) {
             <div class="kpi-box"><span class="kpi-val" style="color:${mortColor}">${t.mortaliteJour||0}</span><span class="kpi-label">💀 Morts/j</span></div>
         </div>
         <div class="kpi-row" style="margin-bottom:14px">
-            <div class="kpi-box"><span class="kpi-val">${t.poidsMoyen||'—'}<span style="font-size:11px">g</span></span><span class="kpi-label">Poids moy.</span></div>
+            <div class="kpi-box"><span class="kpi-val" style="font-size:${t.poidsMoyen?'':'11px'}">${t.poidsMoyen?t.poidsMoyen+'<span style=\\"font-size:11px\\">g</span>':'Aucune pesée'}</span><span class="kpi-label">Poids moy.</span></div>
             <div class="kpi-box"><span class="kpi-val" style="color:${soldeColor};font-size:14px">${solde>=0?'+':''}${fmt(solde)}</span><span class="kpi-label">Marge F</span></div>
-            <div class="kpi-box"><span class="kpi-val">${t.ic||'—'}</span><span class="kpi-label">IC</span></div>
+            <div class="kpi-box"><span class="kpi-val" style="font-size:${t.ic?'':'11px'}">${t.ic||'Non calc.'}</span><span class="kpi-label">IC</span></div>
         </div>
         ${tuiles.map(tu => `
         <div class="tuile" style="background:linear-gradient(135deg,${tu.color},${tu.color}cc)" onclick="${tu.fn}">
@@ -3726,7 +3726,12 @@ async function _navTachesAgent() {
         <div style="display:flex;gap:6px;margin-bottom:16px">
             ${autresSessions.map(s => {
                 const v = _verrouSessionExists(s.id);
-                return `<button onclick="Nav.push('renderSession','${s.id}')" style="flex:1;padding:8px 4px;border-radius:12px;border:1px solid var(--border);background:var(--bg3);font-family:Lexend,sans-serif;font-size:10px;font-weight:700;color:${v?'var(--green)':'var(--text2)'};cursor:pointer">${s.icon} ${s.id}<br><span style="font-size:9px">${v?'✅':'○'}</span></button>`;
+                const _hN = new Date().getHours();
+              const _plagesT = {Matin:[5,10],Midi:[10,14],PM:[14,19]};
+              let _actif = true;
+              if (_plagesT[s.id]) { _actif = _hN >= _plagesT[s.id][0] && _hN < _plagesT[s.id][1]; }
+              else if (s.id === 'Nuit') { _actif = _hN >= 19 || _hN < 5; }
+              return `<button onclick="${_actif ? "Nav.push('renderSession','"+s.id+"')" : 'void(0)'}" style="flex:1;padding:8px 4px;border-radius:12px;border:1px solid var(--border);background:var(--bg3);font-family:Lexend,sans-serif;font-size:10px;font-weight:700;color:${v?'var(--green)':'var(--text2)'};cursor:${_actif?'pointer':'not-allowed'};opacity:${_actif?'1':'0.35'}">${s.icon} ${s.id}<br><span style="font-size:9px">${v?'✅':_actif?'○':'🔒'}</span></button>`;
             }).join('')}
         </div>
         ${tachesBande.length ? `
@@ -3833,6 +3838,26 @@ function renderSession(sessionId) {
         </div>`;
         return;
     }
+    const _heurePlages = { Matin:[5,10], Midi:[10,14], PM:[14,19], Nuit:[19,24,0,5] };
+    const _hNow = new Date().getHours();
+    const _plage = _heurePlages[sessionId];
+    let _horsPlage = false;
+    if (_plage && sessionId !== 'Nuit') {
+      _horsPlage = _hNow < _plage[0] || _hNow >= _plage[1];
+    } else if (sessionId === 'Nuit') {
+      _horsPlage = _hNow >= 5 && _hNow < 19;
+    }
+    if (_horsPlage) {
+      const _libelles = {Matin:'5h00 – 10h00', Midi:'10h00 – 14h00', PM:'14h00 – 19h00', Nuit:'19h00 – 5h00'};
+      const z2 = zone(); if (!z2) return;
+      z2.innerHTML = '<div class="card" style="text-align:center;padding:32px 20px">'
+        + '<div style="font-size:40px;margin-bottom:12px">⏰</div>'
+        + '<div style="font-weight:800;font-size:16px;margin-bottom:8px">Session hors plage horaire</div>'
+        + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">La session <strong>' + sessionId + '</strong> est disponible de <strong>' + (_libelles[sessionId]||'') + '</strong> seulement.</div>'
+        + '<button class="btn-action btn-ghost" onclick="Nav.home()">← Retour</button>'
+        + '</div>';
+      return;
+    }
     App._session.id = sessionId; App._session.etapeIdx = 0; App._session.reponses = {};
     _renderEtape();
 }
@@ -3924,10 +3949,23 @@ function _pavDel(b,d) { let buf=App._pavBuffers[b]||''; buf=buf.slice(0,-1); App
 function _pavGet(b) { const n=parseFloat(App._pavBuffers[b]||''); return isNaN(n)?null:n; }
 function _repBool(idx,label) { _etapeSuivante(idx===0?1:0,label); }
 function _repLitiere(score,etapeId) { App._session._litiereScore=score; for(let i=1;i<=5;i++){const btn=document.getElementById('lit-'+i);if(btn)btn.style.borderColor=i===score?'var(--blue)':'var(--border)';} }
-function _validerAmbiance(etapeId) { const temp=_pavGet('temp'),hygro=_pavGet('hygro'); if(temp===null){showToast('Saisissez la température','warning');return;} if(hygro===null){showToast("Saisissez l'hygrométrie",'warning');return;} if(App._session._litiereScore===null){showToast("Sélectionnez l'état de la litière",'warning');return;} App._session.reponses[etapeId]={temp,hygro,litiere:App._session._litiereScore}; delete App._pavBuffers['temp']; delete App._pavBuffers['hygro']; App._session.etapeIdx++; _renderEtape(); }
+function _validerAmbiance(etapeId) { const temp=_pavGet('temp'),hygro=_pavGet('hygro'); if(temp===null){showToast('Saisissez la température','warning');return;} if(hygro===null){showToast("Saisissez l'hygrométrie",'warning');return;} if(App._session._litiereScore===null){showToast("Sélectionnez l'état de la litière",'warning');return;} App._session.reponses[etapeId]={temp,hygro,litiere:App._session._litiereScore}; delete App._pavBuffers['temp']; delete App._pavBuffers['hygro'];
+    const _sTemp = (temp>=26&&temp<=32)?5:(temp>=33&&temp<=35)?3:1;
+    const _sHygro = (hygro>=50&&hygro<=70)?5:(hygro>=71&&hygro<=80)?3:1;
+    const _sMin = Math.min(_sTemp,_sHygro);
+    const _sLabel = _sMin===5?'BON':_sMin===3?'PASSABLE':'MAUVAIS';
+    if (!App._session.reponses['sante']) {
+      App._session.reponses['sante'] = {score:_sMin, label:_sLabel, obs:'', auto:true};
+    }
+    App._session.etapeIdx++; _renderEtape(); }
 function _repNumber(etapeId,unite,min,max) { const val=_pavGet('val_'+etapeId); if(val===null){showToast('Saisissez une valeur','warning');return;} const v=sanitizeNum(val,min,max); if(v===null){showToast(`Valeur invalide (${min}–${max} ${unite})`,'warning');return;} App._session.reponses[etapeId]=val; delete App._pavBuffers['val_'+etapeId]; _etapeSuivante(val,val+' '+unite); }
 function _repPesee() { const val=_pavGet('pesee_val'); if(val===null){showToast('Saisissez le poids moyen','warning');return;} App._session.reponses['pesee']=val; delete App._pavBuffers['pesee_val']; _etapeSuivante(val,val+' g'); }
-function _selectSanteColor(couleur) { App._session._santeScore=couleur==='vert'?5:couleur==='orange'?3:1; App._session._santeCouleur=couleur; ['vert','orange','rouge'].forEach(c=>{const btn=document.getElementById('sante-'+c);if(!btn)return;const isDef=c!==couleur;btn.style.opacity=isDef?'.5':'1';btn.style.transform=isDef?'scale(1)':'scale(1.02)';}); }
+    function _surchargerScore(label) {
+      const score = label==='BON'?5:label==='PASSABLE'?3:1;
+      App._session.reponses['sante'] = {score, label, obs:'', auto:false};
+      _renderSessionResume();
+    }
+    function _selectSanteColor(couleur) { App._session._santeScore=couleur==='vert'?5:couleur==='orange'?3:1; App._session._santeCouleur=couleur; ['vert','orange','rouge'].forEach(c=>{const btn=document.getElementById('sante-'+c);if(!btn)return;const isDef=c!==couleur;btn.style.opacity=isDef?'.5':'1';btn.style.transform=isDef?'scale(1)':'scale(1.02)';}); }
 function _repSante() { if(!App._session._santeScore){showToast('Sélectionnez un état de santé','warning');return;} const obs=document.getElementById('sante-obs')?.value||''; const label=App._session._santeCouleur==='vert'?'🟢 BON':App._session._santeCouleur==='orange'?'🟡 MOYEN':'🔴 MAUVAIS'; App._session.reponses['sante']={score:App._session._santeScore,couleur:App._session._santeCouleur,label,obs}; _etapeSuivante(App._session._santeScore,label); }
 function _etapeSuivante(valeur,label) { const sid=App._session.id,idx=App._session.etapeIdx; const e=(SESSION_ETAPES[sid]||[])[idx]; if(e)App._session.reponses[e.id]=valeur; App._session.etapeIdx++; _renderEtape(); }
 
@@ -3940,7 +3978,11 @@ function _renderSessionResume() {
         const val = rep[e.id]; let affiche = '—';
         if(val!==null&&val!==undefined){
             if(e.type==='ambiance') affiche=`${val.temp}°C · ${val.hygro}% · Litière ${val.litiere}/5`;
-            else if(e.type==='sante'||e.type==='sante_color') affiche=`${val.label||'Score '+val.score}${val.obs?' — '+val.obs.slice(0,30):''}`;
+            else if(e.type==='sante'||e.type==='sante_color') {
+              const _ic = val.label==='BON'?'🟢':val.label==='PASSABLE'?'🟡':'🔴';
+              const _src = val.auto?' <span style="font-size:10px;color:var(--text2)">(auto)</span>':'';
+              affiche = _ic+' Santé du lot : <strong>'+val.label+'</strong>'+_src+(val.obs?' — '+val.obs.slice(0,30):'');
+            }
             else affiche=String(val);
         }
         return `<div class="rapport-ligne"><span style="color:var(--text2)">${esc(e.label)}</span><span>${esc(String(affiche))}</span></div>`;
@@ -3953,7 +3995,15 @@ function _renderSessionResume() {
         <div class="card-title">📋 Résumé — ${esc(labels[sid])}</div>
         ${lignesHTML}
     </div>
-    <button class="btn-action btn-green" onclick="_confirmerEtEnvoyer()">✅ Je confirme — Envoyer</button>
+        <div style="margin:12px 0 4px;padding:12px;background:var(--bg3);border-radius:12px;text-align:center">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Modifier le score santé :</div>
+          <div style="display:flex;gap:8px;justify-content:center">
+            <button onclick="_surchargerScore('BON')" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);font-size:12px;font-weight:700;color:var(--green);cursor:pointer">🟢 Bon</button>
+            <button onclick="_surchargerScore('PASSABLE')" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);font-size:12px;font-weight:700;color:var(--orange);cursor:pointer">🟡 Passable</button>
+            <button onclick="_surchargerScore('MAUVAIS')" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);font-size:12px;font-weight:700;color:var(--red);cursor:pointer">🔴 Mauvais</button>
+          </div>
+        </div>
+        <button class="btn-action btn-green" onclick="_confirmerEtEnvoyer()">✅ Je confirme — Envoyer</button>
     <button class="btn-action btn-ghost" onclick="Nav.back()">↩ Revenir et corriger</button>`;
 }
 
@@ -4300,7 +4350,7 @@ async function _genererRapportHebdo(bande, semaineNum) {
         const { data: mortsTotal } = await sb.from('saisies_techniques').select('valeur').eq('ferme_id', FERME_ID).eq('bande_id', bande.id).in('categorie', ['MortaliteMatin','MortaliteSoir']);
         const totalMorts = (mortsTotal||[]).reduce((s,m) => s+(parseFloat(m.valeur)||0), 0);
         const effectifVivants = Math.max(1, (bande.effectif_initial||1) - totalMorts);
-        const { data: pesees } = await sb.from('saisies_techniques').select('valeur').eq('ferme_id', FERME_ID).eq('bande_id', bande.id).eq('categorie', 'Pesee').gte('date_saisie', dateDebutStr).lte('date_saisie', dateFinStr).order('date_saisie', { ascending: false }).limit(1);
+        const { data: pesees } = await sb.from('saisies_techniques').select('valeur').eq('ferme_id', FERME_ID).eq('bande_id', bande.id).eq('categorie', 'PoidsMoyen').gte('date_saisie', dateDebutStr).lte('date_saisie', dateFinStr).order('date_saisie', { ascending: false }).limit(1);
         const poidsMoyen = pesees && pesees.length > 0 ? parseFloat(pesees[0].valeur)||0 : null;
         const { data: aliments } = await sb.from('saisies_techniques').select('valeur').eq('ferme_id', FERME_ID).eq('bande_id', bande.id).eq('categorie', 'Aliment').gte('date_saisie', dateDebutStr).lte('date_saisie', dateFinStr);
         const consoAliment = (aliments||[]).reduce((s,a) => s+(parseFloat(a.valeur)||0), 0);
