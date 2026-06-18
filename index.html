@@ -3405,6 +3405,7 @@ async function renderTachesBande(bandeId) {
             + '</div>';
     };
 
+        const termineesHTML = tachesTerminees.map(_renderTacheLigneAccueil).join('');
     const aFaireHTML  = tachesAFaire.map(_renderTacheLigneAccueil).join('');
 
     /* Construire les sections hors template literal pour éviter les backticks imbriqués */
