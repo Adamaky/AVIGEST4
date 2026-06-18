@@ -4105,34 +4105,31 @@ async function _confirmerEtEnvoyer() {
     const qteAlimentMidi  = parseFloat(rep['aliment_midi']||0) || 0;
     const qteAlimentPM    = parseFloat(rep['aliment_pm']||0) || 0;
     const qteAlimentTotal = qteAlimentMatin + qteAlimentMidi + qteAlimentPM;
-    if (qteAlimentTotal > 0) {
-        const { data: rpcData, error: rpcErr } = await sb.rpc('imputer_aliment', {
-            p_bande_id : App.activeBande,
-            p_quantite : qteAlimentTotal,
-            p_session  : sid,
-            p_agent_id : App.userId,
-            p_ferme_id : FERME_ID
-        });
-        if (rpcErr) {
-            z.innerHTML = '<div style="padding:24px;text-align:center">'
-                + '<div style="font-size:36px;margin-bottom:12px">⚠️</div>'
-                + '<div style="font-weight:800;font-size:15px;margin-bottom:8px">Erreur stock</div>'
-                + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">'
-                + rpcErr.message + '</div>'
-                + '<button class="btn-action btn-ghost" onclick="Nav.back()">Corriger la saisie</button>'
-                + '</div>';
-            return;
-        }
-        if (rpcData && rpcData.ok === false) {
-            z.innerHTML = '<div style="padding:24px;text-align:center">'
-                + '<div style="font-size:36px;margin-bottom:12px">⚠️</div>'
-                + '<div style="font-weight:800;font-size:15px;margin-bottom:8px">Stock bloqué</div>'
-                + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">'
-                + rpcData.raison + '</div>'
-                + '<button class="btn-action btn-ghost" onclick="Nav.back()">Corriger la saisie</button>'
-                + '</div>';
-            return;
-        }
+    const { data: rpcData, error: rpcErr } = await sb.rpc('imputer_aliment', {
+        p_bande_id : App.activeBande,
+        p_quantite : qteAlimentTotal,
+        p_session  : sid,
+        p_note     : null
+    });
+    if (rpcErr) {
+        z.innerHTML = '<div style="padding:24px;text-align:center">'
+            + '<div style="font-size:36px;margin-bottom:12px">⚠️</div>'
+            + '<div style="font-weight:800;font-size:15px;margin-bottom:8px">Erreur stock</div>'
+            + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">'
+            + rpcErr.message + '</div>'
+            + '<button class="btn-action btn-ghost" onclick="Nav.back()">Corriger la saisie</button>'
+            + '</div>';
+        return;
+    }
+    if (rpcData && rpcData.ok === false) {
+        z.innerHTML = '<div style="padding:24px;text-align:center">'
+            + '<div style="font-size:36px;margin-bottom:12px">⚠️</div>'
+            + '<div style="font-weight:800;font-size:15px;margin-bottom:8px">Stock bloqué</div>'
+            + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">'
+            + rpcData.raison + '</div>'
+            + '<button class="btn-action btn-ghost" onclick="Nav.back()">Corriger la saisie</button>'
+            + '</div>';
+        return;
     }
     /* Créer une tâche "Session envoyée" */
     const titreSession = ({Matin:'🌅 Session Matin envoyée',Midi:'☀️ Session Midi envoyée',PM:'🌤️ Session PM envoyée',Nuit:'🌙 Session Nuit envoyée'})[sid]||sid;
