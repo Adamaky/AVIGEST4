@@ -526,9 +526,9 @@ async function sbInsert(table, payload) {
         const { data, error } = await sb.from(table).insert({
             ...payload,
             ferme_id: FERME_ID
-        }).select().single();
+        });
         if (error) { console.error('sbInsert error:', error); return null; }
-        return data;
+        return true;
     } catch(e) {
         if (!App.isOnline) {
             queueRequest({ table, payload });
