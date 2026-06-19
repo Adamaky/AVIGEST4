@@ -592,7 +592,7 @@ async function getTachesAgent(bandeId) {
         .select('*')
         .eq('ferme_id', FERME_ID)
         .eq('bande_id', bandeId)
-        .in('statut', ['A FAIRE', 'TERMINEE'])
+        .in('statut', ['ENVOYEE', 'EXECUTEE', 'PLANIFIEE'])
         .order('date_prevue');
     if (error) return [];
     return data || [];
