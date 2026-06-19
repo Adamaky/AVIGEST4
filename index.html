@@ -630,21 +630,21 @@ async function creerTache(titre, bandeId, typeTache, datePrevue) {
         type_tache:  typeTache,
         date_prevue: datePrevue || _dateAujourd_hui(),
         cree_par:    App.userId,
-        statut:      'A FAIRE'
+        statut:      'PLANIFIEE'
     });
 }
 
 /* ── Marquer tâche terminée ──────────── */
 async function terminerTache(tacheId) {
     return await sbUpdate('taches', tacheId, {
-        statut:          'TERMINEE',
+        statut:          'EXECUTEE',
         date_validation: new Date().toISOString()
     });
 }
 
 async function marquerTacheVue(tacheId) {
     return await sbUpdate('taches', tacheId, {
-        statut: 'VUE'
+        statut: 'ENVOYEE'
     });
 }
 
@@ -2235,7 +2235,6 @@ async function _validerCreerLot(bandeId) {
 
 function stockColor(p) { return (p.stockSacs||0)<=5?'var(--red)':'var(--text)'; }
 
-/* ── Tâches quotidiennes ─────────────── */
 
 
 /* ── Analyser ────────────────────────── */
@@ -3038,8 +3037,8 @@ async function _demarrerGestion(bandeId) {
     }
     await sb.from('taches').insert({
         ferme_id: FERME_ID, bande_id: bandeId,
-        titre: '🐔 Phase Gestion démarrée — sessions quotidiennes actives',
-        type_tache: 'PHASE', statut: 'A FAIRE',
+        titre: '🚀 Phase Gestion démarrée',
+        type_tache: 'PHASE', statut: 'PLANIFIEE',
         date_prevue: _dateAujourd_hui(), cree_par: App.userId
     });
     showToast('🚀 Phase Gestion activée — agent notifié','success', 4000);
