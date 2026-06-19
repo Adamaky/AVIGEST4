@@ -111,7 +111,6 @@
         .tache-meta  { font-size:10px; color:var(--text2); margin-top:2px; }
         .tache-badge { font-size:9px; font-weight:700; padding:2px 7px; border-radius:8px; white-space:nowrap; }
         .tb-abattage { background:rgba(255,68,68,.2); color:var(--red); }
-        .tb-quotidien{ background:rgba(0,153,255,.2); color:var(--blue); }
         .tb-hebdo    { background:rgba(255,157,0,.2); color:var(--orange); }
 
         .btn-fait { background:rgba(0,153,255,.15); border:1px solid rgba(0,153,255,.4); color:var(--blue); border-radius:10px; padding:6px 14px; font-size:11px; font-weight:800; cursor:pointer; font-family:Lexend,sans-serif; transition:all .2s; white-space:nowrap; }
@@ -1724,13 +1723,6 @@ async function renderGerant() {
                     <div style="font-size:13px;font-weight:800;color:${cruColor}">${cru>0?fmt(cru)+' F':'—'}</div>
                 </div>
             </div>
-            <div style="display:flex;gap:8px;align-items:center;padding-top:8px;border-top:1px solid var(--border)">
-                <div style="font-size:11px;color:var(--text2);flex:1">📤 Tâches quotidiennes</div>
-                <button class="btn-action btn-blue" style="width:auto;margin:0;padding:6px 10px;font-size:10px"
-                    onclick="envoyerTachesQuotidiennes('${b.id}','${_dateDemain()}')">📅 Demain</button>
-                <button class="btn-action btn-ghost" style="width:auto;margin:0;padding:6px 10px;font-size:10px"
-                    onclick="envoyerTachesQuotidiennes('${b.id}','${today}')">Auj.</button>
-            </div>
         </div>`;
     }).join('');
 
@@ -2244,54 +2236,7 @@ async function _validerCreerLot(bandeId) {
 function stockColor(p) { return (p.stockSacs||0)<=5?'var(--red)':'var(--text)'; }
 
 /* ── Tâches quotidiennes ─────────────── */
-const TACHES_QUOTIDIENNES = [
-    { titre:'Nettoyage abreuvoirs et eau',   typeTache:'QUOTIDIEN' },
-    { titre:'Relevé ambiance (T° + hygro)',  typeTache:'QUOTIDIEN' },
-    { titre:'Mortalité matin',               typeTache:'QUOTIDIEN' },
-    { titre:'Compteur eau matin',            typeTache:'QUOTIDIEN' },
-    { titre:'Aliment distribué (kg)',        typeTache:'QUOTIDIEN' },
-    { titre:'Relevé ambiance Midi',          typeTache:'QUOTIDIEN' },
-    { titre:'Relevé ambiance PM',            typeTache:'QUOTIDIEN' },
-    { titre:'Mortalité soir',               typeTache:'QUOTIDIEN' },
-    { titre:'Compteur eau soir',             typeTache:'QUOTIDIEN' },
-    { titre:'Santé générale du lot',         typeTache:'QUOTIDIEN' },
-];
 
-async function envoyerTachesQuotidiennes(bandeId, dateStr) {
-    if (!bandeId) { showToast('Aucune bande active','warning'); return; }
-
-    /* Vérification double côté localStorage */
-    const key = 'av_taches_envoyees_'+bandeId+'_'+dateStr;
-    if (localStorage.getItem(key) === 'true') {
-        showToast('Tâches déjà envoyées pour cette date','warning'); return;
-    }
-    if (!guardDouble('envoi_taches_'+bandeId+'_'+dateStr)) return;
-
-    /* Vérification double côté DB — évite les doublons si localStorage effacé */
-    const { data: existing } = await sb
-        .from('taches')
-        .select('id')
-        .eq('ferme_id', FERME_ID)
-        .eq('bande_id', bandeId)
-        .eq('date_prevue', dateStr)
-        .eq('type_tache', 'QUOTIDIEN')
-        .limit(1);
-
-    if (existing && existing.length > 0) {
-        localStorage.setItem(key, 'true');
-        showToast('Tâches déjà envoyées pour cette date','warning');
-        return;
-    }
-
-    showToast('⏳ Envoi des tâches…','info',2000);
-    let nb = 0;
-    for (const t of TACHES_QUOTIDIENNES) {
-        const r = await creerTache(t.titre, bandeId, t.typeTache, dateStr);
-        if (r && !r.queued) nb++;
-    }
-    localStorage.setItem(key, 'true');
-    showToast('✅ '+nb+' tâches envoyées à l\'agent','success',4000);
-}
 
 /* ── Analyser ────────────────────────── */
 async function renderAnalyser() {
@@ -3192,7 +3137,7 @@ async function _renderTabAbattage(bande, container) {
     const nbComptabilis  = abattages.filter(t => t.statut === 'COMPTABILISEE').length;
 
     const lignesHTML = abattages.map(t => {
-        const cls = { 'A FAIRE':'tb-abattage', 'TERMINEE':'tb-hebdo', 'COMPTABILISEE':'tb-quotidien' }[t.statut] || 'tb-quotidien';
+        const cls = { 'A FAIRE':'tb-abattage', 'TERMINEE':'tb-hebdo', 'COMPTABILISEE':'tb-hebdo' }[t.statut] || 'tb-hebdo';
         const lbl = { 'A FAIRE':'PLANIFIÉ', 'TERMINEE':'EXÉCUTÉ', 'COMPTABILISEE':'COMPTAB.' }[t.statut] || t.statut;
         return `<div class="tache-card">
             <div style="font-size:18px;flex-shrink:0">🔪</div>
@@ -3359,11 +3304,10 @@ async function renderTachesBande(bandeId) {
         .select('*')
         .eq('ferme_id', FERME_ID)
         .eq('bande_id', bandeId)
-        .in('statut', ['A FAIRE','VUE','TERMINEE','VALIDEE','REJETEE'])
+        .in('statut', ['PLANIFIEE','ENVOYEE','EXECUTEE','VALIDEE','REJETEE'])
         .order('date_prevue', { ascending: false });
     const taches = tachesAll || [];
     const types = [
-        {type:'QUOTIDIEN', icon:'🔁', label:'Quotidienne'},
         {type:'HEBDO',     icon:'📅', label:'Hebdomadaire'},
         {type:'ABATTAGE',  icon:'🔪', label:'Abattage'},
     ];
@@ -3372,8 +3316,8 @@ async function renderTachesBande(bandeId) {
     const depActiveId = localStorage.getItem('av_dep_active_'+bandeId) || null;
 
     /* Séparer les tâches par statut */
-    const tachesAFaire    = taches.filter(t => ['A FAIRE','VUE'].includes(t.statut));
-    const tachesAValider  = taches.filter(t => t.statut === 'TERMINEE');
+    const tachesAFaire    = taches.filter(t => ['PLANIFIEE','ENVOYEE'].includes(t.statut));
+    const tachesAValider  = taches.filter(t => t.statut === 'EXECUTEE');
     const tachesTerminees = taches.filter(t => ['VALIDEE','REJETEE'].includes(t.statut));
 
     /* Badge sur l'onglet si tâches à valider */
@@ -3382,7 +3326,7 @@ async function renderTachesBande(bandeId) {
     }
 
     const _renderTacheLigne = (t) => {
-        const done       = ['TERMINEE','VALIDEE'].includes(t.statut);
+        const done       = ['EXECUTEE','VALIDEE'].includes(t.statut);
         const c          = t.type_tache==='ABATTAGE'?'red':t.type_tache==='HEBDO'?'orange':'blue';
         const depense    = depTaches[t.id];
         const isDepActive = depActiveId === t.id;
@@ -3411,8 +3355,13 @@ async function renderTachesBande(bandeId) {
             + '<div class="tache-dot dot-'+c+'"></div>'
             + '<div style="flex:1"><div class="tache-titre">'+ttit+'</div><div class="tache-meta">'+tdat+'</div></div>'
             + btnDep
-            + '<span class="tache-badge tb-'+(t.type_tache||'quotidien').toLowerCase()+'" style="margin-left:4px">'+esc(t.type_tache)+'</span>'
+            + '<span class="tache-badge tb-'+(t.type_tache||'hebdo').toLowerCase()+'" style="margin-left:4px">'+esc(t.type_tache)+'</span>'
             + '</div>'
+            + (t.statut === 'PLANIFIEE' ? '<button class="btn-action btn-blue" style="margin-top:8px;font-size:12px;width:100%" onclick="_envoyerTache(\''+tid+'\')">📤 Envoyer à l\'agent</button>' : '')
+            + (t.statut === 'EXECUTEE' ? '<div style="background:rgba(255,165,0,.1);border:1px solid rgba(255,165,0,.3);border-radius:10px;padding:10px;margin-top:8px;display:flex;gap:8px">'
+            + '<button class="btn-action btn-green" style="margin:0;padding:8px;font-size:12px;flex:1" onclick="_validerTacheBande(\''+tid+'\')">✅ Valider</button>'
+            + '<button class="btn-action btn-red" style="margin:0;padding:8px;font-size:12px;flex:1" onclick="_rejeterTacheBande(\''+tid+'\',\''+ttit+'\')">❌ Rejeter</button>'
+            + '</div>' : '')
             + formDep
             + '</div>';
     };
@@ -3437,13 +3386,26 @@ async function renderTachesBande(bandeId) {
             + ' onclick="Nav.push(\'renderCreerTache\',JSON.stringify({bandeId:\''+bandeId+'\',type:\''+t.type+'\'}))"><div style="font-size:20px;margin-bottom:4px">'+t.icon+'</div>'
             + '<div style="font-size:11px;font-weight:700">'+t.label+'</div></div>').join('')
         + '</div>'
-        + '<button class="btn-action btn-blue" style="margin-bottom:14px"'
-        + ' onclick="envoyerTachesQuotidiennes(\''+bandeId+'\',\''+_dateDemain()+'\')">'
-        + '📅 Envoyer tâches quotidiennes demain</button>'
         + sectionAValider
         + '<div class="section-title">📋 Tâches en cours</div>'
         + sectionAFaire
         + sectionHistorique;
+}
+
+/* ── Envoyer tâche à l'agent ── */
+async function _envoyerTache(tacheId) {
+    if (!guardDouble('env_'+tacheId)) return;
+    const { error } = await sb
+        .from('taches')
+        .update({ statut: 'ENVOYEE' })
+        .eq('id', tacheId)
+        .eq('ferme_id', FERME_ID);
+    if (!error) {
+        showToast('📤 Tâche envoyée à l\'agent','success',3000);
+        Nav.replace('renderTachesBande', App.activeBande);
+    } else {
+        showToast('Erreur envoi','error');
+    }
 }
 
 /* ── Valider / Rejeter tâche depuis la fiche bande ── */
@@ -3485,7 +3447,11 @@ async function _confirmerRejetBande(tacheId, formId) {
     if (!motif) { showToast('Saisissez un motif','warning'); return; }
     document.getElementById(formId)?.remove();
     const r = await rejeterTache(tacheId, motif);
-    if (r) { showToast('❌ Tâche rejetée — agent notifié','warning',4000); Nav.replace('renderTachesBande', App.activeBande); }
+    if (r) {
+        await sb.from('taches').update({ statut: 'ENVOYEE' })
+            .eq('id', tacheId).eq('ferme_id', FERME_ID);
+    }
+    if (r) { showToast('↩️ Tâche rejetée — renvoyée à l\'agent','warning',4000); Nav.replace('renderTachesBande', App.activeBande); }
     else   { showToast('Erreur rejet','error'); }
 }
 
@@ -3709,8 +3675,7 @@ async function _navTachesAgent() {
         !localStorage.getItem('av_done_'+t.id)
     );
     const tachesAssignees = taches.filter(t =>
-        t.type_tache !== 'BANDE' && t.statut === 'A FAIRE' &&
-        !localStorage.getItem('av_done_'+t.id)
+        t.type_tache !== 'BANDE' && t.statut === 'ENVOYEE'
     );
 
     const nbEnAttente = tachesAssignees.length + tachesBande.length;
@@ -3736,11 +3701,12 @@ async function _navTachesAgent() {
         return `<div class="tache-card ${t.type_tache==='ABATTAGE'?'urgente':''}" id="tcard-${esc(t.id)}">
             <div class="tache-dot dot-${c}"></div>
             <div style="flex:1"><div class="tache-titre">${esc(t.titre)}</div><div class="tache-meta">${esc(t.date_prevue)}</div></div>
-            <button class="btn-fait" id="btn-fait-${esc(t.id)}" onclick="_tachePremierAppui('${esc(t.id)}','${esc(t.titre)}')">À FAIRE</button>
+            <button class="btn-fait" id="btn-fait-${esc(t.id)}" onclick="_tachePremierAppui('${esc(t.id)}','${esc(t.titre)}')">✅ Marquer exécutée</button>
         </div>`;
     }).join('') : '<div style="color:var(--text2);font-size:13px;padding:12px 0;text-align:center">Aucune tâche assignée</div>';
 
     z.innerHTML = `
+        ${tachesAssignees.length > 0 ? '<div style="background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--blue);font-weight:600">📋 '+tachesAssignees.length+' tâche'+(tachesAssignees.length>1?'s':'')+' reçue'+(tachesAssignees.length>1?'s':'')+' du gérant</div>' : ''}
         <div class="section-title">⏰ Session en cours</div>
         <div class="tuile tuile-session-active" style="background:var(--bg2);margin-bottom:8px" onclick="Nav.push('renderSession','${sessionCourante.id}')">
             <div class="tuile-icon">${sessionCourante.icon}</div>
@@ -3758,7 +3724,7 @@ async function _navTachesAgent() {
               let _actif = true;
               if (_plagesT[s.id]) { _actif = _hN >= _plagesT[s.id][0] && _hN < _plagesT[s.id][1]; }
               else if (s.id === 'Nuit') { _actif = _hN >= 19 || _hN < 5; }
-              return `<button onclick="${_actif ? "Nav.push('renderSession','"+s.id+"')" : 'void(0)'}" style="flex:1;padding:8px 4px;border-radius:12px;border:1px solid var(--border);background:var(--bg3);font-family:Lexend,sans-serif;font-size:10px;font-weight:700;color:${v?'var(--green)':'var(--text2)'};cursor:${_actif?'pointer':'not-allowed'};opacity:${_actif?'1':'0.35'}">${s.icon} ${rejetsSessions.has(s.id) ? '🔴 ' : ''}${s.id}<br><span style="font-size:9px">${v?'✅':_actif?'○':'🔒'}</span></button>`;
+              return `<button onclick="${_actif ? "Nav.push('renderSession','"+s.id+"')" : "showToast('Session "+s.id+" — Hors plage horaire ("+s.heure+")','warning',3000)"}" style="flex:1;padding:8px 4px;border-radius:12px;border:1px solid var(--border);background:var(--bg3);font-family:Lexend,sans-serif;font-size:10px;font-weight:700;color:${v?'var(--green)':'var(--text2)'};cursor:${_actif?'pointer':'not-allowed'};opacity:${_actif?'1':'0.35'}">${s.icon} ${rejetsSessions.has(s.id) ? '🔴 ' : ''}${s.id}<br><span style="font-size:9px">${v?'✅':_actif?'○':'🔒'}</span></button>`;
             }).join('')}
         </div>
         ${tachesBande.length ? `
@@ -3800,7 +3766,7 @@ function _tachePremierAppui(idTache, titre) {
         if (btn && btn.dataset.confirming === 'true') {
             btn.dataset.confirming = 'false';
             btn.classList.remove('confirmer');
-            btn.textContent = 'À FAIRE';
+            btn.textContent = '✅ Marquer exécutée';
         }
     }, 3000);
 }
@@ -3811,11 +3777,16 @@ async function _tacheDeuxiemeAppui(idTache, titre) {
     const card = document.getElementById('tcard-'+idTache);
     if (btn)  { btn.dataset.confirming='false'; btn.classList.remove('confirmer'); btn.classList.add('done'); btn.textContent='✅ FAIT'; btn.onclick=null; }
     if (card) card.classList.add('accomplie');
-    localStorage.setItem('av_done_'+idTache, 'true');
+    // localStorage supprimé — workflow Supabase
     _vibrateDevice();
-    const r = await terminerTache(idTache);
+    const { error: errExec } = await sb
+        .from('taches')
+        .update({ statut: 'EXECUTEE' })
+        .eq('id', idTache)
+        .eq('ferme_id', FERME_ID);
+    const r = !errExec;
     if (r) showToast('✅ Tâche accomplie — gérant notifié','success');
-    else   showToast('📴 Tâche sauvegardée localement','warning');
+    if (!r) showToast('Erreur mise à jour tâche','error');
 }
 
 /* ── Sessions Agent ──────────────────── */
@@ -4458,7 +4429,7 @@ async function _genererRapportHebdo(bande, semaineNum) {
         const { data: mortsTotal } = await sb.from('saisies_techniques').select('valeur').eq('ferme_id', FERME_ID).eq('bande_id', bande.id).in('categorie', ['MortaliteMatin','MortaliteSoir']);
         const totalMorts = (mortsTotal||[]).reduce((s,m) => s+(parseFloat(m.valeur)||0), 0);
         const effectifVivants = Math.max(1, (bande.effectif_initial||1) - totalMorts);
-        const { data: pesees } = await sb.from('saisies_techniques').select('valeur').eq('ferme_id', FERME_ID).eq('bande_id', bande.id).eq('categorie', 'PoidsMoyen').gte('date_saisie', dateDebutStr).lte('date_saisie', dateFinStr).order('date_saisie', { ascending: false }).limit(1);
+        const { data: pesees } = await sb.from('saisies_techniques').select('valeur').eq('ferme_id', FERME_ID).eq('categorie', 'PoidsMoyen').eq('bande_id', bande.id).order('date_saisie', { ascending: false }).limit(1);
         const poidsMoyen = pesees && pesees.length > 0 ? parseFloat(pesees[0].valeur)||0 : null;
         const { data: aliments } = await sb.from('saisies_techniques').select('valeur').eq('ferme_id', FERME_ID).eq('bande_id', bande.id).eq('categorie', 'Aliment').gte('date_saisie', dateDebutStr).lte('date_saisie', dateFinStr);
         const consoAliment = (aliments||[]).reduce((s,a) => s+(parseFloat(a.valeur)||0), 0);
