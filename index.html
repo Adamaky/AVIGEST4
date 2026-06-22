@@ -1656,7 +1656,7 @@ async function renderGerant() {
                 sb.from('taches').select('*')
                   .eq('ferme_id', FERME_ID)
                   .eq('bande_id', b.id)
-                  .in('statut', ['TERMINEE'])
+                  .in('statut', ['EXECUTEE'])
                   .order('date_prevue', { ascending: false })
             )
         );
@@ -1677,6 +1677,17 @@ async function renderGerant() {
 
     const today = _dateAujourd_hui();
 
+        const nbAValider = tachesAValider.length;
+        const banniereHTML = nbAValider > 0
+            ? `<div style="background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.4);border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;cursor:pointer" onclick="Nav.push('renderTachesBande','${App.activeBande}')">
+                <span style="font-size:20px">📋</span>
+                <div style="flex:1">
+                    <div style="font-weight:700;font-size:13px;color:var(--blue)">${nbAValider} tâche${nbAValider > 1 ? 's' : ''} en attente de validation</div>
+                    <div style="font-size:11px;color:var(--text2)">Appuyer pour valider</div>
+                </div>
+                <span style="color:var(--blue);font-size:18px">›</span>
+              </div>`
+            : '';
     const bandesHTML = bandesEnCours.map((b, i) => {
         const d  = dashboards[i] || {};
         const p  = d.performance || {};
@@ -1767,7 +1778,7 @@ async function renderGerant() {
             <div style="font-weight:800;font-size:16px">👋 Bonjour ${esc(App.nom)} <span class="realtime-dot" title="Temps réel actif"></span></div>
             <div style="font-size:12px;color:var(--text2);margin-top:2px">${bandesEnCours.length} bande${bandesEnCours.length>1?'s':''} en cours</div>
         </div>
-        ${tachesAValider.length ? '<div class="section-title" style="color:var(--green)">✅ À valider (' + tachesAValider.length + ')</div>' + aValiderHTML : ''}
+        ${banniereHTML}
         <div class="section-title">🐔 Bandes actives</div>
        ${bandesHTML}
         <div class="section-title" style="margin-top:16px">&#128230; Stock</div>
