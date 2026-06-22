@@ -1702,7 +1702,8 @@ async function renderGerant() {
         /* CRU = total dépenses / effectif vivants actuels */
         const effectifVivants = Math.max(1, (p.effectif||0) - (p.morts||0));
         const totalDepenses   = fi.totalDepenses || 0;
-        const cru             = totalDepenses > 0 ? Math.round(totalDepenses / effectifVivants) : 0;
+        const totalDepensesCRU = fi.totalDepensesCRU || 0;
+        const cru             = totalDepensesCRU > 0 ? Math.round(totalDepensesCRU / effectifVivants) : 0;
         const cruColor        = cru > 3500 ? 'var(--red)' : cru > 2500 ? 'var(--orange)' : cru > 0 ? 'var(--green)' : 'var(--text2)';
         return `
         <div class="card" style="margin-bottom:12px;border-left:3px solid var(--blue)">
@@ -3283,7 +3284,7 @@ function renderNouvelleEcriture(paramsStr) {
     const { bandeId, type } = params;
     const isDep = type === 'DEPENSE';
     const categories = isDep
-        ? ['Aliment','Poussin','Vaccin/Médicament','Main d\'œuvre','Eau','Électricité','Transport','Autre dépense']
+        ? ['Alimentation','Poussin','Vaccin','Médicament','Salaire','Prestation','Transport','Glace','Autre dépense']
         : ['Vente poulet vif','Vente poulet abattu','Remboursement','Autre recette'];
     z.innerHTML = `
         <div class="card">
