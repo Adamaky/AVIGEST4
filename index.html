@@ -3377,6 +3377,16 @@ async function renderTachesBande(bandeId) {
     const aFaireHTML  = tachesAFaire.map(_renderTacheLigne).join('');
 
     /* Construire les sections hors template literal pour éviter les backticks imbriqués */
+    const aValiderHTML = tachesAValider.map(t => {
+        const tid = esc(t.id), ttit = esc(t.titre);
+        return '<div class="tache-card" style="border-color:rgba(0,200,150,.4);background:rgba(0,200,150,.05)">'
+            + '<div class="tache-dot dot-green"></div>'
+            + '<div style="flex:1"><div class="tache-titre">'+ttit+'</div><div class="tache-meta">'+esc(t.date_prevue||'')+'</div></div>'
+            + '<div style="display:flex;gap:6px;margin-top:6px">'
+            + '<button class="btn-action btn-green" style="margin:0;padding:6px 10px;font-size:11px" onclick="_validerTacheBande(\''+tid+'\')">✅ Valider</button>'
+            + '<button class="btn-action btn-red" style="margin:0;padding:6px 10px;font-size:11px" onclick="_rejeterTacheBande(\''+tid+'\',\''+ttit+'\')">❌ Rejeter</button>'
+            + '</div></div>';
+    }).join('');
     const sectionAValider = tachesAValider.length
         ? '<div class="section-title" style="color:var(--green)">✅ À valider ('+tachesAValider.length+')</div>'+aValiderHTML
         : '';
