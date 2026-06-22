@@ -3292,21 +3292,67 @@ function renderNouvelleEcriture(paramsStr) {
             <select class="f-input" id="ec-cat"><option value="">-- Choisir --</option>${categories.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select>
             <label class="f-label">Libellé</label>
             <input class="f-input" type="text" id="ec-libelle" placeholder="Détail de l'opération">
-            <label class="f-label">Montant (FCFA)</label>
-            <input class="f-input" type="number" id="ec-montant" placeholder="Ex: 15000" inputmode="numeric">
+            <label class="f-label">Mode de calcul</label>
+            <div style="display:flex;gap:8px;margin-bottom:4px">
+              <button id="ec-mode-forfait" onclick="_ecSetMode('forfait')" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--blue);background:var(--blue);color:#fff;font-family:Lexend,sans-serif;font-size:12px;font-weight:700;cursor:pointer">Forfait</button>
+              <button id="ec-mode-qpu" onclick="_ecSetMode('qpu')" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:Lexend,sans-serif;font-size:12px;font-weight:700;cursor:pointer">Qté × Prix unitaire</button>
+            </div>
+            <div id="ec-bloc-forfait">
+              <label class="f-label">Montant (FCFA)</label>
+              <input class="f-input" type="number" id="ec-montant" placeholder="Ex: 15000" inputmode="numeric">
+            </div>
+            <div id="ec-bloc-qpu" style="display:none">
+              <label class="f-label">Unité</label>
+              <input class="f-input" type="text" id="ec-unite" placeholder="Ex: kg, sac, dose">
+              <label class="f-label">Quantité</label>
+              <input class="f-input" type="number" id="ec-quantite" placeholder="Ex: 10" inputmode="numeric" oninput="_ecCalcMontant()">
+              <label class="f-label">Prix unitaire (FCFA)</label>
+              <input class="f-input" type="number" id="ec-pu" placeholder="Ex: 1500" inputmode="numeric" oninput="_ecCalcMontant()">
+              <label class="f-label">Montant calculé (FCFA)</label>
+              <div id="ec-montant-calc" style="padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);font-weight:700;color:var(--blue);font-size:15px;text-align:center">—</div>
+              <input type="hidden" id="ec-montant">
+            </div>
             <button class="btn-action ${isDep?'btn-red':'btn-green'}" onclick="_validerEcriture('${esc(bandeId)}','${type}')">✅ Enregistrer</button>
             <button class="btn-action btn-ghost" onclick="Nav.back()">Annuler</button>
         </div>`;
 }
 
+function _ecSetMode(mode) {
+    const bF = document.getElementById('ec-bloc-forfait');
+    const bQ = document.getElementById('ec-bloc-qpu');
+    const btnF = document.getElementById('ec-mode-forfait');
+    const btnQ = document.getElementById('ec-mode-qpu');
+    if (mode === 'forfait') {
+        bF.style.display = ''; bQ.style.display = 'none';
+        btnF.style.background = 'var(--blue)'; btnF.style.border = '2px solid var(--blue)'; btnF.style.color = '#fff';
+        btnQ.style.background = 'transparent'; btnQ.style.border = '1px solid var(--border)'; btnQ.style.color = 'var(--text2)';
+    } else {
+        bF.style.display = 'none'; bQ.style.display = '';
+        btnQ.style.background = 'var(--blue)'; btnQ.style.border = '2px solid var(--blue)'; btnQ.style.color = '#fff';
+        btnF.style.background = 'transparent'; btnF.style.border = '1px solid var(--border)'; btnF.style.color = 'var(--text2)';
+    }
+}
+function _ecCalcMontant() {
+    const qte = parseFloat(document.getElementById('ec-quantite')?.value) || 0;
+    const pu  = parseFloat(document.getElementById('ec-pu')?.value) || 0;
+    const total = qte * pu;
+    const affichage = document.getElementById('ec-montant-calc');
+    const hidden    = document.getElementById('ec-montant');
+    if (affichage) affichage.textContent = total > 0 ? total.toLocaleString('fr') + ' FCFA' : '—';
+    if (hidden)    hidden.value = total > 0 ? total : '';
+}
 async function _validerEcriture(bandeId, type) {
     const cat     = document.getElementById('ec-cat')?.value;
     const libelle = document.getElementById('ec-libelle')?.value.trim();
     const montant = parseFloat(document.getElementById('ec-montant')?.value);
-    if (!cat)               { showToast('Choisissez une catégorie','warning'); return; }
-    if (!montant || montant<=0) { showToast('Montant invalide','warning'); return; }
+    const unite   = document.getElementById('ec-unite')?.value.trim() || '';
+    const qte     = document.getElementById('ec-quantite')?.value || '';
+    const pu      = document.getElementById('ec-pu')?.value || '';
+    const libelleComplet = libelle || (unite && qte && pu ? unite+' x'+qte+' @ '+pu+'F' : cat);
+    if (!cat)                    { showToast('Choisissez une catégorie','warning'); return; }
+    if (!montant || isNaN(montant)) { showToast('Montant invalide','warning'); return; }
     if (!guardDouble('ecriture')) return;
-    const r = await ecritureJournal(bandeId, type, cat, libelle||cat, montant);
+    const r = await ecritureJournal(bandeId, type, cat, libelleComplet, montant);
     if (r) { showToast('✅ Écriture enregistrée','success'); Nav.back(); }
     else   { showToast('Erreur enregistrement','error'); }
 }
