@@ -592,7 +592,7 @@ async function getTachesAgent(bandeId) {
         .select('*')
         .eq('ferme_id', FERME_ID)
         .eq('bande_id', bandeId)
-        .in('statut', ['ENVOYEE', 'EXECUTEE', 'PLANIFIEE'])
+        .in('statut', ['ENVOYEE', 'EXECUTEE', 'PLANIFIEE', 'REJETEE'])
         .order('date_prevue');
     if (error) return [];
     return data || [];
@@ -3705,7 +3705,7 @@ async function _navTachesAgent() {
             .select('note')
             .eq('ferme_id', FERME_ID)
             .eq('bande_id', App.activeBande)
-            .eq('statut', 'REJETE');
+            .eq('statut', 'REJETEE');
         (rejets || []).forEach(r => {
             if (r.note) ['Matin','Midi','PM','Nuit'].forEach(sid => {
                 if (r.note.includes(sid)) rejetsSessions.add(sid);
