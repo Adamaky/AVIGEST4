@@ -2907,7 +2907,7 @@ async function _renderTabPreparation(bande, container) {
       const { error: errJ } = await sb.from('journal').insert({
         ferme_id: FERME_ID,
         bande_id: bandeId,
-        date_ecriture: _dateAujourdHui(),
+        date_ecriture: _dateAujourd_hui(),
         type_ecriture: 'DEPENSE',
         categorie: 'Poussin',
         montant: montant,
@@ -2920,8 +2920,13 @@ async function _renderTabPreparation(bande, container) {
         .eq('ferme_id', FERME_ID);
       if (errB) return showToast('Erreur mise à jour bande: ' + errB.message, 'error');
       showToast('Achat poussins enregistré ✅', 'success');
-      const bande = await _getBandeById(bandeId);
-      if (bande) _renderTabPreparation(bande, document.getElementById('cycle-content'));
+      const { data: bandeData } = await sb
+        .from('bandes')
+        .select('*, batiments(id, id_bande, statut, date_arrivee, effectif_initial, race, is_deleted)')
+        .eq('id', bandeId)
+        .eq('ferme_id', FERME_ID)
+        .single();
+      if (bandeData) _renderTabPreparation(bandeData, document.getElementById('cycle-content'));
     }
 
 /* ── Envoyer tâches de préparation à l'agent ── */
