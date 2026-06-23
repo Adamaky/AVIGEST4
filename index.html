@@ -3362,14 +3362,32 @@ function renderNouvelleEcriture(paramsStr) {
     let params = {}; try { params = JSON.parse(paramsStr); } catch(_) {}
     const { bandeId, type } = params;
     const isDep = type === 'DEPENSE';
-    const categories = isDep
-        ? ['Alimentation','Poussin','Vaccin','Médicament','Salaire','Prestation','Transport','Glace','Autre dépense']
-        : ['Vente poulet vif','Vente poulet abattu','Remboursement','Autre recette'];
+    const categoriesDepOptions = isDep
+            ? '<optgroup label="Charges CRU">'
+              + '<option value="Alimentation">Alimentation</option>'
+              + '<option value="Vaccin">Vaccin</option>'
+              + '<option value="Medicament">Médicament</option>'
+              + '<option value="Poussin">Poussin</option>'
+              + '</optgroup>'
+              + '<optgroup label="Charges exploitation">'
+              + '<option value="Salaire">Salaire</option>'
+              + '<option value="Prestation">Prestation</option>'
+              + '<option value="Transport">Transport</option>'
+              + '<option value="Glace">Glace</option>'
+              + '<option value="Autre depense">Autre dépense</option>'
+              + '</optgroup>'
+              + '<optgroup label="Mouvement stock">'
+              + '<option value="Achat stock">Achat stock</option>'
+              + '</optgroup>'
+            : '<option value="Vente poulet vif">Vente poulet vif</option>'
+              + '<option value="Vente poulet abattu">Vente poulet abattu</option>'
+              + '<option value="Remboursement">Remboursement</option>'
+              + '<option value="Autre recette">Autre recette</option>';
     z.innerHTML = `
         <div class="card">
             <div class="card-title" style="color:${isDep?'var(--red)':'var(--green)'}">${isDep?'📤 Nouvelle dépense':'📥 Nouvelle recette'}</div>
             <label class="f-label">Catégorie</label>
-            <select class="f-input" id="ec-cat"><option value="">-- Choisir --</option>${categories.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select>
+            <select class="f-input" id="ec-cat"><option value="">-- Choisir --</option>${categoriesDepOptions}</select>
             <label class="f-label">Libellé</label>
             <input class="f-input" type="text" id="ec-libelle" placeholder="Détail de l'opération">
             <label class="f-label">Mode de calcul</label>
