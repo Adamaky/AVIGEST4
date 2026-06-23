@@ -3155,11 +3155,8 @@ async function _demarrerBande(bandeId) {
     const key = 'av_prep_' + bandeId;
     let st = {}; try { st = JSON.parse(localStorage.getItem(key)||'{}'); } catch(_) {}
 
-    const effectif = parseInt(st.effectif);
+    const effectif = parseInt(st.effectif) || 0;
     const dateArrivee = st.dateArrivee;
-
-    if (!effectif || effectif <= 0) { showToast('Saisissez l\'effectif attendu','warning'); return; }
-    if (!dateArrivee) { showToast('Saisissez la date d\'arrivée','warning'); return; }
 
     /* Mettre à jour la bande : effectif réel + date + statut EN COURS */
     const { error: errBande } = await sb
