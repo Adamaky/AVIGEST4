@@ -3121,7 +3121,6 @@ async function _terminerPreparation(bandeId) {
         }
     }
     const { error } = await sb.from('bandes').update({
-        effectif_initial: effectif,
         date_arrivee:     dateArrivee,
         prep_terminee:    true
     }).eq('id', bandeId);
