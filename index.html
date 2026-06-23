@@ -2911,7 +2911,9 @@ async function _renderTabPreparation(bande, container) {
         type_ecriture: 'DEPENSE',
         categorie: 'Poussin',
         montant: montant,
-        note: fournisseur
+        libelle: fournisseur,
+        quantite: nombre,
+        prix_unitaire: pu
       });
       if (errJ) return showToast('Erreur enregistrement journal: ' + errJ.message, 'error');
       const { error: errB } = await sb.from('bandes')
