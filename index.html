@@ -2670,7 +2670,7 @@ function _renderCycleContenu(phase, bande, hasAbattage) {
 }
 
 /* ── TAB PRÉPARATION ─────────────────── */
-function _renderTabPreparation(bande, container) {
+async function _renderTabPreparation(bande, container) {
     const key = 'av_prep_' + bande.id;
     let st = {};
     try { st = JSON.parse(localStorage.getItem(key) || '{}'); } catch(_) {}
@@ -2681,6 +2681,16 @@ function _renderTabPreparation(bande, container) {
 
     /* Mini-formulaire actif (quel item est en cours de saisie) */
     const depenseActive = st._depenseActive || null;
+
+    /* Détecter si achat poussins déjà enregistré */
+    const { data: achatPoussin } = await sb
+      .from('journal')
+      .select('*')
+      .eq('ferme_id', FERME_ID)
+      .eq('bande_id', bande.id)
+      .eq('categorie', 'Poussin')
+      .limit(1);
+    const achatExistant = (achatPoussin && achatPoussin.length > 0) ? achatPoussin[0] : null;
 
     const checkHTML = CHECKLIST_PREP.map(item => {
         const done       = !!st[item.id];
@@ -2796,22 +2806,54 @@ function _renderTabPreparation(bande, container) {
                    </button>`}
         </div>`;
 
-    /* Champs bande */
-    const effHTML = `
+    /* Section Achat Poussins */
+    const poussinsHTML = achatExistant ? `
         <div style="margin-top:16px">
-            <div class="section-title">🐣 Informations du lot</div>
-            <label class="f-label">Effectif attendu (sujets)</label>
-            <input class="f-input" type="number" id="prep-effectif"
-                   value="${st.effectif||''}" placeholder="Ex: 2500" inputmode="numeric"
-                   oninput="_saveInv('${bande.id}','effectif',this.value)">
-            <label class="f-label">Date d'arrivée prévue</label>
-            <input class="f-input" type="date" id="prep-date"
-                   value="${(st.dateArrivee && String(st.dateArrivee).match(/^\d{4}-\d{2}-\d{2}$/)) ? st.dateArrivee : new Date().toISOString().split('T')[0]}"
-                   oninput="_saveInv('${bande.id}','dateArrivee',this.value)">
-            <label class="f-label">Fournisseur poussins</label>
-            <input class="f-input" type="text" id="prep-fournisseur"
-                   value="${st.fournisseur||''}" placeholder="Ex: Couvoirs du Sahel"
-                   oninput="_saveInv('${bande.id}','fournisseur',this.value)">
+          <div class="section-title">🐣 Achat Poussins</div>
+          <div style="background:rgba(0,200,150,.08);border:1px solid rgba(0,200,150,.3);border-radius:12px;padding:14px">
+            <div style="font-size:12px;color:var(--text2);margin-bottom:8px">✅ Achat enregistré</div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:13px;color:var(--text2)">Fournisseur</span>
+              <span style="font-size:13px;font-weight:700">${achatExistant.note || '—'}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:13px;color:var(--text2)">Effectif</span>
+              <span style="font-size:13px;font-weight:700">${achatExistant.quantite_poussins || '—'} sujets</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:13px;color:var(--text2)">Prix unitaire</span>
+              <span style="font-size:13px;font-weight:700">${achatExistant.prix_unitaire_poussins ? achatExistant.prix_unitaire_poussins.toLocaleString() + ' FCFA' : '—'}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <span style="font-size:13px;color:var(--text2)">Montant total</span>
+              <span style="font-size:15px;font-weight:800;color:var(--green)">${achatExistant.montant ? achatExistant.montant.toLocaleString() + ' FCFA' : '—'}</span>
+            </div>
+          </div>
+        </div>` : `
+        <div style="margin-top:16px">
+          <div class="section-title">🐣 Achat Poussins</div>
+          <div style="background:rgba(255,153,0,.08);border:1px solid rgba(255,153,0,.3);border-radius:12px;padding:14px;margin-bottom:12px">
+            <div style="font-size:12px;color:var(--orange)">⚠️ Aucun achat enregistré</div>
+          </div>
+          <label class="f-label">Fournisseur</label>
+          <input class="f-input" type="text" id="poussins-fournisseur"
+                 placeholder="Ex: Couvoirs du Sahel">
+          <label class="f-label">Nombre de poussins</label>
+          <input class="f-input" type="number" id="poussins-nombre"
+                 placeholder="Ex: 2500" inputmode="numeric"
+                 oninput="_calcMontantPoussins()">
+          <label class="f-label">Prix unitaire (FCFA)</label>
+          <input class="f-input" type="number" id="poussins-pu"
+                 placeholder="Ex: 450" inputmode="numeric"
+                 oninput="_calcMontantPoussins()">
+          <label class="f-label">Montant total (FCFA)</label>
+          <input class="f-input" type="number" id="poussins-montant"
+                 placeholder="Calculé automatiquement" readonly
+                 style="background:rgba(255,255,255,.05);color:var(--green);font-weight:700">
+          <button class="btn-action btn-green" style="margin-top:8px"
+                  onclick="_soumettreAchatPoussins('${bande.id}')">
+            🐥 Enregistrer l\'achat
+          </button>
         </div>`;
 
     container.innerHTML = `
@@ -2834,7 +2876,7 @@ function _renderTabPreparation(bande, container) {
         <div class="section-title" style="margin-top:16px">📦 Stocks de démarrage</div>
         ${invHTML}
 
-        ${effHTML}
+        ${poussinsHTML}
 
         <div style="height:16px"></div>
         <button class="btn-action btn-green"
@@ -2845,6 +2887,42 @@ function _renderTabPreparation(bande, container) {
             ${bande.prep_terminee ? '🚀 Démarrer la gestion de la bande' : pct === 100 ? '✅ Terminer la préparation' : '✅ Terminer la préparation ('+pct+'% complété)'}
         </button>`;
 }
+
+    function _calcMontantPoussins() {
+      const nb = parseFloat(document.getElementById('poussins-nombre')?.value) || 0;
+      const pu = parseFloat(document.getElementById('poussins-pu')?.value) || 0;
+      const montantInput = document.getElementById('poussins-montant');
+      if (montantInput) montantInput.value = nb > 0 && pu > 0 ? nb * pu : '';
+    }
+
+    async function _soumettreAchatPoussins(bandeId) {
+      const fournisseur = document.getElementById('poussins-fournisseur')?.value?.trim();
+      const nombre = parseInt(document.getElementById('poussins-nombre')?.value) || 0;
+      const pu = parseFloat(document.getElementById('poussins-pu')?.value) || 0;
+      const montant = nombre * pu;
+      if (!fournisseur) return showToast('Veuillez saisir le fournisseur', 'warning');
+      if (nombre <= 0) return showToast('Veuillez saisir le nombre de poussins', 'warning');
+      if (pu <= 0) return showToast('Veuillez saisir le prix unitaire', 'warning');
+      if (!guardDouble('achat_poussins_' + bandeId)) return;
+      const { error: errJ } = await sb.from('journal').insert({
+        ferme_id: FERME_ID,
+        bande_id: bandeId,
+        date_ecriture: _dateAujourdHui(),
+        type_ecriture: 'DEPENSE',
+        categorie: 'Poussin',
+        montant: montant,
+        note: fournisseur
+      });
+      if (errJ) return showToast('Erreur enregistrement journal: ' + errJ.message, 'error');
+      const { error: errB } = await sb.from('bandes')
+        .update({ effectif_initial: nombre, fournisseur_poussins: fournisseur })
+        .eq('id', bandeId)
+        .eq('ferme_id', FERME_ID);
+      if (errB) return showToast('Erreur mise à jour bande: ' + errB.message, 'error');
+      showToast('Achat poussins enregistré ✅', 'success');
+      const bande = await _getBandeById(bandeId);
+      if (bande) _renderTabPreparation(bande, document.getElementById('cycle-content'));
+    }
 
 /* ── Envoyer tâches de préparation à l'agent ── */
 async function _envoyerTachesPreparation(bandeId) {
