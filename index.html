@@ -2814,15 +2814,15 @@ async function _renderTabPreparation(bande, container) {
             <div style="font-size:12px;color:var(--text2);margin-bottom:8px">✅ Achat enregistré</div>
             <div style="display:flex;justify-content:space-between;margin-bottom:6px">
               <span style="font-size:13px;color:var(--text2)">Fournisseur</span>
-              <span style="font-size:13px;font-weight:700">${achatExistant.note || '—'}</span>
+              <span style="font-size:13px;font-weight:700">${achatExistant.libelle || '—'}</span>
             </div>
             <div style="display:flex;justify-content:space-between;margin-bottom:6px">
               <span style="font-size:13px;color:var(--text2)">Effectif</span>
-              <span style="font-size:13px;font-weight:700">${achatExistant.quantite_poussins || '—'} sujets</span>
+              <span style="font-size:13px;font-weight:700">${achatExistant.quantite || '—'} sujets</span>
             </div>
             <div style="display:flex;justify-content:space-between;margin-bottom:6px">
               <span style="font-size:13px;color:var(--text2)">Prix unitaire</span>
-              <span style="font-size:13px;font-weight:700">${achatExistant.prix_unitaire_poussins ? achatExistant.prix_unitaire_poussins.toLocaleString() + ' FCFA' : '—'}</span>
+              <span style="font-size:13px;font-weight:700">${achatExistant.prix_unitaire ? achatExistant.prix_unitaire.toLocaleString() + ' FCFA' : '—'}</span>
             </div>
             <div style="display:flex;justify-content:space-between">
               <span style="font-size:13px;color:var(--text2)">Montant total</span>
