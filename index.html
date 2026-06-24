@@ -3974,10 +3974,83 @@ async function _navTachesAgent() {
                  + '</div>';
         }).join('')}` : ''}
         <div class="section-title">📋 Tâches assignées ${nbEnAttente>0?'<span style="background:var(--blue);color:#0d1b2a;font-size:9px;padding:2px 8px;border-radius:10px;margin-left:6px">'+nbEnAttente+'</span>':''}</div>
-        ${tachesHTML}`;
+        ${tachesHTML}
+        <div style="margin-top:16px">
+          <button class="btn-action btn-secondary" style="width:100%" onclick="_ouvrirImputerLitiere('${App.activeBande}')">🪹 Imputer litière</button>
+        </div>`;
 
     Nav.stack = [{ fn:'_navTachesAgent', params:null }];
     Nav._upBtn();
+}
+
+async function _ouvrirImputerLitiere(bandeId) {
+    if (!bandeId) { showToast('Aucune bande active','warning'); return; }
+    const { data: lots } = await sb
+        .from('lots_stock')
+        .select('*')
+        .eq('bande_id', bandeId)
+        .eq('ferme_id', FERME_ID)
+        .eq('statut', 'EN STOCK')
+        .eq('impute_journal', false);
+    const overlay = document.createElement('div');
+    overlay.id = 'ltr-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+    if (!lots || lots.length === 0) {
+        overlay.innerHTML = '<div style="background:var(--bg2);border-radius:20px 20px 0 0;padding:24px 20px;width:100%;max-width:480px">'
+            + '<div style="font-weight:800;font-size:16px;margin-bottom:12px">🪹 Imputer un produit</div>'
+            + '<div style="background:rgba(255,153,0,.1);border:1px solid rgba(255,153,0,.3);border-radius:12px;padding:14px;font-size:13px;color:var(--orange)">Aucun produit disponible pour cette bande.</div>'
+            + '<button class="btn-action btn-ghost" style="margin-top:12px" onclick="document.getElementById(\'ltr-overlay\').remove()">Fermer</button>'
+            + '</div>';
+        document.body.appendChild(overlay);
+        return;
+    }
+    const optionsHTML = lots.map(l =>
+        '<option value="' + l.id + '">' + esc(l.produit || l.type_produit || '—') + ' — ' + (l.quantite_restante || l.quantite_totale || '?') + ' ' + esc(l.unite || '') + ' disponible</option>'
+    ).join('');
+    overlay.innerHTML = '<div style="background:var(--bg2);border-radius:20px 20px 0 0;padding:24px 20px;width:100%;max-width:480px">'
+        + '<div style="font-weight:800;font-size:16px;margin-bottom:16px">🪹 Imputer un produit</div>'
+        + '<label class="f-label">Produit / Lot</label>'
+        + '<select class="f-input" id="ltr-lot"><option value="">-- Choisir --</option>' + optionsHTML + '</select>'
+        + '<label class="f-label">Quantité utilisée</label>'
+        + '<input class="f-input" type="number" id="ltr-quantite" placeholder="Ex: 50" inputmode="numeric">'
+        + '<label class="f-label">Note (optionnel)</label>'
+        + '<input class="f-input" type="text" id="ltr-note" placeholder="Ex: Litière compartiment A">'
+        + '<div id="ltr-erreur" style="display:none;color:var(--red);font-size:12px;margin-bottom:8px;padding:8px;background:rgba(255,68,68,.1);border-radius:8px"></div>'
+        + '<button class="btn-action btn-blue" onclick="_soumettreImputerLitiere(\'' + bandeId + '\')">✅ Soumettre</button>'
+        + '<button class="btn-action btn-ghost" onclick="document.getElementById(\'ltr-overlay\').remove()">Annuler</button>'
+        + '</div>';
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+}
+
+async function _soumettreImputerLitiere(bandeId) {
+    const lotId    = document.getElementById('ltr-lot')?.value;
+    const quantite = parseFloat(document.getElementById('ltr-quantite')?.value) || 0;
+    const note     = document.getElementById('ltr-note')?.value?.trim() || null;
+    const errEl    = document.getElementById('ltr-erreur');
+    const showErr  = (msg) => { if (errEl) { errEl.textContent = msg; errEl.style.display = ''; } };
+    if (!lotId)       { showErr('Veuillez sélectionner un lot.'); return; }
+    if (quantite <= 0) { showErr('La quantité doit être supérieure à 0.'); return; }
+    if (errEl) errEl.style.display = 'none';
+    const { data, error } = await sb.rpc('imputer_stock_type_b', {
+        p_lot_id:   lotId,
+        p_bande_id: bandeId,
+        p_quantite: quantite,
+        p_session:  'DEMANDE',
+        p_note:     note
+    });
+    if (error) { showErr('Erreur : ' + error.message); return; }
+    const overlay = document.getElementById('ltr-overlay');
+    if (overlay) {
+        overlay.querySelector('.btn-action.btn-blue').style.display = 'none';
+        overlay.querySelector('.btn-action.btn-ghost').style.display = 'none';
+        const box = overlay.querySelector('div');
+        const msg = document.createElement('div');
+        msg.style.cssText = 'background:rgba(0,200,150,.1);border:1px solid rgba(0,200,150,.3);border-radius:12px;padding:14px;font-size:13px;color:var(--green);text-align:center;margin-top:8px';
+        msg.textContent = 'Imputation enregistrée — en attente de validation gérant.';
+        box.appendChild(msg);
+        setTimeout(() => { overlay.remove(); }, 2000);
+    }
 }
 
 /* ── Double appui tâche ──────────────── */
