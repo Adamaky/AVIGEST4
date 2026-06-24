@@ -3387,70 +3387,92 @@ function renderNouvelleEcriture(paramsStr) {
         <div class="card">
             <div class="card-title" style="color:${isDep?'var(--red)':'var(--green)'}">${isDep?'📤 Nouvelle dépense':'📥 Nouvelle recette'}</div>
             <label class="f-label">Catégorie</label>
-            <select class="f-input" id="ec-cat"><option value="">-- Choisir --</option>${categoriesDepOptions}</select>
-            <label class="f-label">Libellé</label>
-            <input class="f-input" type="text" id="ec-libelle" placeholder="Détail de l'opération">
-            <label class="f-label">Mode de calcul</label>
-            <div style="display:flex;gap:8px;margin-bottom:4px">
-              <button id="ec-mode-forfait" onclick="_ecSetMode('forfait')" style="flex:1;padding:10px;border-radius:10px;border:2px solid var(--blue);background:var(--blue);color:#fff;font-family:Lexend,sans-serif;font-size:12px;font-weight:700;cursor:pointer">Forfait</button>
-              <button id="ec-mode-qpu" onclick="_ecSetMode('qpu')" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:Lexend,sans-serif;font-size:12px;font-weight:700;cursor:pointer">Qté × Prix unitaire</button>
-            </div>
-            <div id="ec-bloc-forfait">
-              <label class="f-label">Montant (FCFA)</label>
-              <input class="f-input" type="number" id="ec-montant" placeholder="Ex: 15000" inputmode="numeric">
-            </div>
-            <div id="ec-bloc-qpu" style="display:none">
+            <select class="f-input" id="ec-cat" onchange="_ecOnCatChange('${esc(bandeId)}')">
+              <option value="">-- Choisir --</option>${categoriesDepOptions}
+            </select>
+
+            <div id="ec-champs-std" style="display:none">
+              <label class="f-label">Libellé / Type</label>
+              <input class="f-input" type="text" id="ec-libelle" placeholder="Ex: Détail">
               <label class="f-label">Unité</label>
-              <input class="f-input" type="text" id="ec-unite" placeholder="Ex: kg, sac, dose">
+              <input class="f-input" type="text" id="ec-unite" placeholder="Ex: kg">
               <label class="f-label">Quantité</label>
               <input class="f-input" type="number" id="ec-quantite" placeholder="Ex: 10" inputmode="numeric" oninput="_ecCalcMontant()">
               <label class="f-label">Prix unitaire (FCFA)</label>
               <input class="f-input" type="number" id="ec-pu" placeholder="Ex: 1500" inputmode="numeric" oninput="_ecCalcMontant()">
-              <label class="f-label">Montant calculé (FCFA)</label>
-              <div id="ec-montant-calc" style="padding:12px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);font-weight:700;color:var(--blue);font-size:15px;text-align:center">—</div>
-              <input type="hidden" id="ec-montant">
+              <label class="f-label">Montant total (FCFA)</label>
+              <input class="f-input" type="number" id="ec-montant" placeholder="Calculé automatiquement" inputmode="numeric">
+              <div id="ec-erreur" style="display:none;color:var(--red);font-size:12px;margin-bottom:8px;padding:8px;background:rgba(255,68,68,.1);border-radius:8px"></div>
             </div>
-            <button class="btn-action ${isDep?'btn-red':'btn-green'}" onclick="_validerEcriture('${esc(bandeId)}','${type}')">✅ Enregistrer</button>
+
+            <div id="ec-champs-stock" style="display:none">
+              <div style="background:rgba(100,149,237,.08);border:1px solid rgba(100,149,237,.3);border-radius:12px;padding:14px;margin-top:8px">
+                <div style="font-size:13px;color:var(--text2);margin-bottom:10px">L'achat de stock se gère via le formulaire de création de lot.</div>
+                <button class="btn-action btn-secondary" style="margin:0" onclick="Nav.replace('renderStockBande','${esc(bandeId)}')">➕ Créer un lot stock</button>
+              </div>
+            </div>
+
+            <div id="ec-btn-valider" style="display:none">
+              <button class="btn-action ${isDep?'btn-red':'btn-green'}" onclick="_validerEcriture('${esc(bandeId)}','${type}')">✅ Enregistrer</button>
+            </div>
             <button class="btn-action btn-ghost" onclick="Nav.back()">Annuler</button>
         </div>`;
 }
 
-function _ecSetMode(mode) {
-    const bF = document.getElementById('ec-bloc-forfait');
-    const bQ = document.getElementById('ec-bloc-qpu');
-    const btnF = document.getElementById('ec-mode-forfait');
-    const btnQ = document.getElementById('ec-mode-qpu');
-    if (mode === 'forfait') {
-        bF.style.display = ''; bQ.style.display = 'none';
-        btnF.style.background = 'var(--blue)'; btnF.style.border = '2px solid var(--blue)'; btnF.style.color = '#fff';
-        btnQ.style.background = 'transparent'; btnQ.style.border = '1px solid var(--border)'; btnQ.style.color = 'var(--text2)';
-    } else {
-        bF.style.display = 'none'; bQ.style.display = '';
-        btnQ.style.background = 'var(--blue)'; btnQ.style.border = '2px solid var(--blue)'; btnQ.style.color = '#fff';
-        btnF.style.background = 'transparent'; btnF.style.border = '1px solid var(--border)'; btnF.style.color = 'var(--text2)';
+function _ecOnCatChange() {
+    const cat = document.getElementById('ec-cat')?.value;
+    const std   = document.getElementById('ec-champs-std');
+    const stock = document.getElementById('ec-champs-stock');
+    const btnV  = document.getElementById('ec-btn-valider');
+    if (!cat) {
+        std.style.display = 'none'; stock.style.display = 'none'; btnV.style.display = 'none';
+        return;
     }
+    if (cat === 'Achat stock') {
+        std.style.display = 'none'; stock.style.display = ''; btnV.style.display = 'none';
+        return;
+    }
+    std.style.display = ''; stock.style.display = 'none'; btnV.style.display = '';
+    const placeholders = {
+        'Vaccin':        { lib: 'Ex: Vaccin Newcastle',       unite: 'Ex: dose' },
+        'Medicament':    { lib: 'Ex: Antibiotique',           unite: 'Ex: ml' },
+        'Poussin':       { lib: 'Ex: Poussins J1 Cobb500',    unite: 'Ex: sujets' },
+        'Alimentation':  { lib: 'Ex: Aliment démarrage',      unite: 'Ex: kg' },
+        'Salaire':       { lib: 'Ex: Salaire agent mars',      unite: 'Ex: forfait' },
+        'Prestation':    { lib: 'Ex: Vétérinaire',            unite: 'Ex: visite' },
+        'Transport':     { lib: 'Ex: Livraison aliment',      unite: 'Ex: trajet' },
+        'Glace':         { lib: 'Ex: Glace conservation',     unite: 'Ex: kg' },
+    };
+    const ph = placeholders[cat] || { lib: 'Ex: Frais divers', unite: 'Ex: unité' };
+    const libEl = document.getElementById('ec-libelle');
+    const uniteEl = document.getElementById('ec-unite');
+    if (libEl)   libEl.placeholder   = ph.lib;
+    if (uniteEl) uniteEl.placeholder = ph.unite;
 }
 function _ecCalcMontant() {
     const qte = parseFloat(document.getElementById('ec-quantite')?.value) || 0;
     const pu  = parseFloat(document.getElementById('ec-pu')?.value) || 0;
-    const total = qte * pu;
-    const affichage = document.getElementById('ec-montant-calc');
-    const hidden    = document.getElementById('ec-montant');
-    if (affichage) affichage.textContent = total > 0 ? total.toLocaleString('fr') + ' FCFA' : '—';
-    if (hidden)    hidden.value = total > 0 ? total : '';
+    const montantEl = document.getElementById('ec-montant');
+    if (montantEl && qte > 0 && pu >= 0) montantEl.value = qte * pu;
 }
 async function _validerEcriture(bandeId, type) {
     const cat     = document.getElementById('ec-cat')?.value;
-    const libelle = document.getElementById('ec-libelle')?.value.trim();
-    const montant = parseFloat(document.getElementById('ec-montant')?.value);
-    const unite   = document.getElementById('ec-unite')?.value.trim() || '';
-    const qte     = document.getElementById('ec-quantite')?.value || '';
-    const pu      = document.getElementById('ec-pu')?.value || '';
-    const libelleComplet = libelle || (unite && qte && pu ? unite+' x'+qte+' @ '+pu+'F' : cat);
-    if (!cat)                    { showToast('Choisissez une catégorie','warning'); return; }
-    if (!montant || isNaN(montant)) { showToast('Montant invalide','warning'); return; }
+    const libelle = document.getElementById('ec-libelle')?.value?.trim() || '';
+    const unite   = document.getElementById('ec-unite')?.value?.trim() || '';
+    const qte     = parseFloat(document.getElementById('ec-quantite')?.value) || 0;
+    const pu      = parseFloat(document.getElementById('ec-pu')?.value) || 0;
+    const montant = parseFloat(document.getElementById('ec-montant')?.value) || 0;
+    const errEl   = document.getElementById('ec-erreur');
+    const showErr = (msg) => { if (errEl) { errEl.textContent = msg; errEl.style.display = ''; } };
+    if (!cat) { showToast('Choisissez une catégorie','warning'); return; }
+    if (!libelle) { showErr('Le libellé est obligatoire.'); return; }
+    if (qte <= 0) { showErr('La quantité doit être supérieure à 0.'); return; }
+    if (pu < 0)   { showErr('Le prix unitaire ne peut pas être négatif.'); return; }
+    if (montant <= 0) { showErr('Le montant doit être supérieur à 0.'); return; }
+    if (errEl) errEl.style.display = 'none';
+    const note = libelle + ' — ' + qte + ' ' + unite + ' × ' + pu.toLocaleString('fr') + ' FCFA';
     if (!guardDouble('ecriture')) return;
-    const r = await ecritureJournal(bandeId, type, cat, libelleComplet, montant);
+    const r = await ecritureJournal(bandeId, type, cat, note, montant);
     if (r) { showToast('✅ Écriture enregistrée','success'); Nav.back(); }
     else   { showToast('Erreur enregistrement','error'); }
 }
