@@ -3561,7 +3561,47 @@ async function renderTachesBande(bandeId) {
         + sectionAValider
         + '<div class="section-title">📋 Tâches en cours</div>'
         + sectionAFaire
-        + sectionHistorique;
+        + sectionHistorique
+        + '<div style="margin-top:16px;">'
+        + '<button class="btn-action btn-secondary" style="width:100%;" onclick="renderRapportsHebdo(\'' + bandeId + '\')">'
+        + '📋 Rapports hebdomadaires</button>'
+        + '</div>';
+}
+
+async function renderRapportsHebdo(bandeId) {
+    const z = zone(); if (!z) return;
+    const bid = bandeId || App.activeBande;
+    if (!bid) { showToast('Aucune bande active','warning'); return; }
+    z.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
+    const role = App.role;
+    const champLu = role === 'GERANT' ? 'lu_gerant' : 'lu_agent';
+    const { data: rapports } = await sb
+        .from('rapports_hebdo')
+        .select('*')
+        .eq('ferme_id', FERME_ID)
+        .eq('bande_id', bid)
+        .order('semaine_num', { ascending: false });
+    const liste = rapports || [];
+    if (liste.length === 0) {
+        z.innerHTML = '<div class="section-header"><h2>📋 Rapports hebdomadaires</h2></div>'
+            + '<div class="empty-state"><p>Aucun rapport disponible.</p></div>'
+            + '<div style="margin-top:16px;"><button class="btn-action btn-secondary" onclick="Nav.back()">← Retour</button></div>';
+        return;
+    }
+    const lignesHTML = liste.map(function(r) {
+        const nonLu = !r[champLu];
+        const date = r.date_rapport || '';
+        const badge = nonLu ? '<span style="background:var(--red);color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:8px;">Nouveau</span>' : '';
+        return '<div class="card" style="margin-bottom:10px;padding:14px;cursor:pointer;" onclick="_afficherRapportModal(' + JSON.stringify(r).replace(/'/g, '&#39;') + ',\'' + role + '\')">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+            + '<div style="font-weight:800;">Semaine ' + r.semaine_num + badge + '</div>'
+            + '<div style="font-size:12px;color:var(--text2);">' + date + '</div>'
+            + '</div>'
+            + '</div>';
+    }).join('');
+    z.innerHTML = '<div class="section-header"><h2>📋 Rapports hebdomadaires</h2></div>'
+        + '<div class="card" style="margin-bottom:12px;">' + lignesHTML + '</div>'
+        + '<div style="margin-top:16px;"><button class="btn-action btn-secondary" onclick="Nav.back()">← Retour</button></div>';
 }
 
 /* ── Envoyer tâche à l'agent ── */
