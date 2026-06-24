@@ -3420,34 +3420,34 @@ function renderNouvelleEcriture(paramsStr) {
 }
 
 function _ecOnCatChange() {
-    const cat = document.getElementById('ec-cat')?.value;
+    const cat = document.getElementById('ec-cat').value;
+    const isAchatStock = (cat === 'Achat stock');
     const std   = document.getElementById('ec-champs-std');
     const stock = document.getElementById('ec-champs-stock');
     const btnV  = document.getElementById('ec-btn-valider');
-    if (!cat) {
-        std.style.display = 'none'; stock.style.display = 'none'; btnV.style.display = 'none';
-        return;
-    }
-    if (cat === 'Achat stock') {
-        std.style.display = 'none'; stock.style.display = ''; btnV.style.display = 'none';
-        return;
-    }
-    std.style.display = ''; stock.style.display = 'none'; btnV.style.display = '';
+    std.style.display   = (!cat || isAchatStock) ? 'none' : '';
+    stock.style.display = isAchatStock ? '' : 'none';
+    btnV.style.display  = (!cat || isAchatStock) ? 'none' : '';
+    if (!cat || isAchatStock) return;
     const placeholders = {
-        'Vaccin':        { lib: 'Ex: Vaccin Newcastle',       unite: 'Ex: dose' },
-        'Medicament':    { lib: 'Ex: Antibiotique',           unite: 'Ex: ml' },
-        'Poussin':       { lib: 'Ex: Poussins J1 Cobb500',    unite: 'Ex: sujets' },
-        'Alimentation':  { lib: 'Ex: Aliment démarrage',      unite: 'Ex: kg' },
-        'Salaire':       { lib: 'Ex: Salaire agent mars',      unite: 'Ex: forfait' },
-        'Prestation':    { lib: 'Ex: Vétérinaire',            unite: 'Ex: visite' },
-        'Transport':     { lib: 'Ex: Livraison aliment',      unite: 'Ex: trajet' },
-        'Glace':         { lib: 'Ex: Glace conservation',     unite: 'Ex: kg' },
+        'Vaccin':       { lib: 'Ex: Vaccin Newcastle',     unite: 'Ex: dose' },
+        'Medicament':   { lib: 'Ex: Antibiotique',         unite: 'Ex: ml' },
+        'Poussin':      { lib: 'Ex: Poussins J1 Cobb500',  unite: 'Ex: sujets' },
+        'Alimentation': { lib: 'Ex: Aliment démarrage',    unite: 'Ex: kg' },
+        'Salaire':      { lib: 'Ex: Salaire agent mars',   unite: 'Ex: forfait' },
+        'Prestation':   { lib: 'Ex: Vétérinaire',          unite: 'Ex: visite' },
+        'Transport':    { lib: 'Ex: Livraison aliment',    unite: 'Ex: trajet' },
+        'Glace':        { lib: 'Ex: Glace conservation',   unite: 'Ex: kg' },
     };
     const ph = placeholders[cat] || { lib: 'Ex: Frais divers', unite: 'Ex: unité' };
-    const libEl = document.getElementById('ec-libelle');
-    const uniteEl = document.getElementById('ec-unite');
+    const libEl    = document.getElementById('ec-libelle');
+    const uniteEl  = document.getElementById('ec-unite');
     if (libEl)   libEl.placeholder   = ph.lib;
     if (uniteEl) uniteEl.placeholder = ph.unite;
+    ['ec-libelle','ec-quantite','ec-pu','ec-montant'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
 }
 function _ecCalcMontant() {
     const qte = parseFloat(document.getElementById('ec-quantite')?.value) || 0;
