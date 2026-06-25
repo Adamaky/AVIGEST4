@@ -3503,11 +3503,11 @@ function _ecCalcVente() {
     var lignes = [];
     if (poids > 0 && sujets > 0) lignes.push('Poids moyen : ' + (poids / sujets).toFixed(2) + ' kg/sujet');
     if (poids > 0 && prixKg > 0) {
-        var montantCalc = poids * prixKg;
+        var montantCalc = Math.round(poids * prixKg);
         lignes.push('Montant calculé : ' + fmt(montantCalc) + ' FCFA');
         if (montantEl) montantEl.value = montantCalc;
         var montantVenteEl = document.getElementById('ec-montant-vente');
-        if (montantVenteEl && !montantVenteEl.value) montantVenteEl.value = montantCalc;
+        if (montantVenteEl) montantVenteEl.value = montantCalc;
     }
     if (lignes.length > 0) {
         detail.innerHTML = lignes.join('<br>');
