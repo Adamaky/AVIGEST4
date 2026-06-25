@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="AviGest">
     <meta name="mobile-web-app-capable" content="yes">
-    <title>AviGest v26.1</title>
+    <title>AviGest v26.6</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;800&display=swap" rel="stylesheet">
@@ -4038,6 +4038,7 @@ const SESSION_ETAPES = {
         {id:'eau_m',      label:'Compteur eau matin (litres)',  type:'number', unite:'L',      min:0, max:99999},
         {id:'aliment_kg', label:'Aliment distribué (kg)',       type:'number', unite:'kg',     min:0, max:500},
         {id:'sante',      label:'Santé générale du lot',        type:'sante_color'},
+        {id:'stock_autres', label:'Autres produits utilisés',   type:'stock_autres'},
     ],
     Midi:[
         {id:'ambiance_midi', label:'Ambiance midi',              type:'ambiance'},
@@ -4135,6 +4136,14 @@ function _renderEtape() {
             return;
         }
         contenu = `<div style="margin-top:8px"><div class="f-label">Poids moyen du lot (g)</div>${_pavHTML('pesee_val','pesee_val','g')}<button class="btn-action btn-blue" style="margin-top:12px" onclick="_repPesee()">Suivant →</button><button class="btn-action btn-ghost" onclick="_etapeSuivante(null,'Pesée non effectuée')">○ Pas de pesée aujourd'hui</button></div>`;
+    } else if (e.type === 'stock_autres') {
+        contenu = '<div style="margin-top:8px" id="stock-autres-zone">'
+            + '<div style="color:var(--text2);font-size:12px;margin-bottom:12px">Saisissez les quantités utilisées ce matin.<br>Laissez à zéro si rien à imputer.</div>'
+            + '<div id="stock-autres-liste"><div style="text-align:center;padding:20px"><div class="spinner" style="width:24px;height:24px"></div></div></div>'
+            + '<button class="btn-action btn-blue" style="margin-top:12px" onclick="_repStockAutres()">Suivant →</button>'
+            + '<button class="btn-action btn-ghost" onclick="_etapeSuivante([],' + "'Aucun produit imputé'" + ')">Passer →</button>'
+            + '</div>';
+        setTimeout(_chargerLotsAutres, 80);
     } else if (e.type === 'sante_color') {
         contenu = `<div style="margin-top:8px">
             ${['vert','orange','rouge'].map(c => {
@@ -4192,6 +4201,58 @@ function _validerAmbiance(etapeId) { const temp=_pavGet('temp'),hygro=_pavGet('h
     App._session.etapeIdx++; _renderEtape(); }
 function _repNumber(etapeId,unite,min,max) { const val=_pavGet('val_'+etapeId); if(val===null){showToast('Saisissez une valeur','warning');return;} const v=sanitizeNum(val,min,max); if(v===null){showToast(`Valeur invalide (${min}–${max} ${unite})`,'warning');return;} App._session.reponses[etapeId]=val; delete App._pavBuffers['val_'+etapeId]; _etapeSuivante(val,val+' '+unite); }
 function _repPesee() { const val=_pavGet('pesee_val'); if(val===null){showToast('Saisissez le poids moyen','warning');return;} App._session.reponses['pesee']=val; delete App._pavBuffers['pesee_val']; _etapeSuivante(val,val+' g'); }
+
+async function _chargerLotsAutres() {
+    const el = document.getElementById('stock-autres-liste');
+    if (!el) return;
+    try {
+        const { data: lots, error } = await sb
+            .from('lots_stock')
+            .select('id, produit, unite, quantite_restante')
+            .eq('ferme_id', FERME_ID)
+            .eq('bande_id', App.activeBande)
+            .eq('statut', 'EN STOCK')
+            .not('produit', 'ilike', '%aliment%')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        const liste = lots || [];
+        if (!liste.length) {
+            el.innerHTML = '<div style="color:var(--text2);font-size:12px;text-align:center;padding:16px">Aucun lot actif (hors aliment) pour cette bande</div>';
+            return;
+        }
+        App._lotsAutres = liste;
+        el.innerHTML = liste.map(function(l, i) {
+            return '<div style="margin-bottom:12px;padding:12px;background:var(--bg3);border-radius:12px;border:1px solid var(--border)">'
+                 + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+                 +   '<div style="font-weight:700;font-size:13px">📦 ' + esc(l.produit) + '</div>'
+                 +   '<div style="font-size:10px;color:var(--text2)">Dispo : ' + fmt(l.quantite_restante) + ' ' + esc(l.unite) + '</div>'
+                 + '</div>'
+                 + _pavHTML('autres_' + i, 'autres_' + i, l.unite)
+                 + '</div>';
+        }).join('');
+    } catch(err) {
+        if (el) el.innerHTML = '<div style="color:var(--text2);font-size:12px;text-align:center;padding:16px">Impossible de charger les lots</div>';
+    }
+}
+
+function _repStockAutres() {
+    const liste = App._lotsAutres || [];
+    const resultats = [];
+    for (var i = 0; i < liste.length; i++) {
+        var qte = parseFloat(App._pavBuffers['autres_' + i] || '0') || 0;
+        if (qte > 0) {
+            resultats.push({
+                produit_like : liste[i].produit,
+                label        : liste[i].produit,
+                quantite     : qte,
+                note         : null
+            });
+        }
+        delete App._pavBuffers['autres_' + i];
+    }
+    App._lotsAutres = null;
+    _etapeSuivante(resultats, resultats.length > 0 ? resultats.length + ' produit(s) saisi(s)' : 'Aucun produit imputé');
+}
     function _surchargerScore(label) {
       const score = label==='BON'?5:label==='PASSABLE'?3:1;
       App._session.reponses['sante'] = {score, label, obs:'', auto:false};
@@ -4214,6 +4275,10 @@ function _renderSessionResume() {
               const _ic = val.label==='BON'?'🟢':val.label==='PASSABLE'?'🟡':'🔴';
               const _src = val.auto?' <span style="font-size:10px;color:var(--text2)">(auto)</span>':'';
               affiche = _ic+' Santé du lot : <strong>'+val.label+'</strong>'+_src+(val.obs?' — '+val.obs.slice(0,30):'');
+            }
+            else if(e.type==='stock_autres') {
+                if(Array.isArray(val) && val.length > 0) affiche = val.map(function(p){return esc(p.label)+' : '+p.quantite;}).join(', ');
+                else affiche = 'Aucun produit imputé';
             }
             else affiche=String(val);
         }
@@ -4270,32 +4335,58 @@ async function _confirmerEtEnvoyer() {
     const qteAlimentMatin = parseFloat(rep['aliment_kg']||0) || 0;
     const qteAlimentMidi  = parseFloat(rep['aliment_midi']||0) || 0;
     const qteAlimentPM    = parseFloat(rep['aliment_pm']||0) || 0;
-    const qteAlimentTotal = qteAlimentMatin + qteAlimentMidi + qteAlimentPM;
-    const { data: rpcData, error: rpcErr } = await sb.rpc('imputer_aliment', {
-        p_bande_id : App.activeBande,
-        p_quantite : qteAlimentTotal,
-        p_session  : sid,
-        p_note     : null
-    });
-    if (rpcErr) {
-        z.innerHTML = '<div style="padding:24px;text-align:center">'
-            + '<div style="font-size:36px;margin-bottom:12px">⚠️</div>'
-            + '<div style="font-weight:800;font-size:15px;margin-bottom:8px">Erreur stock</div>'
-            + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">'
-            + rpcErr.message + '</div>'
-            + '<button class="btn-action btn-ghost" onclick="Nav.back()">Corriger la saisie</button>'
-            + '</div>';
-        return;
+    const qteAlimentNuit  = parseFloat(rep['aliment_n']||0)  || 0;
+    const qteAlimentTotal = qteAlimentMatin + qteAlimentMidi + qteAlimentPM + qteAlimentNuit;
+
+    /* — Aliment : imputation via RPC unifiée — */
+    if (qteAlimentTotal > 0) {
+        const { data: rpcAliment, error: rpcAlimentErr } = await sb.rpc('imputer_stock', {
+            p_bande_id     : App.activeBande,
+            p_produit_like : '%aliment%',
+            p_quantite     : qteAlimentTotal,
+            p_session      : sid,
+            p_note         : null
+        });
+        if (rpcAlimentErr) {
+            z.innerHTML = '<div style="padding:24px;text-align:center">'
+                + '<div style="font-size:36px;margin-bottom:12px">⚠️</div>'
+                + '<div style="font-weight:800;font-size:15px;margin-bottom:8px">Erreur stock aliment</div>'
+                + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">'
+                + rpcAlimentErr.message + '</div>'
+                + '<button class="btn-action btn-ghost" onclick="Nav.back()">Corriger la saisie</button>'
+                + '</div>';
+            return;
+        }
+        if (rpcAliment && rpcAliment.ok === false) {
+            z.innerHTML = '<div style="padding:24px;text-align:center">'
+                + '<div style="font-size:36px;margin-bottom:12px">⚠️</div>'
+                + '<div style="font-weight:800;font-size:15px;margin-bottom:8px">Stock aliment insuffisant</div>'
+                + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">'
+                + rpcAliment.raison + '</div>'
+                + '<button class="btn-action btn-ghost" onclick="Nav.back()">Corriger la saisie</button>'
+                + '</div>';
+            return;
+        }
     }
-    if (rpcData && rpcData.ok === false) {
-        z.innerHTML = '<div style="padding:24px;text-align:center">'
-            + '<div style="font-size:36px;margin-bottom:12px">⚠️</div>'
-            + '<div style="font-weight:800;font-size:15px;margin-bottom:8px">Stock bloqué</div>'
-            + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">'
-            + rpcData.raison + '</div>'
-            + '<button class="btn-action btn-ghost" onclick="Nav.back()">Corriger la saisie</button>'
-            + '</div>';
-        return;
+
+    /* — Autres produits (Session Matin uniquement) — */
+    if (sid === 'Matin' && rep['stock_autres'] && rep['stock_autres'].length > 0) {
+        for (var _ap = 0; _ap < rep['stock_autres'].length; _ap++) {
+            var _prod = rep['stock_autres'][_ap];
+            if (!_prod.quantite || _prod.quantite <= 0) continue;
+            const { data: rpcProd, error: rpcProdErr } = await sb.rpc('imputer_stock', {
+                p_bande_id     : App.activeBande,
+                p_produit_like : '%' + _prod.produit_like + '%',
+                p_quantite     : _prod.quantite,
+                p_session      : sid,
+                p_note         : _prod.note || null
+            });
+            if (rpcProdErr) {
+                showToast('Erreur imputation ' + _prod.label + ' : ' + rpcProdErr.message, 'error', 4000);
+            } else if (rpcProd && rpcProd.ok === false) {
+                showToast('⚠️ ' + _prod.label + ' : ' + rpcProd.raison, 'warning', 4000);
+            }
+        }
     }
     /* Créer une tâche "Session envoyée" */
     const titreSession = ({Matin:'🌅 Session Matin envoyée',Midi:'☀️ Session Midi envoyée',PM:'🌤️ Session PM envoyée',Nuit:'🌙 Session Nuit envoyée'})[sid]||sid;
