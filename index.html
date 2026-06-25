@@ -3501,7 +3501,7 @@ function _ecCalcVente() {
     const montantEl = document.getElementById('ec-montant');
     if (!detail) return;
     var lignes = [];
-    if (poids > 0 && sujets > 0) lignes.push('Poids moyen : ' + (poids / sujets).toFixed(2) + ' kg/sujet');
+    if (poids > 0 && sujets > 0) lignes.push('Poids total lot : ' + (poids * sujets).toFixed(2) + ' kg');
     if (poids > 0 && prixKg > 0 && sujets > 0) {
         var montantCalc = Math.round(sujets * poids * prixKg);
         lignes.push('Montant calculé : ' + fmt(montantCalc) + ' FCFA');
