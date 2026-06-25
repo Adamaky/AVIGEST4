@@ -81,7 +81,7 @@ BEGIN
       ferme_id, bande_id, date_ecriture, type_ecriture,
       categorie, montant, statut, libelle
     ) VALUES (
-      v_ferme_id, p_bande_id, CURRENT_DATE, 'CHARGE',
+      v_ferme_id, p_bande_id, CURRENT_DATE, 'DEPENSE',
       CASE
         WHEN LOWER(v_produit_nom) LIKE '%aliment%' THEN 'Alimentation'
         WHEN LOWER(v_produit_nom) LIKE '%vaccin%'  THEN 'Vaccin'
