@@ -3378,6 +3378,7 @@ function renderNouvelleEcriture(paramsStr) {
               + '</optgroup>'
               + '<optgroup label="Mouvement stock">'
               + '<option value="Achat stock">Achat stock</option>'
+              + '<option value="Produit stock">Produit stock</option>'
               + '</optgroup>'
             : '<option value="Vente poulet vif">Vente poulet vif</option>'
               + '<option value="Vente poulet abattu">Vente poulet abattu</option>'
@@ -3392,6 +3393,10 @@ function renderNouvelleEcriture(paramsStr) {
             </select>
 
             <div id="ec-champs-std" style="display:none">
+              <div id="ec-bloc-lot-produit" style="display:none;margin-bottom:8px">
+                <label class="f-label">Lot stock</label>
+                <select id="ec-lot-produit" class="f-input"></select>
+              </div>
               <label class="f-label">Libellé / Type</label>
               <input class="f-input" type="text" id="ec-libelle" placeholder="Ex: Détail">
               <label class="f-label">Unité</label>
@@ -3419,9 +3424,10 @@ function renderNouvelleEcriture(paramsStr) {
         </div>`;
 }
 
-function _ecOnCatChange() {
+async function _ecOnCatChange(bandeId) {
     const cat = document.getElementById('ec-cat').value;
-    const isAchatStock = (cat === 'Achat stock');
+    const isAchatStock  = (cat === 'Achat stock');
+    const isProduitStock = (cat === 'Produit stock');
     const std   = document.getElementById('ec-champs-std');
     const stock = document.getElementById('ec-champs-stock');
     const btnV  = document.getElementById('ec-btn-valider');
@@ -3430,24 +3436,43 @@ function _ecOnCatChange() {
     btnV.style.display  = (!cat || isAchatStock) ? 'none' : '';
     if (!cat || isAchatStock) return;
     const placeholders = {
-        'Vaccin':       { lib: 'Ex: Vaccin Newcastle',     unite: 'Ex: dose' },
-        'Medicament':   { lib: 'Ex: Antibiotique',         unite: 'Ex: ml' },
-        'Poussin':      { lib: 'Ex: Poussins J1 Cobb500',  unite: 'Ex: sujets' },
-        'Alimentation': { lib: 'Ex: Aliment démarrage',    unite: 'Ex: kg' },
-        'Salaire':      { lib: 'Ex: Salaire agent mars',   unite: 'Ex: forfait' },
-        'Prestation':   { lib: 'Ex: Vétérinaire',          unite: 'Ex: visite' },
-        'Transport':    { lib: 'Ex: Livraison aliment',    unite: 'Ex: trajet' },
-        'Glace':        { lib: 'Ex: Glace conservation',   unite: 'Ex: kg' },
+        'Vaccin':        { lib: 'Ex: Vaccin Newcastle',     unite: 'Ex: dose' },
+        'Medicament':    { lib: 'Ex: Antibiotique',         unite: 'Ex: ml' },
+        'Poussin':       { lib: 'Ex: Poussins J1 Cobb500',  unite: 'Ex: sujets' },
+        'Alimentation':  { lib: 'Ex: Aliment démarrage',    unite: 'Ex: kg' },
+        'Salaire':       { lib: 'Ex: Salaire agent mars',   unite: 'Ex: forfait' },
+        'Prestation':    { lib: 'Ex: Vétérinaire',          unite: 'Ex: visite' },
+        'Transport':     { lib: 'Ex: Livraison aliment',    unite: 'Ex: trajet' },
+        'Glace':         { lib: 'Ex: Glace conservation',   unite: 'Ex: kg' },
+        'Produit stock': { lib: 'Ex: Litière paille',       unite: 'Ex: sac' },
     };
     const ph = placeholders[cat] || { lib: 'Ex: Frais divers', unite: 'Ex: unité' };
-    const libEl    = document.getElementById('ec-libelle');
-    const uniteEl  = document.getElementById('ec-unite');
+    const libEl   = document.getElementById('ec-libelle');
+    const uniteEl = document.getElementById('ec-unite');
     if (libEl)   libEl.placeholder   = ph.lib;
     if (uniteEl) uniteEl.placeholder = ph.unite;
     ['ec-libelle','ec-quantite','ec-pu','ec-montant'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
+    const blocLot = document.getElementById('ec-bloc-lot-produit');
+    if (isProduitStock && bandeId) {
+        const { data: lots } = await sb
+            .from('lots_stock')
+            .select('id, produit, quantite_restante, unite')
+            .eq('ferme_id', FERME_ID)
+            .eq('bande_id', bandeId)
+            .eq('statut', 'EN STOCK');
+        const selectLot = document.getElementById('ec-lot-produit');
+        selectLot.innerHTML = lots && lots.length
+            ? lots.map(l => '<option value="' + l.id + '">'
+                + esc(l.produit) + ' — ' + l.quantite_restante
+                + ' ' + esc(l.unite) + ' disponible</option>').join('')
+            : '<option value="">Aucun lot disponible</option>';
+        blocLot.style.display = '';
+    } else {
+        blocLot.style.display = 'none';
+    }
 }
 function _ecCalcMontant() {
     const qte = parseFloat(document.getElementById('ec-quantite')?.value) || 0;
@@ -3465,6 +3490,30 @@ async function _validerEcriture(bandeId, type) {
     const errEl   = document.getElementById('ec-erreur');
     const showErr = (msg) => { if (errEl) { errEl.textContent = msg; errEl.style.display = ''; } };
     if (!cat) { showToast('Choisissez une catégorie','warning'); return; }
+    if (cat === 'Produit stock') {
+        const lotId = document.getElementById('ec-lot-produit')?.value;
+        if (!lotId)       { showErr('Sélectionnez un lot.'); return; }
+        if (!libelle)     { showErr('Le libellé est obligatoire.'); return; }
+        if (qte <= 0)     { showErr('La quantité doit être supérieure à 0.'); return; }
+        if (errEl) errEl.style.display = 'none';
+        if (!guardDouble('ecriture')) return;
+        const { data, error } = await sb.rpc('imputer_stock', {
+            p_lot_id:        lotId,
+            p_bande_id:      bandeId,
+            p_quantite:      qte,
+            p_libelle:       libelle,
+            p_unite:         unite,
+            p_prix_unitaire: pu,
+            p_montant:       montant
+        });
+        if (error || (data && !data.success)) {
+            showErr((data && data.error) ? data.error : 'Erreur imputation stock.');
+            return;
+        }
+        showToast('✅ Produit imputé et enregistré dans le journal.','success');
+        Nav.back();
+        return;
+    }
     if (!libelle) { showErr('Le libellé est obligatoire.'); return; }
     if (qte <= 0) { showErr('La quantité doit être supérieure à 0.'); return; }
     if (pu < 0)   { showErr('Le prix unitaire ne peut pas être négatif.'); return; }
@@ -3974,83 +4023,10 @@ async function _navTachesAgent() {
                  + '</div>';
         }).join('')}` : ''}
         <div class="section-title">📋 Tâches assignées ${nbEnAttente>0?'<span style="background:var(--blue);color:#0d1b2a;font-size:9px;padding:2px 8px;border-radius:10px;margin-left:6px">'+nbEnAttente+'</span>':''}</div>
-        ${tachesHTML}
-        <div style="margin-top:16px">
-          <button class="btn-action btn-secondary" style="width:100%" onclick="_ouvrirImputerLitiere('${App.activeBande}')">🪹 Imputer litière</button>
-        </div>`;
+        ${tachesHTML}`;
 
     Nav.stack = [{ fn:'_navTachesAgent', params:null }];
     Nav._upBtn();
-}
-
-async function _ouvrirImputerLitiere(bandeId) {
-    if (!bandeId) { showToast('Aucune bande active','warning'); return; }
-    const { data: lots } = await sb
-        .from('lots_stock')
-        .select('*')
-        .eq('bande_id', bandeId)
-        .eq('ferme_id', FERME_ID)
-        .eq('statut', 'EN STOCK')
-        .eq('impute_journal', false);
-    const overlay = document.createElement('div');
-    overlay.id = 'ltr-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
-    if (!lots || lots.length === 0) {
-        overlay.innerHTML = '<div style="background:var(--bg2);border-radius:20px 20px 0 0;padding:24px 20px;width:100%;max-width:480px">'
-            + '<div style="font-weight:800;font-size:16px;margin-bottom:12px">🪹 Imputer un produit</div>'
-            + '<div style="background:rgba(255,153,0,.1);border:1px solid rgba(255,153,0,.3);border-radius:12px;padding:14px;font-size:13px;color:var(--orange)">Aucun produit disponible pour cette bande.</div>'
-            + '<button class="btn-action btn-ghost" style="margin-top:12px" onclick="document.getElementById(\'ltr-overlay\').remove()">Fermer</button>'
-            + '</div>';
-        document.body.appendChild(overlay);
-        return;
-    }
-    const optionsHTML = lots.map(l =>
-        '<option value="' + l.id + '">' + esc(l.produit || l.type_produit || '—') + ' — ' + (l.quantite_restante || l.quantite_totale || '?') + ' ' + esc(l.unite || '') + ' disponible</option>'
-    ).join('');
-    overlay.innerHTML = '<div style="background:var(--bg2);border-radius:20px 20px 0 0;padding:24px 20px;width:100%;max-width:480px">'
-        + '<div style="font-weight:800;font-size:16px;margin-bottom:16px">🪹 Imputer un produit</div>'
-        + '<label class="f-label">Produit / Lot</label>'
-        + '<select class="f-input" id="ltr-lot"><option value="">-- Choisir --</option>' + optionsHTML + '</select>'
-        + '<label class="f-label">Quantité utilisée</label>'
-        + '<input class="f-input" type="number" id="ltr-quantite" placeholder="Ex: 50" inputmode="numeric">'
-        + '<label class="f-label">Note (optionnel)</label>'
-        + '<input class="f-input" type="text" id="ltr-note" placeholder="Ex: Litière compartiment A">'
-        + '<div id="ltr-erreur" style="display:none;color:var(--red);font-size:12px;margin-bottom:8px;padding:8px;background:rgba(255,68,68,.1);border-radius:8px"></div>'
-        + '<button class="btn-action btn-blue" onclick="_soumettreImputerLitiere(\'' + bandeId + '\')">✅ Soumettre</button>'
-        + '<button class="btn-action btn-ghost" onclick="document.getElementById(\'ltr-overlay\').remove()">Annuler</button>'
-        + '</div>';
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-    document.body.appendChild(overlay);
-}
-
-async function _soumettreImputerLitiere(bandeId) {
-    const lotId    = document.getElementById('ltr-lot')?.value;
-    const quantite = parseFloat(document.getElementById('ltr-quantite')?.value) || 0;
-    const note     = document.getElementById('ltr-note')?.value?.trim() || null;
-    const errEl    = document.getElementById('ltr-erreur');
-    const showErr  = (msg) => { if (errEl) { errEl.textContent = msg; errEl.style.display = ''; } };
-    if (!lotId)       { showErr('Veuillez sélectionner un lot.'); return; }
-    if (quantite <= 0) { showErr('La quantité doit être supérieure à 0.'); return; }
-    if (errEl) errEl.style.display = 'none';
-    const { data, error } = await sb.rpc('imputer_stock_type_b', {
-        p_lot_id:   lotId,
-        p_bande_id: bandeId,
-        p_quantite: quantite,
-        p_session:  'DEMANDE',
-        p_note:     note
-    });
-    if (error) { showErr('Erreur : ' + error.message); return; }
-    const overlay = document.getElementById('ltr-overlay');
-    if (overlay) {
-        overlay.querySelector('.btn-action.btn-blue').style.display = 'none';
-        overlay.querySelector('.btn-action.btn-ghost').style.display = 'none';
-        const box = overlay.querySelector('div');
-        const msg = document.createElement('div');
-        msg.style.cssText = 'background:rgba(0,200,150,.1);border:1px solid rgba(0,200,150,.3);border-radius:12px;padding:14px;font-size:13px;color:var(--green);text-align:center;margin-top:8px';
-        msg.textContent = 'Imputation enregistrée — en attente de validation gérant.';
-        box.appendChild(msg);
-        setTimeout(() => { overlay.remove(); }, 2000);
-    }
 }
 
 /* ── Double appui tâche ──────────────── */
