@@ -3448,6 +3448,12 @@ function _ecOnCatChange() {
     stock.style.display = isAchatStock ? '' : 'none';
     vente.style.display = isVente ? '' : 'none';
     btnV.style.display  = (!cat || isAchatStock) ? 'none' : '';
+    if (isVente) {
+        setTimeout(function() {
+            var mv = document.getElementById('ec-montant-vente');
+            if (mv) mv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 150);
+    }
     if (!cat || isAchatStock) return;
     const placeholders = {
         'Alimentation':  { lib: 'Ex: Aliment démarrage',    unite: 'Ex: kg' },
