@@ -4003,11 +4003,17 @@ function _tachePremierAppui(idTache, titre) {
 
 async function _tacheDeuxiemeAppui(idTache, titre) {
     if (_tacheTimers[idTache]) { clearTimeout(_tacheTimers[idTache]); delete _tacheTimers[idTache]; }
+    /* Tâche ABATTAGE — ouvrir écran saisie dédié */
+    const { data: tache } = await sb.from('taches').select('type_tache, nb_sujets_prevus, type_operation, client_cible, date_prevue').eq('id', idTache).single();
+    if (tache && tache.type_tache === 'ABATTAGE') {
+        Nav.push('renderSaisieAbattageAgent', idTache);
+        return;
+    }
+    /* Autres tâches — comportement standard */
     const btn  = document.getElementById('btn-fait-'+idTache);
     const card = document.getElementById('tcard-'+idTache);
     if (btn)  { btn.dataset.confirming='false'; btn.classList.remove('confirmer'); btn.classList.add('done'); btn.textContent='✅ FAIT'; btn.onclick=null; }
     if (card) card.classList.add('accomplie');
-    // localStorage supprimé — workflow Supabase
     _vibrateDevice();
     const { error: errExec } = await sb
         .from('taches')
@@ -4017,6 +4023,63 @@ async function _tacheDeuxiemeAppui(idTache, titre) {
     const r = !errExec;
     if (r) showToast('✅ Tâche accomplie — gérant notifié','success');
     if (!r) showToast('Erreur mise à jour tâche','error');
+}
+
+async function renderSaisieAbattageAgent(tacheId) {
+    const z = zone(); if (!z) return;
+    if (!tacheId) { Nav.back(); return; }
+    z.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
+    const { data: tache, error } = await sb
+        .from('taches')
+        .select('id, titre, type_operation, nb_sujets_prevus, client_cible, date_prevue, statut')
+        .eq('id', tacheId)
+        .single();
+    if (error || !tache) { showToast('Tâche introuvable','error'); Nav.back(); return; }
+    if (tache.statut === 'EXECUTEE' || tache.statut === 'VALIDEE') {
+        z.innerHTML = '<div class="card" style="text-align:center;padding:32px">'
+            + '<div style="font-size:36px;margin-bottom:12px">✅</div>'
+            + '<div style="font-weight:800;font-size:15px;margin-bottom:8px">Déjà envoyée</div>'
+            + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">Cette opération a déjà été soumise au gérant.</div>'
+            + '<button class="btn-action btn-ghost" onclick="Nav.back()">Retour</button>'
+            + '</div>';
+        return;
+    }
+    const typeLabel = tache.type_operation === 'VENTE_VIF' ? '🐔 Vente vif' : '🔪 Abattage';
+    const prevus    = tache.nb_sujets_prevus ? tache.nb_sujets_prevus + ' sujets prévus' : '';
+    const client    = tache.client_cible ? ' · ' + esc(tache.client_cible) : '';
+    z.innerHTML = '<div class="card">'
+        + '<div class="card-title" style="color:var(--red)">' + typeLabel + '</div>'
+        + '<div style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:16px">'
+        +   '<div style="font-size:12px;color:var(--text2);margin-bottom:4px">Plan du gérant</div>'
+        +   '<div style="font-weight:700;font-size:13px">' + esc(tache.date_prevue) + ' · ' + prevus + client + '</div>'
+        + '</div>'
+        + '<label class="f-label">Nombre de sujets commercialisés</label>'
+        + '<input class="f-input" type="number" id="ab-nb-reels" placeholder="Ex: 480" inputmode="numeric" min="1" style="font-size:24px;text-align:center;padding:16px">'
+        + '<div style="font-size:11px;color:var(--text2);text-align:center;margin-bottom:16px">Saisissez le nombre exact de sujets ' + (tache.type_operation === 'VENTE_VIF' ? 'vendus' : 'abattus') + ' aujourd\'hui</div>'
+        + '<button class="btn-action btn-red" onclick="_soumettreAbattageAgent(\'' + esc(tacheId) + '\')">📤 Envoyer au gérant</button>'
+        + '<button class="btn-action btn-ghost" onclick="Nav.back()">Annuler</button>'
+        + '</div>';
+}
+
+async function _soumettreAbattageAgent(tacheId) {
+    const nb = parseInt(document.getElementById('ab-nb-reels')?.value) || 0;
+    if (nb <= 0) { showToast('Saisissez le nombre de sujets','warning'); return; }
+    if (!guardDouble('soumettre_abattage')) return;
+    const { error } = await sb.from('taches').update({
+        nb_sujets_reels : nb,
+        statut          : 'EXECUTEE',
+        date_validation : new Date().toISOString()
+    }).eq('id', tacheId).eq('ferme_id', FERME_ID);
+    if (error) { showToast('Erreur envoi','error'); return; }
+    /* Mettre à jour effectif_vendu sur la bande */
+    const { data: tache } = await sb.from('taches').select('bande_id').eq('id', tacheId).single();
+    if (tache?.bande_id) {
+        const { data: bande } = await sb.from('bandes').select('effectif_vendu').eq('id', tache.bande_id).single();
+        const dejaVendus = parseInt(bande?.effectif_vendu||0);
+        await sb.from('bandes').update({ effectif_vendu: dejaVendus + nb }).eq('id', tache.bande_id);
+    }
+    showToast('✅ Données envoyées — gérant notifié','success', 4000);
+    Nav.back();
 }
 
 /* ── Sessions Agent ──────────────────── */
