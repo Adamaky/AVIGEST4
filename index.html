@@ -3417,6 +3417,9 @@ function renderNouvelleEcriture(paramsStr) {
                 <input class="f-input" type="number" id="ec-prix-kg" placeholder="Ex: 1800" inputmode="numeric" min="0" oninput="_ecCalcVente()">
                 <div id="ec-vente-detail" style="font-size:12px;color:var(--text2);margin-bottom:8px;padding:8px;background:var(--bg3);border-radius:8px;display:none"></div>
               </div>
+              <label class="f-label" style="margin-top:12px">Montant total reçu (FCFA)</label>
+              <input class="f-input" type="number" id="ec-montant-vente" placeholder="Ex: 3000" inputmode="numeric" min="0">
+              <div id="ec-vente-erreur" style="display:none;color:var(--red);font-size:12px;margin-bottom:8px;padding:8px;background:rgba(255,68,68,.1);border-radius:8px"></div>
             </div>
 
             <div id="ec-champs-stock" style="display:none">
@@ -3497,6 +3500,8 @@ function _ecCalcVente() {
         var montantCalc = poids * prixKg;
         lignes.push('Montant calculé : ' + fmt(montantCalc) + ' FCFA');
         if (montantEl) montantEl.value = montantCalc;
+        var montantVenteEl = document.getElementById('ec-montant-vente');
+        if (montantVenteEl && !montantVenteEl.value) montantVenteEl.value = montantCalc;
     }
     if (lignes.length > 0) {
         detail.innerHTML = lignes.join('<br>');
@@ -3513,20 +3518,25 @@ async function _validerEcriture(bandeId, type) {
     const qte     = parseFloat(document.getElementById('ec-quantite')?.value) || 0;
     const pu      = parseFloat(document.getElementById('ec-pu')?.value) || 0;
     const montant = parseFloat(document.getElementById('ec-montant')?.value) || 0;
-    const errEl   = document.getElementById('ec-erreur');
-    const showErr = (msg) => { if (errEl) { errEl.textContent = msg; errEl.style.display = ''; } };
+    const showErr = (msg) => {
+        var errEl = document.getElementById('ec-vente-erreur') || document.getElementById('ec-erreur');
+        if (errEl) { errEl.textContent = msg; errEl.style.display = ''; }
+    };
     if (!cat) { showToast('Choisissez une catégorie','warning'); return; }
-    if (!libelle) { showErr('Le libellé est obligatoire.'); return; }
-    if (qte <= 0) { showErr('La quantité doit être supérieure à 0.'); return; }
-    if (pu < 0)   { showErr('Le prix unitaire ne peut pas être négatif.'); return; }
-    if (montant <= 0) { showErr('Le montant doit être supérieur à 0.'); return; }
-    if (errEl) errEl.style.display = 'none';
     const isVente = (cat === 'Vente poulet vif' || cat === 'Vente poulet abattu');
-    const nbSujets   = isVente ? (parseInt(document.getElementById('ec-nb-sujets')?.value)    || 0) : 0;
-    const poidsTotal = isVente ? (parseFloat(document.getElementById('ec-poids-total')?.value) || 0) : 0;
-    const prixKg     = isVente ? (parseFloat(document.getElementById('ec-prix-kg')?.value)     || 0) : 0;
-    if (isVente && nbSujets <= 0) { showErr('Le nombre de sujets vendus est obligatoire.'); return; }
-    if (isVente && montant <= 0)  { showErr('Le montant reçu est obligatoire.'); return; }
+    const nbSujets    = isVente ? (parseInt(document.getElementById('ec-nb-sujets')?.value)    || 0) : 0;
+    const poidsTotal  = isVente ? (parseFloat(document.getElementById('ec-poids-total')?.value) || 0) : 0;
+    const prixKg      = isVente ? (parseFloat(document.getElementById('ec-prix-kg')?.value)     || 0) : 0;
+    const montantVente = isVente ? (parseFloat(document.getElementById('ec-montant-vente')?.value) || 0) : 0;
+    if (isVente) {
+        if (nbSujets <= 0)    { showErr('Le nombre de sujets vendus est obligatoire.'); return; }
+        if (montantVente <= 0) { showErr('Le montant reçu est obligatoire.'); return; }
+    } else {
+        if (!libelle)      { showErr('Le libellé est obligatoire.'); return; }
+        if (qte <= 0)      { showErr('La quantité doit être supérieure à 0.'); return; }
+        if (pu < 0)        { showErr('Le prix unitaire ne peut pas être négatif.'); return; }
+        if (montant <= 0)  { showErr('Le montant doit être supérieur à 0.'); return; }
+    }
     var note;
     if (isVente) {
         note = cat + ' — ' + nbSujets + ' sujets';
@@ -3538,7 +3548,7 @@ async function _validerEcriture(bandeId, type) {
         note = libelle + ' — ' + qte + ' ' + unite + ' × ' + pu.toLocaleString('fr') + ' FCFA';
     }
     if (!guardDouble('ecriture')) return;
-    const r = await ecritureJournal(bandeId, type, cat, note, montant);
+    const r = await ecritureJournal(bandeId, type, cat, note, isVente ? montantVente : montant);
     if (!r) { showToast('Erreur enregistrement','error'); return; }
     /* Mise à jour effectif bande si vente */
     if (isVente && nbSujets > 0) {
