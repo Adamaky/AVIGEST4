@@ -3366,19 +3366,16 @@ function renderNouvelleEcriture(paramsStr) {
             ? '<optgroup label="Charges CRU">'
               + '<option value="Alimentation">Alimentation</option>'
               + '<option value="Vaccin">Vaccin</option>'
-              + '<option value="Medicament">Médicament</option>'
+              + '<option value="Médicament">Médicament</option>'
               + '<option value="Poussin">Poussin</option>'
-              + '</optgroup>'
-              + '<optgroup label="Charges exploitation">'
               + '<option value="Salaire">Salaire</option>'
               + '<option value="Prestation">Prestation</option>'
               + '<option value="Transport">Transport</option>'
               + '<option value="Glace">Glace</option>'
-              + '<option value="Autre depense">Autre dépense</option>'
+              + '<option value="Autre dépense">Autre dépense</option>'
               + '</optgroup>'
               + '<optgroup label="Mouvement stock">'
               + '<option value="Achat stock">Achat stock</option>'
-              + '<option value="Produit stock">Produit stock</option>'
               + '</optgroup>'
             : '<option value="Vente poulet vif">Vente poulet vif</option>'
               + '<option value="Vente poulet abattu">Vente poulet abattu</option>'
@@ -3393,10 +3390,6 @@ function renderNouvelleEcriture(paramsStr) {
             </select>
 
             <div id="ec-champs-std" style="display:none">
-              <div id="ec-bloc-lot-produit" style="display:none;margin-bottom:8px">
-                <label class="f-label">Lot stock</label>
-                <select id="ec-lot-produit" class="f-input"></select>
-              </div>
               <label class="f-label">Libellé / Type</label>
               <input class="f-input" type="text" id="ec-libelle" placeholder="Ex: Détail">
               <label class="f-label">Unité</label>
@@ -3424,10 +3417,9 @@ function renderNouvelleEcriture(paramsStr) {
         </div>`;
 }
 
-async function _ecOnCatChange(bandeId) {
+function _ecOnCatChange() {
     const cat = document.getElementById('ec-cat').value;
-    const isAchatStock  = (cat === 'Achat stock');
-    const isProduitStock = (cat === 'Produit stock');
+    const isAchatStock = (cat === 'Achat stock');
     const std   = document.getElementById('ec-champs-std');
     const stock = document.getElementById('ec-champs-stock');
     const btnV  = document.getElementById('ec-btn-valider');
@@ -3436,17 +3428,17 @@ async function _ecOnCatChange(bandeId) {
     btnV.style.display  = (!cat || isAchatStock) ? 'none' : '';
     if (!cat || isAchatStock) return;
     const placeholders = {
-        'Vaccin':        { lib: 'Ex: Vaccin Newcastle',     unite: 'Ex: dose' },
-        'Medicament':    { lib: 'Ex: Antibiotique',         unite: 'Ex: ml' },
-        'Poussin':       { lib: 'Ex: Poussins J1 Cobb500',  unite: 'Ex: sujets' },
         'Alimentation':  { lib: 'Ex: Aliment démarrage',    unite: 'Ex: kg' },
-        'Salaire':       { lib: 'Ex: Salaire agent mars',   unite: 'Ex: forfait' },
-        'Prestation':    { lib: 'Ex: Vétérinaire',          unite: 'Ex: visite' },
-        'Transport':     { lib: 'Ex: Livraison aliment',    unite: 'Ex: trajet' },
-        'Glace':         { lib: 'Ex: Glace conservation',   unite: 'Ex: kg' },
-        'Produit stock': { lib: 'Ex: Litière paille',       unite: 'Ex: sac' },
+        'Vaccin':        { lib: 'Ex: Vaccin Newcastle',      unite: 'Ex: dose' },
+        'Médicament':    { lib: 'Ex: Antibiotique',          unite: 'Ex: ml' },
+        'Poussin':       { lib: 'Ex: Poussins J1 Cobb500',   unite: 'Ex: sujets' },
+        'Salaire':       { lib: 'Ex: Salaire agent mars',    unite: 'Ex: forfait' },
+        'Prestation':    { lib: 'Ex: Vétérinaire',           unite: 'Ex: visite' },
+        'Transport':     { lib: 'Ex: Livraison aliment',     unite: 'Ex: trajet' },
+        'Glace':         { lib: 'Ex: Glace conservation',    unite: 'Ex: kg' },
+        'Autre dépense': { lib: 'Ex: Frais divers',          unite: 'Ex: unité' },
     };
-    const ph = placeholders[cat] || { lib: 'Ex: Frais divers', unite: 'Ex: unité' };
+    const ph = placeholders[cat] || { lib: 'Ex: Détail', unite: 'Ex: unité' };
     const libEl   = document.getElementById('ec-libelle');
     const uniteEl = document.getElementById('ec-unite');
     if (libEl)   libEl.placeholder   = ph.lib;
@@ -3455,24 +3447,6 @@ async function _ecOnCatChange(bandeId) {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
-    const blocLot = document.getElementById('ec-bloc-lot-produit');
-    if (isProduitStock && bandeId) {
-        const { data: lots } = await sb
-            .from('lots_stock')
-            .select('id, produit, quantite_restante, unite')
-            .eq('ferme_id', FERME_ID)
-            .eq('bande_id', bandeId)
-            .eq('statut', 'EN STOCK');
-        const selectLot = document.getElementById('ec-lot-produit');
-        selectLot.innerHTML = lots && lots.length
-            ? lots.map(l => '<option value="' + l.id + '">'
-                + esc(l.produit) + ' — ' + l.quantite_restante
-                + ' ' + esc(l.unite) + ' disponible</option>').join('')
-            : '<option value="">Aucun lot disponible</option>';
-        blocLot.style.display = '';
-    } else {
-        blocLot.style.display = 'none';
-    }
 }
 function _ecCalcMontant() {
     const qte = parseFloat(document.getElementById('ec-quantite')?.value) || 0;
@@ -3490,30 +3464,6 @@ async function _validerEcriture(bandeId, type) {
     const errEl   = document.getElementById('ec-erreur');
     const showErr = (msg) => { if (errEl) { errEl.textContent = msg; errEl.style.display = ''; } };
     if (!cat) { showToast('Choisissez une catégorie','warning'); return; }
-    if (cat === 'Produit stock') {
-        const lotId = document.getElementById('ec-lot-produit')?.value;
-        if (!lotId)       { showErr('Sélectionnez un lot.'); return; }
-        if (!libelle)     { showErr('Le libellé est obligatoire.'); return; }
-        if (qte <= 0)     { showErr('La quantité doit être supérieure à 0.'); return; }
-        if (errEl) errEl.style.display = 'none';
-        if (!guardDouble('ecriture')) return;
-        const { data, error } = await sb.rpc('imputer_stock', {
-            p_lot_id:        lotId,
-            p_bande_id:      bandeId,
-            p_quantite:      qte,
-            p_libelle:       libelle,
-            p_unite:         unite,
-            p_prix_unitaire: pu,
-            p_montant:       montant
-        });
-        if (error || (data && !data.success)) {
-            showErr((data && data.error) ? data.error : 'Erreur imputation stock.');
-            return;
-        }
-        showToast('✅ Produit imputé et enregistré dans le journal.','success');
-        Nav.back();
-        return;
-    }
     if (!libelle) { showErr('Le libellé est obligatoire.'); return; }
     if (qte <= 0) { showErr('La quantité doit être supérieure à 0.'); return; }
     if (pu < 0)   { showErr('Le prix unitaire ne peut pas être négatif.'); return; }
