@@ -3580,21 +3580,17 @@ async function renderTachesBande(bandeId) {
     const sectionAFaire = aFaireHTML
         || '<div style="color:var(--text2);font-size:13px;padding:12px 0;text-align:center">Aucune tâche en cours</div>';
 
-    const allTuiles = [
-        ...types.map(t => ({
-            icon: t.icon, label: t.label,
-            fn: t.type==='ABATTAGE'
-                ? 'Nav.push(\'renderPlanVente\',\''+bandeId+'\')'
-                : 'Nav.push(\'renderCreerTache\',JSON.stringify({bandeId:\''+bandeId+'\',type:\''+t.type+'\'}))'
-        })),
-        { icon: '📜', label: 'Historique',  fn: 'Nav.push(\'renderHistoriqueTaches\',\''+bandeId+'\')' },
-        { icon: '📊', label: 'Rapports',    fn: 'renderRapportsHebdo(\''+bandeId+'\')' },
+    const tuilesActions = [
+        { icon:'📅', label:'Hebdomadaire', fn:'Nav.push(\'renderCreerTache\',JSON.stringify({bandeId:\''+bandeId+'\',type:\'HEBDOMADAIRE\'}))' },
+        { icon:'🛒', label:'Vente',        fn:'Nav.push(\'renderPlanVente\',\''+bandeId+'\')' },
+        { icon:'📜', label:'Historique',   fn:'Nav.push(\'renderHistoriqueTaches\',\''+bandeId+'\')' },
+        { icon:'📊', label:'Rapports',     fn:'renderRapportsHebdo(\''+bandeId+'\')' },
     ];
     z.innerHTML = '<div class="bande-header"><div class="bande-name">📋 Tâches</div></div>'
         + '<div class="section-title">Actions</div>'
         + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">'
-        + allTuiles.map(t => '<div class="choice-btn" style="padding:14px 8px;text-align:center" onclick="' + t.fn + '">'
-            + '<div style="font-size:24px;margin-bottom:4px">' + t.icon + '</div>'
+        + tuilesActions.map(t => '<div class="choice-btn" style="padding:16px 8px;text-align:center" onclick="' + t.fn + '">'
+            + '<div style="font-size:24px;margin-bottom:6px">' + t.icon + '</div>'
             + '<div style="font-size:11px;font-weight:700">' + t.label + '</div></div>').join('')
         + '</div>'
         + sectionAValider
@@ -3625,7 +3621,7 @@ async function renderHistoriqueTaches(bandeId) {
             + '<span style="font-size:10px;font-weight:800;color:' + c + '">' + lbl + '</span>'
             + '</div>';
     }).join('') || '<div style="color:var(--text2);font-size:13px;padding:20px;text-align:center">Aucun historique</div>';
-    z.innerHTML = '<div class="bande-header"><div class="bande-name">📜 Historique</div></div>'
+    z.innerHTML = '<div class="bande-header"><div class="bande-name">📜 Historique des tâches</div></div>'
         + lignesHTML
         + '<button class="btn-action btn-ghost" style="margin-top:12px" onclick="Nav.back()">← Retour</button>';
 }
