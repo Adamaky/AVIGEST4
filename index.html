@@ -1301,6 +1301,15 @@ function _navTap(id, fn) {
     _setNavActive(id);
     Nav.stack = [];
     Nav._upBtn();
+    /* Si badge avec destination prioritaire → rediriger */
+    const dest = _navBadgeDest[id];
+    if (dest && typeof window[dest.fn] === 'function') {
+        delete _navBadgeDest[id];
+        Nav.stack.push({ fn: dest.fn, params: dest.param });
+        Nav._upBtn();
+        window[dest.fn](dest.param);
+        return;
+    }
     if (typeof window[fn] === 'function') {
         Nav.stack.push({ fn, params: null });
         Nav._upBtn();
@@ -1315,7 +1324,8 @@ function _setNavActive(id) {
     });
 }
 
-function _setNavBadge(id, count) {
+const _navBadgeDest = {};
+function _setNavBadge(id, count, destFn, destParam) {
     const tab = document.getElementById('navtab-' + id);
     if (!tab) return;
     const ex = tab.querySelector('.nav-badge');
@@ -1325,6 +1335,9 @@ function _setNavBadge(id, count) {
         b.className = 'nav-badge';
         b.textContent = count > 99 ? '99+' : String(count);
         tab.appendChild(b);
+        if (destFn) _navBadgeDest[id] = { fn: destFn, param: destParam };
+    } else {
+        delete _navBadgeDest[id];
     }
 }
 
@@ -3502,7 +3515,7 @@ async function renderTachesBande(bandeId) {
 
     /* Badge sur l'onglet si tâches à valider */
     if (tachesAValider.length > 0) {
-        _setNavBadge('bandes', tachesAValider.length);
+        _setNavBadge('bandes', tachesAValider.length, tachesAValider.length > 0 ? 'renderTachesBande' : null, App.activeBande);
     }
 
     const _renderTacheLigne = (t) => {
@@ -4067,7 +4080,7 @@ async function _navTachesAgent() {
     );
 
     const nbEnAttente = tachesAssignees.length + tachesBande.length;
-    _setNavBadge('taches', nbEnAttente);
+    _setNavBadge('taches', nbEnAttente, nbEnAttente > 0 ? '_navTachesAgent' : null, null);
 
     const rejetsSessions = new Set();
     if (App.activeBande) {
