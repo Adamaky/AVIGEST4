@@ -4543,7 +4543,7 @@ function _repStockAutres() {
       _renderSessionResume();
     }
     function _selectSanteColor(couleur) { App._session._santeScore=couleur==='vert'?5:couleur==='orange'?3:1; App._session._santeCouleur=couleur; ['vert','orange','rouge'].forEach(c=>{const btn=document.getElementById('sante-'+c);if(!btn)return;const isDef=c!==couleur;btn.style.opacity=isDef?'.5':'1';btn.style.transform=isDef?'scale(1)':'scale(1.02)';}); }
-function _repSante() { if(!App._session._santeScore){showToast('Sélectionnez un état de santé','warning');return;} const obs=document.getElementById('sante-obs')?.value||''; const label=App._session._santeCouleur==='vert'?'🟢 BON':App._session._santeCouleur==='orange'?'🟡 MOYEN':'🔴 MAUVAIS'; App._session.reponses['sante']={score:App._session._santeScore,couleur:App._session._santeCouleur,label,obs}; _etapeSuivante(App._session._santeScore,label); }
+function _repSante() { if(!App._session._santeScore){showToast('Sélectionnez un état de santé','warning');return;} const obs=document.getElementById('sante-obs')?.value||''; const label=App._session._santeCouleur==='vert'?'🟢 BON':App._session._santeCouleur==='orange'?'🟡 MOYEN':'🔴 MAUVAIS'; const santeObj={score:App._session._santeScore,couleur:App._session._santeCouleur,label,obs}; App._session.etapeIdx++; _renderEtape(); App._session.reponses['sante']=santeObj; }
 function _etapeSuivante(valeur,label) { const sid=App._session.id,idx=App._session.etapeIdx; const e=(SESSION_ETAPES[sid]||[])[idx]; if(e)App._session.reponses[e.id]=valeur; App._session.etapeIdx++; _renderEtape(); }
 
 function _renderSessionResume() {
