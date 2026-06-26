@@ -2380,7 +2380,7 @@ async function renderRapportFinBande(bandeId) {
         sep,
         '🐔 ZOOTECHNIE',
         '• Effectif initial  : ' + effectifInitial.toLocaleString('fr') + ' sujets',
-        '• Morts cumulés   : ' + totalMorts.toLocaleString('fr') + ' sujets (' + tauxSurvie + '%)',
+        '• Morts cumulés   : ' + totalMorts.toLocaleString('fr') + ' sujets (mort. ' + (100 - parseFloat(tauxSurvie)).toFixed(1) + '%)',
         '• Commercialisés  : ' + effectifVendu.toLocaleString('fr') + ' sujets',
         '• Vivants restants : ' + effectifRestant.toLocaleString('fr') + ' sujets',
         '• Poids moyen     : ' + (t.poidsMoyen ? t.poidsMoyen + ' g' : 'Non saisi'),
