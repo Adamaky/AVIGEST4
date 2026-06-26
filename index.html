@@ -2557,7 +2557,7 @@ async function renderCycleVie(bandeId) {
     const tabs = [
         { id:'preparation', icon:'🔧', label:'Prépa.',  disabled: bandeStatut === 'EN COURS' || bandeStatut === 'CLOTURE' },
         { id:'gestion',     icon:'🐔', label:'Gestion', disabled: bandeStatut === 'PREPARATION' || bandeStatut === 'LIBRE' },
-        { id:'abattage',    icon:'🔪', label:'Abattage',disabled: !hasAbattage },
+        { id:'abattage',    icon:'🛒', label:'Vente',disabled: !hasAbattage },
     ];
 
     const tabsHTML = tabs.map(t => {
@@ -3196,7 +3196,7 @@ async function _renderTabGestion(bande, container) {
         { icon:'📒', label:'Journal',   sub:'Dépenses · Recettes · Solde', color:'#0d2240', fn:`Nav.push('renderJournal','${bande.id}')` },
         { icon:'📋', label:'Tâches',    sub:'Planifier · Suivre',          color:'#0d2a1a', fn:`Nav.push('renderTachesBande','${bande.id}')` },
         { icon:'📈', label:'Analyses',  sub:'Croissance · IC · Coûts',     color:'#0d1e2a', fn:`Nav.push('renderAnalyseBande','${bande.id}')` },
-        { icon:'🔪', label:'Abattage',  sub:'Planifier un abattage',       color:'#2a0d0d', fn:`Nav.push('renderPlanAbattage','${bande.id}')` },
+        { icon:'🛒', label:'Vente',  sub:'Planifier une vente',       color:'#0d2a1a', fn:`Nav.push('renderPlanAbattage','${bande.id}')` },
         { icon:'📦', label:'Stock',     sub:'Lots · Composants · Coûts',   color:'#1a2a0d', fn:`Nav.push('renderStockBande','${bande.id}')` },
     ];
 
@@ -3230,31 +3230,31 @@ async function _renderTabAbattage(bande, container) {
         .order('date_prevue');
 
     const abattages = taches || [];
-    const nbPlanifies    = abattages.filter(t => t.statut === 'A FAIRE').length;
-    const nbExecutes     = abattages.filter(t => t.statut === 'TERMINEE').length;
-    const nbComptabilis  = abattages.filter(t => t.statut === 'COMPTABILISEE').length;
+    const nbPlanifies    = abattages.filter(t => t.statut === 'ENVOYEE').length;
+    const nbExecutes     = abattages.filter(t => t.statut === 'EXECUTEE').length;
+    const nbValides      = abattages.filter(t => t.statut === 'VALIDEE' || t.statut === 'COMPTABILISEE').length;
 
     const lignesHTML = abattages.map(t => {
-        const cls = { 'A FAIRE':'tb-abattage', 'TERMINEE':'tb-hebdo', 'COMPTABILISEE':'tb-hebdo' }[t.statut] || 'tb-hebdo';
-        const lbl = { 'A FAIRE':'PLANIFIÉ', 'TERMINEE':'EXÉCUTÉ', 'COMPTABILISEE':'COMPTAB.' }[t.statut] || t.statut;
-        return `<div class="tache-card">
-            <div style="font-size:18px;flex-shrink:0">🔪</div>
-            <div style="flex:1"><div class="tache-titre">${esc(t.titre)}</div><div class="tache-meta">${esc(t.date_prevue)}</div></div>
-            <span class="tache-badge ${cls}">${lbl}</span>
-        </div>`;
-    }).join('') || '<div style="color:var(--text2);font-size:13px;padding:12px 0;text-align:center">Aucun abattage planifié</div>';
+        const typeIcon = t.type_operation === 'VENTE_VIF' ? '🐔' : '🔪';
+        const cls = { 'ENVOYEE':'tb-abattage', 'EXECUTEE':'tb-hebdo', 'VALIDEE':'tb-stock', 'COMPTABILISEE':'tb-stock' }[t.statut] || 'tb-hebdo';
+        const lbl = { 'ENVOYEE':'ENVOYÉ', 'EXECUTEE':'EXÉCUTÉ', 'VALIDEE':'VALIDÉ', 'COMPTABILISEE':'COMPTAB.' }[t.statut] || t.statut;
+        const nbReels = t.nb_sujets_reels ? ' · ' + t.nb_sujets_reels + ' sujets réels' : '';
+        return '<div class="tache-card">'
+            + '<div style="font-size:18px;flex-shrink:0">' + typeIcon + '</div>'
+            + '<div style="flex:1"><div class="tache-titre">' + esc(t.titre) + '</div>'
+            + '<div class="tache-meta">' + esc(t.date_prevue) + nbReels + '</div></div>'
+            + '<span class="tache-badge ' + cls + '">' + lbl + '</span>'
+            + '</div>';
+    }).join('') || '<div style="color:var(--text2);font-size:13px;padding:12px 0;text-align:center">Aucune vente planifiée</div>';
 
     container.innerHTML = `
         <div class="kpi-row" style="margin-bottom:14px">
-            <div class="kpi-box"><span class="kpi-val" style="color:var(--blue)">${nbPlanifies}</span><span class="kpi-label">Planifiés</span></div>
+            <div class="kpi-box"><span class="kpi-val" style="color:var(--blue)">${nbPlanifies}</span><span class="kpi-label">Envoyés</span></div>
             <div class="kpi-box"><span class="kpi-val" style="color:var(--orange)">${nbExecutes}</span><span class="kpi-label">Exécutés</span></div>
-            <div class="kpi-box"><span class="kpi-val" style="color:var(--green)">${nbComptabilis}</span><span class="kpi-label">Comptab.</span></div>
+            <div class="kpi-box"><span class="kpi-val" style="color:var(--green)">${nbValides}</span><span class="kpi-label">Validés</span></div>
         </div>
         ${lignesHTML}
-        ${bande.abattage_demarre
-            ? '<button class="btn-action btn-red" style="margin-top:8px" onclick="Nav.push(&quot;renderPlanAbattage&quot;,&quot;'+bande.id+'&quot;)">🔪 Planifier un abattage supplémentaire</button>'
-            : '<button class="btn-action btn-orange" style="margin-top:8px" onclick="_demarrerAbattage(&quot;'+bande.id+'&quot;)">🔪 Démarrer la phase abattage</button>'
-        }`;
+        <button class="btn-action btn-green" style="margin-top:8px" onclick="Nav.push('renderPlanAbattage','${bande.id}')">🛒 Planifier une vente</button>`;
 }
 
 async function _demarrerAbattage(bandeId) {
@@ -3746,34 +3746,81 @@ async function _validerDepenseTache(bandeId, tacheId, titreTache) {
     Nav.replace('renderTachesBande', bandeId);
 }
 
-async function renderPlanAbattage(bandeId) {
+async function renderPlanAbattage(bandeId) { await renderPlanVente(bandeId); }
+
+async function renderPlanVente(bandeId) {
     const z = zone(); if (!z) return;
     if (!bandeId) { Nav.back(); return; }
-    z.innerHTML = `
-        <div class="card">
-            <div class="card-title" style="color:var(--red)">🔪 Planifier un abattage</div>
-            <label class="f-label">Date prévue</label>
-            <input class="f-input" type="date" id="ab-date" value="${_dateAujourd_hui()}">
-            <label class="f-label">Nombre de sujets</label>
-            <input class="f-input" type="number" id="ab-nb" placeholder="Ex: 500" inputmode="numeric">
-            <label class="f-label">Client cible (optionnel)</label>
-            <input class="f-input" type="text" id="ab-client" placeholder="Ex: Moussa Traoré">
-            <button class="btn-action btn-red" onclick="_validerAbattage('${bandeId}')">✅ Planifier</button>
-            <button class="btn-action btn-ghost" onclick="Nav.back()">Annuler</button>
-        </div>`;
+    z.innerHTML = '<div class="card">'
+        + '<div class="card-title" style="color:var(--green)">🛒 Planifier une vente</div>'
+        + '<label class="f-label">Type de vente</label>'
+        + '<select class="f-input" id="pv-type" onchange="_pvToggleMode()">'
+        +   '<option value="">-- Choisir --</option>'
+        +   '<option value="ABATTAGE">🔪 Abattage</option>'
+        +   '<option value="VENTE_VIF">🐔 Vente vivant</option>'
+        + '</select>'
+        + '<label class="f-label">Mode de vente</label>'
+        + '<select class="f-input" id="pv-mode" onchange="_pvToggleMode()">'
+        +   '<option value="UNITE">À l\'unité (nb sujets)</option>'
+        +   '<option value="POIDS">Au poids (kg)</option>'
+        + '</select>'
+        + '<div id="pv-champ-nb" style="">'
+        +   '<label class="f-label">Nombre de sujets prévus</label>'
+        +   '<input class="f-input" type="number" id="pv-nb" placeholder="Ex: 500" inputmode="numeric" min="1">'
+        + '</div>'
+        + '<div id="pv-champ-poids" style="display:none">'
+        +   '<label class="f-label">Poids prévu (kg)</label>'
+        +   '<input class="f-input" type="number" id="pv-poids" placeholder="Ex: 800" inputmode="numeric" min="1">'
+        + '</div>'
+        + '<label class="f-label">Client cible (optionnel)</label>'
+        + '<input class="f-input" type="text" id="pv-client" placeholder="Ex: Moussa Traoré">'
+        + '<label class="f-label">Date prévue</label>'
+        + '<input class="f-input" type="date" id="pv-date" value="' + _dateAujourd_hui() + '">'
+        + '<button class="btn-action btn-green" onclick="_validerPlanVente(\'' + bandeId + '\')">📤 Envoyer à l\'agent</button>'
+        + '<button class="btn-action btn-ghost" onclick="Nav.back()">Annuler</button>'
+        + '</div>';
 }
 
-async function _validerAbattage(bandeId) {
-    const nb     = parseInt(document.getElementById('ab-nb')?.value);
-    const date   = document.getElementById('ab-date')?.value;
-    const client = document.getElementById('ab-client')?.value.trim();
-    if (!nb || nb<=0) { showToast('Nombre de sujets requis','warning'); return; }
-    if (!date) { showToast('Date requise','warning'); return; }
-    if (!guardDouble('abattage')) return;
-    const titre = `Abattage ${nb} sujets${client?' — '+client:''}`;
-    const r = await creerTache(titre, bandeId, 'ABATTAGE', date);
-    if (r) { showToast('✅ Abattage planifié — agent notifié','success'); Nav.back(); }
-    else   { showToast('Erreur planification','error'); }
+function _pvToggleMode() {
+    const mode = document.getElementById('pv-mode')?.value;
+    const zNb    = document.getElementById('pv-champ-nb');
+    const zPoids = document.getElementById('pv-champ-poids');
+    if (zNb)    zNb.style.display    = (mode === 'POIDS') ? 'none' : '';
+    if (zPoids) zPoids.style.display = (mode === 'POIDS') ? '' : 'none';
+}
+
+async function _validerPlanVente(bandeId) {
+    const type   = document.getElementById('pv-type')?.value;
+    const mode   = document.getElementById('pv-mode')?.value;
+    const nb     = parseInt(document.getElementById('pv-nb')?.value)    || 0;
+    const poids  = parseFloat(document.getElementById('pv-poids')?.value) || 0;
+    const client = document.getElementById('pv-client')?.value.trim()   || '';
+    const date   = document.getElementById('pv-date')?.value;
+    if (!type)  { showToast('Choisissez le type de vente','warning'); return; }
+    if (!date)  { showToast('Date requise','warning'); return; }
+    if (mode === 'UNITE' && nb <= 0)    { showToast('Nombre de sujets requis','warning'); return; }
+    if (mode === 'POIDS' && poids <= 0) { showToast('Poids prévu requis','warning'); return; }
+    if (!guardDouble('plan_vente')) return;
+    const typeLabel  = type === 'VENTE_VIF' ? 'Vente vivant' : 'Abattage';
+    const modeLabel  = mode === 'POIDS' ? poids + ' kg' : nb + ' sujets';
+    const titre      = typeLabel + ' — ' + modeLabel + (client ? ' — ' + client : '');
+    const { error } = await sb.from('taches').insert({
+        ferme_id        : FERME_ID,
+        bande_id        : bandeId,
+        titre           : titre,
+        type_tache      : 'ABATTAGE',
+        statut          : 'ENVOYEE',
+        date_prevue     : date,
+        cree_par        : App.userId,
+        type_operation  : type,
+        mode_vente      : mode,
+        nb_sujets_prevus: mode === 'UNITE' ? nb : null,
+        quantite_prevue : mode === 'POIDS' ? poids : null,
+        client_cible    : client || null
+    });
+    if (error) { showToast('Erreur planification','error'); console.error(error); return; }
+    showToast('✅ Plan de vente envoyé — agent notifié', 'success', 4000);
+    Nav.back();
 }
 
 /* ════════════════════════════════════════════
@@ -3928,11 +3975,12 @@ async function _navTachesAgent() {
 
     const tachesHTML = tachesAssignees.length ? tachesAssignees.map(t => {
         const c = t.type_tache==='ABATTAGE'?'red':t.type_tache==='HEBDOMADAIRE'?'orange':'blue';
-        return `<div class="tache-card ${t.type_tache==='ABATTAGE'?'urgente':''}" id="tcard-${esc(t.id)}">
-            <div class="tache-dot dot-${c}"></div>
-            <div style="flex:1"><div class="tache-titre">${esc(t.titre)}</div><div class="tache-meta">${esc(t.date_prevue)}</div></div>
-            <button class="btn-fait" id="btn-fait-${esc(t.id)}" onclick="_tachePremierAppui('${esc(t.id)}','${esc(t.titre)}')">✅ Marquer exécutée</button>
-        </div>`;
+        const icone = t.type_tache==='ABATTAGE' ? (t.type_operation==='VENTE_VIF'?'🐔':'🔪') : '';
+        return '<div class="tache-card ' + (t.type_tache==='ABATTAGE'?'urgente':'') + '" id="tcard-' + esc(t.id) + '">'
+            + '<div class="tache-dot dot-' + c + '"></div>'
+            + '<div style="flex:1"><div class="tache-titre">' + (icone?icone+' ':'') + esc(t.titre) + '</div><div class="tache-meta">' + esc(t.date_prevue) + '</div></div>'
+            + '<button class="btn-fait" id="btn-fait-' + esc(t.id) + '" onclick="_tachePremierAppui(\'' + esc(t.id) + '\',\'' + esc(t.titre) + '\')">✅ Exécuter</button>'
+            + '</div>';
     }).join('') : '<div style="color:var(--text2);font-size:13px;padding:12px 0;text-align:center">Aucune tâche assignée</div>';
 
     z.innerHTML = `
