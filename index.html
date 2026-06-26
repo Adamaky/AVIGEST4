@@ -3423,7 +3423,7 @@ async function _renderTabGestion(bande, container) {
 
     container.innerHTML = `
         <div class="kpi-row" style="margin-bottom:10px">
-            <div class="kpi-box"><span class="kpi-val">${Math.max(0,(p.effectif||0)-effectifVendu).toLocaleString('fr')}</span><span class="kpi-label">Vivants</span></div>
+            <div class="kpi-box"><span class="kpi-val">${(p.effectif||0).toLocaleString('fr')}</span><span class="kpi-label">Vivants</span></div>
             <div class="kpi-box"><span class="kpi-val">J${ageJours}</span><span class="kpi-label">Âge</span></div>
             <div class="kpi-box"><span class="kpi-val" style="color:${mortColor}">${t.mortaliteJour||0}</span><span class="kpi-label">💀 Morts/j</span></div>
         </div>
@@ -4260,6 +4260,7 @@ async function renderAgent() {
         sb.from('bandes').select('effectif_vendu').eq('id', bande.id).single().then(r => r.data)
     ]);
     const effectifVenduAgent = parseInt(bandeDetail?.effectif_vendu || 0);
+    /* p.effectif retourne déjà effectif_initial - morts - vendus depuis vue_dashboard_bande */
 
     App.data = { tachesAgent: taches, ...dashboard };
 
@@ -4294,7 +4295,7 @@ async function renderAgent() {
             </div>
             <div style="padding:20px;text-align:center">
                 ${tabActif === 0
-                    ? `<div style="font-size:42px;font-weight:800">${Math.max(0,(p.effectif||0)-effectifVenduAgent).toLocaleString('fr')}</div><div style="font-size:11px;color:var(--text2);margin-top:4px">sujets vivants</div><div style="font-size:13px;color:var(--orange);margin-top:8px;font-weight:700">🛒 ${effectifVenduAgent.toLocaleString('fr')} commercialisés</div>`
+                    ? `<div style="font-size:42px;font-weight:800">${(p.effectif||0).toLocaleString('fr')}</div><div style="font-size:11px;color:var(--text2);margin-top:4px">sujets vivants</div><div style="font-size:13px;color:var(--orange);margin-top:8px;font-weight:700">🛒 ${effectifVenduAgent.toLocaleString('fr')} commercialisés</div>`
                     : `<div style="font-size:42px;font-weight:800;color:${mortColor}">${t.mortaliteJour||0}</div><div style="font-size:11px;color:var(--text2);margin-top:4px">morts aujourd'hui</div>`}
             </div>
         </div>`;
