@@ -4254,10 +4254,12 @@ async function renderAgent() {
     /* Realtime déjà initialisé dans startApp — pas besoin de réinitialiser */
 
     /* Charger tâches + dashboard en parallèle */
-    const [taches, dashboard] = await Promise.all([
+    const [taches, dashboard, bandeDetail] = await Promise.all([
         getTachesAgent(bande.id),
-        getDashboard(bande.id)
+        getDashboard(bande.id),
+        sb.from('bandes').select('effectif_vendu').eq('id', bande.id).single().then(r => r.data)
     ]);
+    const effectifVenduAgent = parseInt(bandeDetail?.effectif_vendu || 0);
 
     App.data = { tachesAgent: taches, ...dashboard };
 
@@ -4292,7 +4294,7 @@ async function renderAgent() {
             </div>
             <div style="padding:20px;text-align:center">
                 ${tabActif === 0
-                    ? `<div style="font-size:42px;font-weight:800">${(p.effectif||0).toLocaleString('fr')}</div><div style="font-size:11px;color:var(--text2);margin-top:4px">sujets présents</div>`
+                    ? `<div style="font-size:42px;font-weight:800">${Math.max(0,(p.effectif||0)-effectifVenduAgent).toLocaleString('fr')}</div><div style="font-size:11px;color:var(--text2);margin-top:4px">sujets vivants</div><div style="font-size:13px;color:var(--orange);margin-top:8px;font-weight:700">🛒 ${effectifVenduAgent.toLocaleString('fr')} commercialisés</div>`
                     : `<div style="font-size:42px;font-weight:800;color:${mortColor}">${t.mortaliteJour||0}</div><div style="font-size:11px;color:var(--text2);margin-top:4px">morts aujourd'hui</div>`}
             </div>
         </div>`;
