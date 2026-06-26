@@ -2332,6 +2332,115 @@ async function renderAnalyser() {
         ${bandesHTML}`;
 }
 
+async function renderClotureBande(bandeId) {
+    const z = zone(); if (!z) return;
+    if (!bandeId) { Nav.back(); return; }
+    z.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
+
+    const [d, bandeRow, journalLignes] = await Promise.all([
+        getDashboard(bandeId),
+        sb.from('bandes').select('id_bande, effectif_initial, effectif_vendu, date_arrivee, race, batiment_id, statut').eq('id', bandeId).single().then(r => r.data),
+        getJournal(bandeId)
+    ]);
+
+    if (!d || !bandeRow) { z.innerHTML = '<div style="text-align:center;padding:40px;color:var(--red)">Erreur chargement</div>'; return; }
+
+    if (bandeRow.statut === 'TERMINEE') {
+        z.innerHTML = '<div class="card" style="text-align:center;padding:32px">'
+            + '<div style="font-size:40px;margin-bottom:12px">🏁</div>'
+            + '<div style="font-weight:800;font-size:15px;margin-bottom:8px">Bande déjà clôturée</div>'
+            + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">Cette bande a déjà été archivée.</div>'
+            + '<button class="btn-action btn-ghost" onclick="Nav.back()">← Retour</button>'
+            + '</div>';
+        return;
+    }
+
+    const p  = d.performance || {};
+    const t  = d.terrain     || {};
+    const effectifInitial = parseInt(bandeRow.effectif_initial || 0);
+    const effectifVendu   = parseInt(bandeRow.effectif_vendu   || 0);
+    const totalMorts      = parseInt(p.morts || 0);
+    const effectifRestant = Math.max(0, effectifInitial - totalMorts - effectifVendu);
+    const tauxMort        = effectifInitial > 0 ? (totalMorts / effectifInitial * 100).toFixed(1) : 0;
+    const totalDepenses   = journalLignes.filter(function(l){ return l.type_ecriture==='DEPENSE'; }).reduce(function(s,l){ return s+(parseFloat(l.montant)||0); }, 0);
+    const totalRecettes   = journalLignes.filter(function(l){ return l.type_ecriture==='RECETTE'; }).reduce(function(s,l){ return s+(parseFloat(l.montant)||0); }, 0);
+    const margeNette      = totalRecettes - totalDepenses;
+    const margeColor      = margeNette >= 0 ? 'var(--green)' : 'var(--red)';
+
+    /* Texte WhatsApp partenaires */
+    const sep = '━━━━━━━━━━━━━━━━━━━━━━━';
+    const rapportPartenaire = [
+        '🐔 BILAN BANDE — ' + (bandeRow.id_bande || ''),
+        '📅 ' + (bandeRow.date_arrivee || '') + ' → ' + _dateAujourd_hui(),
+        sep,
+        '🐔 Résultats',
+        '• Effectif initial   : ' + effectifInitial.toLocaleString('fr') + ' sujets',
+        '• Mortalité          : ' + totalMorts + ' sujets (' + tauxMort + '%)',
+        '• Commercialisés     : ' + effectifVendu.toLocaleString('fr') + ' sujets',
+        '• Poids moyen        : ' + (t.poidsMoyen ? t.poidsMoyen + ' g' : 'Non saisi'),
+        sep,
+        '💰 Finance',
+        '• Recettes           : ' + fmt(totalRecettes) + ' FCFA',
+        '• Dépenses            : ' + fmt(totalDepenses) + ' FCFA',
+        '• Marge nette        : ' + (margeNette >= 0 ? '+' : '') + fmt(margeNette) + ' FCFA',
+        sep,
+        'AviGest · REVAGRO · ' + _dateAujourd_hui()
+    ].join('\n');
+    App._rapportPartenaire = rapportPartenaire;
+
+    z.innerHTML = '<div class="bande-header"><div class="bande-name">🏁 Clôturer la bande</div></div>'
+        + '<div class="card" style="margin-bottom:12px;border:2px solid var(--orange)">'
+        + '<div style="font-size:13px;font-weight:800;color:var(--orange);margin-bottom:12px">⚠️ Action irréversible</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'
+        +   '<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center"><div style="font-size:15px;font-weight:800">' + effectifRestant.toLocaleString('fr') + '</div><div style="font-size:10px;color:var(--text2)">Vivants restants</div></div>'
+        +   '<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center"><div style="font-size:15px;font-weight:800">' + effectifVendu.toLocaleString('fr') + '</div><div style="font-size:10px;color:var(--text2)">Commercialisés</div></div>'
+        +   '<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center"><div style="font-size:15px;font-weight:800;color:var(--red)">-' + fmt(totalDepenses) + '</div><div style="font-size:10px;color:var(--text2)">Dépenses</div></div>'
+        +   '<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center"><div style="font-size:15px;font-weight:800;color:' + margeColor + '">' + (margeNette>=0?'+':'') + fmt(margeNette) + '</div><div style="font-size:10px;color:var(--text2)">Marge nette</div></div>'
+        + '</div>'
+        + '<div style="font-size:12px;color:var(--text2);line-height:1.6;padding:10px;background:rgba(255,157,0,.08);border-radius:8px">'
+        + '🏁 Cette action va :<br>'
+        + '• Archiver la bande (statut TERMINÉE)<br>'
+        + '• Libérer le bâtiment pour une nouvelle bande<br>'
+        + '• Générer le rapport final'
+        + '</div>'
+        + '</div>'
+        + '<button class="btn-action btn-ghost" onclick="_copierRapportPartenaire()">📋 Copier rapport partenaires</button>'
+        + '<button class="btn-action btn-red" onclick="_confirmerCloture(\'' + esc(bandeId) + '\',\'' + esc(bandeRow.batiment_id||'') + '\')">🏁 Confirmer la clôture</button>'
+        + '<button class="btn-action btn-ghost" onclick="Nav.back()">← Annuler</button>';
+}
+
+async function _confirmerCloture(bandeId, batimentId) {
+    if (!guardDouble('cloture_bande')) return;
+    const updates = [
+        sb.from('bandes').update({ statut: 'TERMINEE', date_cloture: _dateAujourd_hui() }).eq('id', bandeId)
+    ];
+    if (batimentId) {
+        updates.push(sb.from('batiments').update({ statut: 'LIBRE' }).eq('id', batimentId));
+    }
+    const results = await Promise.all(updates);
+    const hasError = results.some(function(r){ return r.error; });
+    if (hasError) { showToast('Erreur clôture','error'); return; }
+    showToast('🏁 Bande clôturée — bâtiment libéré', 'success', 5000);
+    Nav.home();
+}
+
+async function _copierRapportPartenaire() {
+    const texte = App._rapportPartenaire || '';
+    try {
+        await navigator.clipboard.writeText(texte);
+        showToast('✅ Rapport partenaires copié', 'success', 3000);
+    } catch(e) {
+        const ta = document.createElement('textarea');
+        ta.value = texte;
+        ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        try { document.execCommand('copy'); showToast('✅ Rapport partenaires copié', 'success', 3000); }
+        catch(e2) { showToast('Erreur copie', 'error'); }
+        document.body.removeChild(ta);
+    }
+}
+
 async function renderRapportFinBande(bandeId) {
     const z = zone(); if (!z) return;
     if (!bandeId) { Nav.back(); return; }
@@ -3309,6 +3418,7 @@ async function _renderTabGestion(bande, container) {
         { icon:'🛒', label:'Vente',  sub:'Planifier une vente',       color:'#0d2a1a', fn:`Nav.push('renderPlanAbattage','${bande.id}')` },
         { icon:'📦', label:'Stock',     sub:'Lots · Composants · Coûts',   color:'#1a2a0d', fn:`Nav.push('renderStockBande','${bande.id}')` },
         { icon:'📄', label:'Rapport',   sub:'Fin de bande · WhatsApp',     color:'#1a1a2a', fn:`Nav.push('renderRapportFinBande','${bande.id}')` },
+        { icon:'🏁', label:'Clôturer',  sub:'Archiver · Libérer bâtiment', color:'#2a0d0d', fn:`Nav.push('renderClotureBande','${bande.id}')` },
     ];
 
     container.innerHTML = `
