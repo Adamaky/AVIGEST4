@@ -3642,11 +3642,19 @@ async function _envoyerTache(tacheId) {
 /* ── Valider / Rejeter tâche depuis la fiche bande ── */
 async function _validerTacheBande(tacheId) {
     if (!guardDouble('val_'+tacheId)) return;
+    /* Vérifier si c'est une tâche ABATTAGE */
+    const { data: tache } = await sb.from('taches')
+        .select('type_tache, bande_id, nb_sujets_reels, type_operation, mode_vente, client_cible')
+        .eq('id', tacheId).single();
     const r = await validerTache(tacheId);
-    if (r) {
-        showToast('✅ Tâche validée — agent notifié','success',4000);
+    if (!r) { showToast('Erreur validation','error'); return; }
+    showToast('✅ Tâche validée — agent notifié','success',4000);
+    /* Si ABATTAGE → ouvrir formulaire journal vente */
+    if (tache && tache.type_tache === 'ABATTAGE') {
+        Nav.push('renderJournalVente', tacheId);
+    } else {
         Nav.replace('renderTachesBande', App.activeBande);
-    } else { showToast('Erreur validation','error'); }
+    }
 }
 
 function _rejeterTacheBande(tacheId, titre) {
@@ -3822,6 +3830,108 @@ async function _validerPlanVente(bandeId) {
     if (error) { showToast('Erreur planification','error'); console.error(error); return; }
     showToast('✅ Plan de vente envoyé — agent notifié', 'success', 4000);
     Nav.back();
+}
+
+async function renderJournalVente(tacheId) {
+    const z = zone(); if (!z) return;
+    if (!tacheId) { Nav.back(); return; }
+    z.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
+    const { data: tache } = await sb.from('taches')
+        .select('bande_id, nb_sujets_reels, type_operation, mode_vente, client_cible, date_prevue')
+        .eq('id', tacheId).single();
+    if (!tache) { showToast('Tâche introuvable','error'); Nav.back(); return; }
+    const typeLabel  = tache.type_operation === 'VENTE_VIF' ? '🐔 Vente vivant' : '🔪 Abattage';
+    const nbReels    = tache.nb_sujets_reels || 0;
+    const modeLabel  = tache.mode_vente === 'POIDS' ? 'Au poids' : 'À l\'unité';
+    const clientLine = tache.client_cible ? '<div style="font-size:12px;color:var(--text2)">Client : ' + esc(tache.client_cible) + '</div>' : '';
+    z.innerHTML = '<div class="card">'
+        + '<div class="card-title" style="color:var(--green)">📒 Enregistrer la vente</div>'
+        + '<div style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:16px">'
+        +   '<div style="font-weight:700;font-size:14px;margin-bottom:4px">' + typeLabel + ' · ' + modeLabel + '</div>'
+        +   '<div style="font-size:13px">Sujets commercialisés : <strong>' + nbReels + '</strong></div>'
+        +   clientLine
+        + '</div>'
+        + '<label class="f-label">Prix de vente</label>'
+        + '<select class="f-input" id="jv-mode-prix" onchange="_jvTogglePrix()">'
+        +   '<option value="UNITE">Par sujet (FCFA/sujet)</option>'
+        +   '<option value="POIDS">Au kg (FCFA/kg)</option>'
+        + '</select>'
+        + '<div id="jv-zone-unite">'
+        +   '<label class="f-label">Prix par sujet (FCFA)</label>'
+        +   '<input class="f-input" type="number" id="jv-prix-unite" placeholder="Ex: 3500" inputmode="numeric" min="0" oninput="_jvCalcMontant(' + nbReels + ')">'
+        + '</div>'
+        + '<div id="jv-zone-poids" style="display:none">'
+        +   '<label class="f-label">Poids moyen par sujet (kg)</label>'
+        +   '<input class="f-input" type="number" id="jv-poids-moy" placeholder="Ex: 1.8" inputmode="numeric" min="0" oninput="_jvCalcMontant(' + nbReels + ')">'
+        +   '<label class="f-label">Prix au kg (FCFA/kg)</label>'
+        +   '<input class="f-input" type="number" id="jv-prix-kg" placeholder="Ex: 2500" inputmode="numeric" min="0" oninput="_jvCalcMontant(' + nbReels + ')">'
+        + '</div>'
+        + '<div id="jv-detail" style="font-size:12px;color:var(--text2);padding:8px;background:var(--bg3);border-radius:8px;margin-bottom:8px;display:none"></div>'
+        + '<label class="f-label">Montant total reçu (FCFA)</label>'
+        + '<input class="f-input" type="number" id="jv-montant" placeholder="Ex: 35000" inputmode="numeric" min="0">'
+        + '<button class="btn-action btn-green" onclick="_enregistrerJournalVente(\'' + esc(tacheId) + '\',\'' + esc(tache.bande_id) + '\',' + nbReels + ',\'' + esc(tache.type_operation||'ABATTAGE') + '\')">✅ Enregistrer dans le journal</button>'
+        + '<button class="btn-action btn-ghost" onclick="Nav.replace(\'renderTachesBande\',\'' + esc(tache.bande_id) + '\')">Plus tard</button>'
+        + '</div>';
+}
+
+function _jvTogglePrix() {
+    const mode = document.getElementById('jv-mode-prix')?.value;
+    const zu = document.getElementById('jv-zone-unite');
+    const zp = document.getElementById('jv-zone-poids');
+    if (zu) zu.style.display = (mode === 'POIDS') ? 'none' : '';
+    if (zp) zp.style.display = (mode === 'POIDS') ? '' : 'none';
+}
+
+function _jvCalcMontant(nbReels) {
+    const mode      = document.getElementById('jv-mode-prix')?.value;
+    const detail    = document.getElementById('jv-detail');
+    const montantEl = document.getElementById('jv-montant');
+    var montantCalc = 0;
+    var lignes = [];
+    if (mode === 'UNITE') {
+        const prix = parseFloat(document.getElementById('jv-prix-unite')?.value) || 0;
+        if (prix > 0) {
+            montantCalc = Math.round(nbReels * prix);
+            lignes.push(nbReels + ' sujets × ' + fmt(prix) + ' FCFA = ' + fmt(montantCalc) + ' FCFA');
+        }
+    } else {
+        const poids  = parseFloat(document.getElementById('jv-poids-moy')?.value) || 0;
+        const prixKg = parseFloat(document.getElementById('jv-prix-kg')?.value)   || 0;
+        if (poids > 0 && prixKg > 0) {
+            montantCalc = Math.round(nbReels * poids * prixKg);
+            lignes.push(nbReels + ' × ' + poids + ' kg × ' + fmt(prixKg) + ' FCFA/kg = ' + fmt(montantCalc) + ' FCFA');
+        }
+    }
+    if (detail) {
+        if (lignes.length) { detail.innerHTML = lignes.join('<br>'); detail.style.display = ''; }
+        else { detail.textContent = ''; detail.style.display = 'none'; }
+    }
+    if (montantEl && montantCalc > 0) montantEl.value = montantCalc;
+}
+
+async function _enregistrerJournalVente(tacheId, bandeId, nbReels, typeOperation) {
+    const montant = parseFloat(document.getElementById('jv-montant')?.value) || 0;
+    if (montant <= 0) { showToast('Le montant reçu est obligatoire','warning'); return; }
+    if (!guardDouble('journal_vente')) return;
+    const typeLabel = typeOperation === 'VENTE_VIF' ? 'Vente poulet vivant' : 'Vente poulet abattu';
+    const mode      = document.getElementById('jv-mode-prix')?.value || 'UNITE';
+    var note = typeLabel + ' — ' + nbReels + ' sujets';
+    if (mode === 'POIDS') {
+        const poids  = parseFloat(document.getElementById('jv-poids-moy')?.value) || 0;
+        const prixKg = parseFloat(document.getElementById('jv-prix-kg')?.value)   || 0;
+        if (poids > 0)  note += ' · ' + poids + ' kg/sujet';
+        if (prixKg > 0) note += ' · ' + fmt(prixKg) + ' FCFA/kg';
+    } else {
+        const prixU = parseFloat(document.getElementById('jv-prix-unite')?.value) || 0;
+        if (prixU > 0) note += ' · ' + fmt(prixU) + ' FCFA/sujet';
+    }
+    note += ' · ' + fmt(montant) + ' FCFA';
+    const r = await ecritureJournal(bandeId, 'RECETTE', typeLabel, note, montant);
+    if (!r) { showToast('Erreur enregistrement journal','error'); return; }
+    /* Marquer la tâche COMPTABILISEE */
+    await sb.from('taches').update({ statut: 'COMPTABILISEE' }).eq('id', tacheId);
+    showToast('✅ Vente enregistrée dans le journal','success', 4000);
+    Nav.replace('renderTachesBande', bandeId);
 }
 
 /* ════════════════════════════════════════════
@@ -4113,6 +4223,15 @@ async function renderSaisieAbattageAgent(tacheId) {
 async function _soumettreAbattageAgent(tacheId) {
     const nb = parseInt(document.getElementById('ab-nb-reels')?.value) || 0;
     if (nb <= 0) { showToast('Saisissez le nombre de sujets','warning'); return; }
+    /* Vérifier que nb réel ne dépasse pas le nb prévu */
+    const { data: tacheCheck } = await sb.from('taches')
+        .select('bande_id, nb_sujets_prevus')
+        .eq('id', tacheId).single();
+    const nbPrevus = parseInt(tacheCheck?.nb_sujets_prevus || 0);
+    if (nbPrevus > 0 && nb > nbPrevus) {
+        showToast('⚠️ Le nombre saisi (' + nb + ') dépasse le plan du gérant (' + nbPrevus + ' sujets)', 'warning', 5000);
+        return;
+    }
     if (!guardDouble('soumettre_abattage')) return;
     const { error } = await sb.from('taches').update({
         nb_sujets_reels : nb,
@@ -4121,11 +4240,10 @@ async function _soumettreAbattageAgent(tacheId) {
     }).eq('id', tacheId).eq('ferme_id', FERME_ID);
     if (error) { showToast('Erreur envoi','error'); return; }
     /* Mettre à jour effectif_vendu sur la bande */
-    const { data: tache } = await sb.from('taches').select('bande_id').eq('id', tacheId).single();
-    if (tache?.bande_id) {
-        const { data: bande } = await sb.from('bandes').select('effectif_vendu').eq('id', tache.bande_id).single();
+    if (tacheCheck?.bande_id) {
+        const { data: bande } = await sb.from('bandes').select('effectif_vendu').eq('id', tacheCheck.bande_id).single();
         const dejaVendus = parseInt(bande?.effectif_vendu||0);
-        await sb.from('bandes').update({ effectif_vendu: dejaVendus + nb }).eq('id', tache.bande_id);
+        await sb.from('bandes').update({ effectif_vendu: dejaVendus + nb }).eq('id', tacheCheck.bande_id);
     }
     showToast('✅ Données envoyées — gérant notifié','success', 4000);
     Nav.back();
