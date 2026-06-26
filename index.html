@@ -3514,9 +3514,7 @@ async function renderTachesBande(bandeId) {
     const tachesTerminees = taches.filter(t => ['VALIDEE','REJETEE'].includes(t.statut));
 
     /* Badge sur l'onglet si tâches à valider */
-    if (tachesAValider.length > 0) {
-        _setNavBadge('bandes', tachesAValider.length, tachesAValider.length > 0 ? 'renderTachesBande' : null, App.activeBande);
-    }
+    _setNavBadge('bandes', tachesAValider.length, tachesAValider.length > 0 ? 'renderTachesBande' : null, bandeId);
 
     const _renderTacheLigne = (t) => {
         const done       = ['EXECUTEE','VALIDEE'].includes(t.statut);
@@ -3582,22 +3580,54 @@ async function renderTachesBande(bandeId) {
     const sectionAFaire = aFaireHTML
         || '<div style="color:var(--text2);font-size:13px;padding:12px 0;text-align:center">Aucune tâche en cours</div>';
 
+    const allTuiles = [
+        ...types.map(t => ({
+            icon: t.icon, label: t.label,
+            fn: t.type==='ABATTAGE'
+                ? 'Nav.push(\'renderPlanVente\',\''+bandeId+'\')'
+                : 'Nav.push(\'renderCreerTache\',JSON.stringify({bandeId:\''+bandeId+'\',type:\''+t.type+'\'}))'
+        })),
+        { icon: '📜', label: 'Historique',  fn: 'Nav.push(\'renderHistoriqueTaches\',\''+bandeId+'\')' },
+        { icon: '📊', label: 'Rapports',    fn: 'renderRapportsHebdo(\''+bandeId+'\')' },
+    ];
     z.innerHTML = '<div class="bande-header"><div class="bande-name">📋 Tâches</div></div>'
-        + '<div class="section-title">Créer une tâche</div>'
-        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">'
-        + types.map(t => '<div class="choice-btn" style="padding:14px 8px;text-align:center"'
-            + ' onclick="' + (t.type==='ABATTAGE' ? 'Nav.push(\'renderPlanVente\',\''+bandeId+'\')' : 'Nav.push(\'renderCreerTache\',JSON.stringify({bandeId:\''+bandeId+'\',type:\''+t.type+'\'}))') + '">'
-            + '<div style="font-size:20px;margin-bottom:4px">'+t.icon+'</div>'
-            + '<div style="font-size:11px;font-weight:700">'+t.label+'</div></div>').join('')
+        + '<div class="section-title">Actions</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">'
+        + allTuiles.map(t => '<div class="choice-btn" style="padding:14px 8px;text-align:center" onclick="' + t.fn + '">'
+            + '<div style="font-size:24px;margin-bottom:4px">' + t.icon + '</div>'
+            + '<div style="font-size:11px;font-weight:700">' + t.label + '</div></div>').join('')
         + '</div>'
         + sectionAValider
         + '<div class="section-title">📋 Tâches en cours</div>'
-        + sectionAFaire
-        + sectionHistorique
-        + '<div style="margin-top:16px;">'
-        + '<button class="btn-action btn-secondary" style="width:100%;" onclick="renderRapportsHebdo(\'' + bandeId + '\')">'
-        + '📋 Rapports hebdomadaires</button>'
-        + '</div>';
+        + sectionAFaire;
+}
+
+async function renderHistoriqueTaches(bandeId) {
+    const z = zone(); if (!z) return;
+    const bid = bandeId || App.activeBande;
+    if (!bid) { Nav.back(); return; }
+    z.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
+    const { data: tachesAll } = await sb
+        .from('taches')
+        .select('id, titre, type_tache, statut, date_prevue, nb_sujets_reels')
+        .eq('ferme_id', FERME_ID)
+        .eq('bande_id', bid)
+        .in('statut', ['VALIDEE','REJETEE','COMPTABILISEE'])
+        .order('date_prevue', { ascending: false });
+    const taches = tachesAll || [];
+    const lignesHTML = taches.map(t => {
+        const c   = t.statut==='REJETEE' ? 'var(--red)' : t.statut==='COMPTABILISEE' ? 'var(--green)' : 'var(--text2)';
+        const lbl = { 'VALIDEE':'VALIDÉ', 'REJETEE':'REJETÉ', 'COMPTABILISEE':'COMPTAB.' }[t.statut] || t.statut;
+        const nb  = t.nb_sujets_reels ? ' · ' + t.nb_sujets_reels + ' sujets' : '';
+        return '<div class="tache-card">'
+            + '<div style="flex:1"><div class="tache-titre">' + esc(t.titre) + nb + '</div>'
+            + '<div class="tache-meta">' + esc(t.date_prevue) + '</div></div>'
+            + '<span style="font-size:10px;font-weight:800;color:' + c + '">' + lbl + '</span>'
+            + '</div>';
+    }).join('') || '<div style="color:var(--text2);font-size:13px;padding:20px;text-align:center">Aucun historique</div>';
+    z.innerHTML = '<div class="bande-header"><div class="bande-name">📜 Historique</div></div>'
+        + lignesHTML
+        + '<button class="btn-action btn-ghost" style="margin-top:12px" onclick="Nav.back()">← Retour</button>';
 }
 
 async function renderRapportsHebdo(bandeId) {
