@@ -303,7 +303,7 @@
 <body>
 
 <!-- ÉCRAN 1 — SÉLECTION DU RÔLE -->
-<div id="screen-role" class="screen">
+<div id="screen-role" class="screen hidden">
     <div class="role-logo">🐔</div>
     <div class="role-title">AviGest</div>
     <div class="role-sub">Smartfarm — Qui êtes-vous ?</div>
@@ -328,10 +328,47 @@
 </div>
 
 <!-- ÉCRAN 2 — LOGIN PIN -->
+<div id="screen-welcome" class="screen">
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#1a472a 0%,#2d6a4f 100%);padding:2rem;">
+    <div style="font-size:4rem;margin-bottom:1rem;">🐔</div>
+    <h1 style="color:#fff;font-size:2rem;font-weight:700;margin:0 0 0.5rem 0;letter-spacing:2px;">AviGest</h1>
+    <p style="color:#a8d5b5;font-size:1rem;margin:0 0 3rem 0;">Gestion avicole intelligente</p>
+    <button onclick="afficherSaisieCode()" style="background:#fff;color:#1a472a;border:none;border-radius:12px;padding:1rem 2.5rem;font-size:1.1rem;font-weight:700;cursor:pointer;box-shadow:0 4px 15px rgba(0,0,0,0.2);">
+      🏠 Accéder à ma ferme
+    </button>
+    <p style="color:#6bbb8a;font-size:0.8rem;margin-top:3rem;">AviGest v26.7</p>
+  </div>
+</div>
+
+<div id="screen-code-ferme" class="screen hidden">
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#1a472a 0%,#2d6a4f 100%);padding:2rem;">
+    <div style="font-size:2.5rem;margin-bottom:1rem;">🔑</div>
+    <h2 style="color:#fff;font-size:1.5rem;font-weight:700;margin:0 0 0.5rem 0;">Code d'accès ferme</h2>
+    <p style="color:#a8d5b5;font-size:0.9rem;margin:0 0 2rem 0;text-align:center;">Saisissez le code fourni par votre administrateur</p>
+    <div style="background:rgba(255,255,255,0.1);border-radius:16px;padding:2rem;width:100%;max-width:320px;">
+      <input
+        id="input-code-ferme"
+        type="text"
+        placeholder="Ex: REVAGRO"
+        oninput="this.value=this.value.toUpperCase()"
+        style="width:100%;box-sizing:border-box;padding:1rem;font-size:1.3rem;font-weight:700;text-align:center;border:2px solid rgba(255,255,255,0.3);border-radius:10px;background:rgba(255,255,255,0.15);color:#fff;letter-spacing:3px;outline:none;"
+      />
+      <div id="msg-code-ferme" style="color:#ff8a80;font-size:0.85rem;text-align:center;margin-top:0.75rem;min-height:1.2rem;"></div>
+      <button onclick="validerCodeFerme()" style="width:100%;margin-top:1rem;background:#4caf50;color:#fff;border:none;border-radius:10px;padding:1rem;font-size:1.1rem;font-weight:700;cursor:pointer;">
+        ✅ Confirmer
+      </button>
+      <button onclick="retourBienvenue()" style="width:100%;margin-top:0.75rem;background:transparent;color:#a8d5b5;border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:0.75rem;font-size:0.9rem;cursor:pointer;">
+        ← Retour
+      </button>
+    </div>
+  </div>
+</div>
+
 <div id="screen-pin" class="screen hidden">
     <div class="pin-logo">🐔</div>
     <div class="pin-title">AviGest</div>
     <div class="pin-sub" id="pin-label">Accès sécurisé</div>
+    <div id="nom-ferme-display" style="text-align:center;color:#a8d5b5;font-size:0.9rem;margin-bottom:0.5rem;letter-spacing:1px;"></div>
     <div class="pin-display" id="pin-display">
         <div class="pin-dot" id="dot-0"></div>
         <div class="pin-dot" id="dot-1"></div>
@@ -422,7 +459,80 @@ const FERME_ID      = 'e56574a9-54c1-430d-b480-b9bdd1090dd7';
 const SESSION_MS    = 12 * 3600 * 1000;
 const CACHE_TTL_MS  = 8 * 60 * 60 * 1000;
 
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+// ============================================
+// GESTION CODE FERME — AviGest v26.7
+// ============================================
+
+function initSupabaseClient(fermeId) {
+  return supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    global: { headers: { 'x-ferme-id': fermeId } },
+    realtime: { params: { ferme_id: fermeId } }
+  });
+}
+
+function afficherSaisieCode() {
+  document.getElementById('screen-welcome').classList.add('hidden');
+  document.getElementById('screen-code-ferme').classList.remove('hidden');
+  setTimeout(() => document.getElementById('input-code-ferme').focus(), 100);
+}
+
+function retourBienvenue() {
+  document.getElementById('screen-code-ferme').classList.add('hidden');
+  document.getElementById('screen-welcome').classList.remove('hidden');
+  document.getElementById('input-code-ferme').value = '';
+  document.getElementById('msg-code-ferme').textContent = '';
+}
+
+async function validerCodeFerme() {
+  const code = document.getElementById('input-code-ferme').value.trim().toUpperCase();
+  const msgEl = document.getElementById('msg-code-ferme');
+  if (!code) { msgEl.textContent = 'Veuillez saisir un code.'; return; }
+  msgEl.textContent = '⏳ Vérification...';
+  msgEl.style.color = '#fff3cd';
+  try {
+    const sbTemp = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const { data, error } = await sbTemp
+      .from('fermes')
+      .select('id, nom, actif')
+      .eq('code_acces', code)
+      .single();
+    if (error || !data) {
+      msgEl.textContent = '❌ Code incorrect. Vérifiez et réessayez.';
+      msgEl.style.color = '#ff8a80';
+      return;
+    }
+    if (!data.actif) {
+      msgEl.textContent = '⛔ Cette ferme est désactivée. Contactez l\'administrateur.';
+      msgEl.style.color = '#ff8a80';
+      return;
+    }
+    FERME_ID = data.id;
+    NOM_FERME = data.nom;
+    localStorage.setItem('avigest_ferme_id', FERME_ID);
+    localStorage.setItem('avigest_nom_ferme', NOM_FERME);
+    window.sb = initSupabaseClient(FERME_ID);
+    const nomEl = document.getElementById('nom-ferme-display');
+    if (nomEl) nomEl.textContent = '🏠 ' + NOM_FERME;
+    document.getElementById('screen-code-ferme').classList.add('hidden');
+    document.getElementById('screen-pin').classList.remove('hidden');
+    document.getElementById('input-code-ferme').value = '';
+    msgEl.textContent = '';
+  } catch(e) {
+    msgEl.textContent = '❌ Erreur réseau. Réessayez.';
+    msgEl.style.color = '#ff8a80';
+  }
+}
+
+function changerDeFerme() {
+  localStorage.removeItem('avigest_ferme_id');
+  localStorage.removeItem('avigest_nom_ferme');
+  FERME_ID = null;
+  NOM_FERME = '';
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  document.getElementById('screen-welcome').classList.remove('hidden');
+}
+
+window.sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   global: {
     headers: { 'x-ferme-id': FERME_ID }
   }
