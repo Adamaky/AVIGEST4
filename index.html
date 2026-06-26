@@ -478,10 +478,28 @@ function detectSession() {
 function _dateAujourd_hui() { return new Date().toISOString().split('T')[0]; }
 function _dateDemain() { const d = new Date(); d.setDate(d.getDate()+1); return d.toISOString().split('T')[0]; }
 const _guards = new Set();
-function guardDouble(key) {
+function guardDouble(key, delayMs) {
     if (_guards.has(key)) { showToast('Opération en cours…','warning'); return false; }
-    _guards.add(key); setTimeout(() => _guards.delete(key), 3000); return true;
+    _guards.add(key); setTimeout(() => _guards.delete(key), delayMs || 8000); return true;
 }
+
+/* Production — désactiver les logs sensibles */
+if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    console.log = function(){};
+    console.warn = function(){};
+}
+/* console.error conservé pour les erreurs critiques */
+
+window.addEventListener('unhandledrejection', function(event) {
+    console.error('Erreur async non gérée:', event.reason);
+    if (typeof showToast === 'function') {
+        showToast('Une erreur inattendue s\'est produite. Rechargez la page si nécessaire.', 'error', 5000);
+    }
+    event.preventDefault();
+});
+window.addEventListener('error', function(event) {
+    console.error('Erreur JS:', event.message, 'ligne', event.lineno);
+});
 function sanitizeNum(v, min=0, max=Infinity) {
     const n = parseFloat(v);
     if (isNaN(n) || n < min || n > max) return null;
@@ -1463,7 +1481,7 @@ function _afficherEcranBlocage(connectedAt) {
     ? new Date(connectedAt).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})
     : '--:--';
   const estGerant = (localStorage.getItem('av_role') === 'GERANT') ||
-                    (window._pinSaisi === '0000');
+                    (App && App.role === 'GERANT');
   const boutonForcer = estGerant
     ? '<button onclick="_forcerDeconnexion()" style="margin-top:12px;padding:10px 20px;background:#e74c3c;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;">Forcer la deconnexion</button>'
     : '';
