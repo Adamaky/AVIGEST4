@@ -3196,7 +3196,12 @@ async function _demarrerBande(bandeId) {
 /* ── TAB GESTION ─────────────────────── */
 async function _renderTabGestion(bande, container) {
     container.innerHTML = `<div style="text-align:center;padding:30px"><div class="spinner"></div></div>`;
-    const d   = await getDashboard(bande.id);
+    const [d, bandeDetail] = await Promise.all([
+        getDashboard(bande.id),
+        sb.from('bandes').select('effectif_vendu, effectif_initial').eq('id', bande.id).single().then(r => r.data)
+    ]);
+    const effectifVendu   = parseInt(bandeDetail?.effectif_vendu  || 0);
+    const effectifInitial = parseInt(bandeDetail?.effectif_initial || 0);
     const p   = d?.performance || {};
     const t   = d?.terrain     || {};
     const fi  = d?.finance     || {};
@@ -3215,12 +3220,12 @@ async function _renderTabGestion(bande, container) {
 
     container.innerHTML = `
         <div class="kpi-row" style="margin-bottom:10px">
-            <div class="kpi-box"><span class="kpi-val">${(p.effectif||0).toLocaleString('fr')}</span><span class="kpi-label">Effectif</span></div>
+            <div class="kpi-box"><span class="kpi-val">${Math.max(0,(p.effectif||0)-effectifVendu).toLocaleString('fr')}</span><span class="kpi-label">Vivants</span></div>
             <div class="kpi-box"><span class="kpi-val">J${ageJours}</span><span class="kpi-label">Âge</span></div>
             <div class="kpi-box"><span class="kpi-val" style="color:${mortColor}">${t.mortaliteJour||0}</span><span class="kpi-label">💀 Morts/j</span></div>
         </div>
         <div class="kpi-row" style="margin-bottom:14px">
-            <div class="kpi-box"><span class="kpi-val" style="font-size:${t.poidsMoyen?'':'11px'}">${t.poidsMoyen?t.poidsMoyen+'<span style=\\"font-size:11px\\">g</span>':'Aucune pesée'}</span><span class="kpi-label">Poids moy.</span></div>
+            <div class="kpi-box"><span class="kpi-val" style="color:var(--orange)">${effectifVendu.toLocaleString('fr')}</span><span class="kpi-label">🛒 Commerc.</span></div>
             <div class="kpi-box"><span class="kpi-val" style="color:${soldeColor};font-size:14px">${solde>=0?'+':''}${fmt(solde)}</span><span class="kpi-label">Marge F</span></div>
             <div class="kpi-box"><span class="kpi-val" style="font-size:${t.ic?'':'11px'}">${t.ic||'Non calc.'}</span><span class="kpi-label">IC</span></div>
         </div>
