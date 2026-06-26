@@ -2332,6 +2332,98 @@ async function renderAnalyser() {
         ${bandesHTML}`;
 }
 
+async function renderRapportFinBande(bandeId) {
+    const z = zone(); if (!z) return;
+    if (!bandeId) { Nav.back(); return; }
+    z.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
+
+    /* Charger toutes les données */
+    const [d, bandeRow, journalLignes] = await Promise.all([
+        getDashboard(bandeId),
+        sb.from('bandes').select('id_bande, effectif_initial, effectif_vendu, date_arrivee, race').eq('id', bandeId).single().then(r => r.data),
+        getJournal(bandeId)
+    ]);
+
+    if (!d || !bandeRow) { z.innerHTML = '<div style="text-align:center;padding:40px;color:var(--red)">Erreur chargement</div>'; return; }
+
+    const p  = d.performance || {};
+    const t  = d.terrain     || {};
+    const fi = d.finance     || {};
+
+    const effectifInitial  = parseInt(bandeRow.effectif_initial || 0);
+    const effectifVendu    = parseInt(bandeRow.effectif_vendu   || 0);
+    const totalMorts       = parseInt(p.morts || 0);
+    const effectifRestant  = Math.max(0, effectifInitial - totalMorts - effectifVendu);
+    const tauxSurvie       = effectifInitial > 0 ? ((effectifInitial - totalMorts) / effectifInitial * 100).toFixed(1) : 0;
+    const ageJours         = p.ageJours || 0;
+    const dateArrivee      = bandeRow.date_arrivee || '—';
+    const dateAujourdhui   = _dateAujourd_hui();
+
+    /* Calcul CRU final */
+    const totalDepCRU = journalLignes
+        .filter(function(l){ return l.type_ecriture === 'DEPENSE' && l.categorie !== 'Achat stock'; })
+        .reduce(function(s,l){ return s + (parseFloat(l.montant)||0); }, 0);
+    const totalRecettes = journalLignes
+        .filter(function(l){ return l.type_ecriture === 'RECETTE'; })
+        .reduce(function(s,l){ return s + (parseFloat(l.montant)||0); }, 0);
+    const totalDepenses = journalLignes
+        .filter(function(l){ return l.type_ecriture === 'DEPENSE'; })
+        .reduce(function(s,l){ return s + (parseFloat(l.montant)||0); }, 0);
+    const margeNette    = totalRecettes - totalDepenses;
+    const cruFinal      = totalDepCRU > 0 && effectifRestant > 0 ? Math.round(totalDepCRU / effectifRestant) : 0;
+
+    /* Générer le texte rapport */
+    const sep = '━━━━━━━━━━━━━━━━━━━━━━━';
+    const rapport = [
+        '🐔 RAPPORT BANDE — ' + (bandeRow.id_bande || ''),
+        '📅 Du ' + dateArrivee + ' au ' + dateAujourdhui + ' · J' + ageJours,
+        sep,
+        '🐔 ZOOTECHNIE',
+        '• Effectif initial  : ' + effectifInitial.toLocaleString('fr') + ' sujets',
+        '• Morts cumulés   : ' + totalMorts.toLocaleString('fr') + ' sujets (' + tauxSurvie + '%)',
+        '• Commercialisés  : ' + effectifVendu.toLocaleString('fr') + ' sujets',
+        '• Vivants restants : ' + effectifRestant.toLocaleString('fr') + ' sujets',
+        '• Poids moyen     : ' + (t.poidsMoyen ? t.poidsMoyen + ' g' : 'Non saisi'),
+        '• IC              : ' + (t.ic || 'Non calculé'),
+        sep,
+        '💰 FINANCE',
+        '• Dépenses totales : ' + fmt(totalDepenses) + ' FCFA',
+        '• Recettes totales : ' + fmt(totalRecettes) + ' FCFA',
+        '• Marge nette     : ' + (margeNette >= 0 ? '+' : '') + fmt(margeNette) + ' FCFA',
+        '• CRU/sujet        : ' + fmt(cruFinal) + ' FCFA',
+        sep,
+        'Généré par AviGest · ' + dateAujourdhui
+    ].join('\n');
+
+    z.innerHTML = '<div class="bande-header"><div class="bande-name">📄 Rapport fin de bande</div></div>'
+        + '<div class="card" style="margin-bottom:12px">'
+        + '<pre style="font-family:monospace;font-size:12px;white-space:pre-wrap;color:var(--text);line-height:1.7;margin:0">' + esc(rapport) + '</pre>'
+        + '</div>'
+        + '<button class="btn-action btn-green" onclick="_copierRapport()">📋 Copier pour WhatsApp</button>'
+        + '<button class="btn-action btn-ghost" onclick="Nav.back()">← Retour</button>';
+
+    /* Stocker pour la copie */
+    App._rapportTexte = rapport;
+}
+
+async function _copierRapport() {
+    const texte = App._rapportTexte || '';
+    try {
+        await navigator.clipboard.writeText(texte);
+        showToast('✅ Rapport copié — collez dans WhatsApp', 'success', 4000);
+    } catch(e) {
+        /* Fallback si clipboard API non disponible */
+        const ta = document.createElement('textarea');
+        ta.value = texte;
+        ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        try { document.execCommand('copy'); showToast('✅ Rapport copié — collez dans WhatsApp', 'success', 4000); }
+        catch(e2) { showToast('Erreur copie — sélectionnez le texte manuellement', 'error', 4000); }
+        document.body.removeChild(ta);
+    }
+}
+
 async function renderAnalyseBande(bandeId) {
     const z = zone(); if (!z) return;
     if (!bandeId) { Nav.back(); return; }
@@ -3216,6 +3308,7 @@ async function _renderTabGestion(bande, container) {
         { icon:'📈', label:'Analyses',  sub:'Croissance · IC · Coûts',     color:'#0d1e2a', fn:`Nav.push('renderAnalyseBande','${bande.id}')` },
         { icon:'🛒', label:'Vente',  sub:'Planifier une vente',       color:'#0d2a1a', fn:`Nav.push('renderPlanAbattage','${bande.id}')` },
         { icon:'📦', label:'Stock',     sub:'Lots · Composants · Coûts',   color:'#1a2a0d', fn:`Nav.push('renderStockBande','${bande.id}')` },
+        { icon:'📄', label:'Rapport',   sub:'Fin de bande · WhatsApp',     color:'#1a1a2a', fn:`Nav.push('renderRapportFinBande','${bande.id}')` },
     ];
 
     container.innerHTML = `
