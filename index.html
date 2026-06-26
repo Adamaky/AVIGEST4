@@ -3300,7 +3300,7 @@ async function renderJournal(bandeId) {
     z.innerHTML = `<div style="text-align:center;padding:40px"><div class="spinner"></div></div>`;
     const lignes = await getJournal(bid);
     let solde = 0;
-    /* Récupérer l'effectif vivant pour le CRU */
+    /* Récupérer l'effectif vivant pour le CRU progressif */
     const { data: bandePourCRU } = await sb
         .from('bandes').select('effectif_initial').eq('id', bid).single();
     const { data: mortsData } = await sb
@@ -3309,7 +3309,8 @@ async function renderJournal(bandeId) {
         .eq('bande_id', bid)
         .in('categorie', ['MortaliteMatin','MortaliteSoir']);
     const totalMorts = (mortsData||[]).reduce((s,m) => s+(parseFloat(m.valeur)||0), 0);
-    const effectifVivants = Math.max(1, (bandePourCRU?.effectif_initial||1) - totalMorts);
+    const effectifInitialCRU = parseInt(bandePourCRU?.effectif_initial || 1);
+    /* effectifVivants sera recalculé ligne par ligne selon les ventes */
 
     let soldeCumul = 0;
     const lignesHTML = lignes.length ? lignes.map(l => {
@@ -3317,11 +3318,16 @@ async function renderJournal(bandeId) {
         const mnt = parseFloat(l.montant)||0;
         soldeCumul += isDep ? -mnt : mnt;
         const soldeC = soldeCumul>=0?'var(--green)':'var(--red)';
-        /* CRU à cet instant = total dépenses cumulées / effectif vivants */
-        const depCumul = lignes.slice(0, lignes.indexOf(l)+1)
-            .filter(x => x.type_ecriture==='DEPENSE')
-            .reduce((s,x) => s+(parseFloat(x.montant)||0), 0);
-        const cruInstant = depCumul > 0 ? Math.round(depCumul / effectifVivants) : 0;
+        /* CRU progressif — toutes DEPENSE sauf Achat stock */
+        const lignesJusquIci = lignes.slice(0, lignes.indexOf(l)+1);
+        const depCumul = lignesJusquIci
+            .filter(function(x){ return x.type_ecriture==='DEPENSE' && x.categorie !== 'Achat stock'; })
+            .reduce(function(s,x){ return s+(parseFloat(x.montant)||0); }, 0);
+        const vendusJusquIci = lignesJusquIci
+            .filter(function(x){ return x.type_ecriture==='RECETTE' && (x.categorie==='Vente poulet vivant' || x.categorie==='Vente poulet abattu'); })
+            .reduce(function(s,x){ return s+(parseFloat(x.quantite)||0); }, 0);
+        const effectifCRUInstant = Math.max(1, (bandePourCRU?.effectif_initial||1) - totalMorts - vendusJusquIci);
+        const cruInstant = (isDep && l.categorie !== 'Achat stock' && depCumul > 0) ? Math.round(depCumul / effectifCRUInstant) : 0;
         return `<div style="border-bottom:1px solid var(--border);padding:10px 0">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
                 <div style="flex:1">
@@ -3334,7 +3340,7 @@ async function renderJournal(bandeId) {
                 <div style="text-align:right">
                     <div style="font-size:13px;font-weight:800;color:${isDep?'var(--red)':'var(--green)'}">${isDep?'−':'+'}${fmt(l.montant)} F</div>
                     <div style="font-size:9px;color:${soldeC}">Solde : ${soldeCumul>=0?'+':''}${fmt(soldeCumul)} F</div>
-                    ${cruInstant>0?`<div style="font-size:9px;color:var(--text2)">CRU : ${fmt(cruInstant)} F/sujet</div>`:''}
+                    ${(isDep && l.categorie !== 'Achat stock' && cruInstant>0)?`<div style="font-size:9px;color:var(--text2)">CRU : ${fmt(cruInstant)} F/sujet</div>`:''}
                 </div>
             </div>
         </div>`;
@@ -3344,7 +3350,14 @@ async function renderJournal(bandeId) {
     const totalRec   = lignes.filter(l=>l.type_ecriture==='RECETTE').reduce((s,l)=>s+(parseFloat(l.montant)||0),0);
     const soldeFinal = totalRec - totalDep;
     const soldeColor = soldeFinal>=0?'var(--green)':'var(--red)';
-    const cruFinal   = totalDep > 0 ? Math.round(totalDep / effectifVivants) : 0;
+    const totalVendus = lignes
+        .filter(function(l){ return l.type_ecriture==='RECETTE' && (l.categorie==='Vente poulet vivant' || l.categorie==='Vente poulet abattu'); })
+        .reduce(function(s,l){ return s+(parseFloat(l.quantite)||0); }, 0);
+    const totalDepCRU = lignes
+        .filter(function(l){ return l.type_ecriture==='DEPENSE' && l.categorie !== 'Achat stock'; })
+        .reduce(function(s,l){ return s+(parseFloat(l.montant)||0); }, 0);
+    const effectifFinalCRU = Math.max(1, (bandePourCRU?.effectif_initial||1) - totalMorts - totalVendus);
+    const cruFinal   = totalDepCRU > 0 ? Math.round(totalDepCRU / effectifFinalCRU) : 0;
     const cruFinalColor = cruFinal > 3500?'var(--red)':cruFinal > 2500?'var(--orange)':'var(--green)';
 
     z.innerHTML = `
