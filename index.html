@@ -540,11 +540,7 @@ function changerDeFerme() {
   document.getElementById('screen-welcome').classList.remove('hidden');
 }
 
-var sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  global: {
-    headers: { 'x-ferme-id': FERME_ID }
-  }
-});
+var sb = initSupabaseClient(FERME_ID || '');
 
 /* ════════════════════════════════════════════
    ÉTAGE 2 — ÉTAT GLOBAL
