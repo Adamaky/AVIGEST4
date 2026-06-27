@@ -517,7 +517,7 @@ async function validerCodeFerme() {
     NOM_FERME = ferme.nom;
     localStorage.setItem('avigest_ferme_id', FERME_ID);
     localStorage.setItem('avigest_nom_ferme', NOM_FERME);
-    window.sb = initSupabaseClient(FERME_ID);
+    sb = initSupabaseClient(FERME_ID);
     const nomEl = document.getElementById('nom-ferme-display');
     if (nomEl) nomEl.textContent = '🏠 ' + NOM_FERME;
     document.getElementById('screen-code-ferme').classList.add('hidden');
@@ -540,7 +540,7 @@ function changerDeFerme() {
   document.getElementById('screen-welcome').classList.remove('hidden');
 }
 
-window.sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+var sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   global: {
     headers: { 'x-ferme-id': FERME_ID }
   }
