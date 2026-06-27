@@ -1683,7 +1683,6 @@ async function doLogin() {
             .select('id, role, nom, id_partenaire')
             .eq('ferme_id', FERME_ID)
             .eq('pin', _pin)
-            .eq('role', _loginRole)
             .eq('actif', true)
             .single();
 
