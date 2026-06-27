@@ -490,7 +490,7 @@ async function validerCodeFerme() {
   msgEl.textContent = '⏳ Vérification...';
   msgEl.style.color = '#fff3cd';
   try {
-    const resp = await fetch(SUPABASE_URL + '/rest/v1/rpc/valider_code_ferme', {
+    const resp = await fetch('https://jzlmnpxcnrcajludtkpt.supabase.co/rest/v1/rpc/valider_code_ferme', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
