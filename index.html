@@ -490,27 +490,21 @@ async function validerCodeFerme() {
   msgEl.textContent = '⏳ Vérification...';
   msgEl.style.color = '#fff3cd';
   try {
-    const sbTemp = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
-      global: { headers: {} }
-    });
-    const { data, error } = await sbTemp
-      .from('fermes')
-      .select('id, nom, actif')
-      .eq('code_acces', code)
-      .single();
-    if (error || !data) {
+    const { data, error } = await sb
+      .rpc('valider_code_ferme', { code: code });
+    const ferme = data && data[0] ? data[0] : null;
+    if (error || !ferme) {
       msgEl.textContent = '❌ Code incorrect. Vérifiez et réessayez.';
       msgEl.style.color = '#ff8a80';
       return;
     }
-    if (!data.actif) {
+    if (!ferme.actif) {
       msgEl.textContent = '⛔ Cette ferme est désactivée. Contactez l\'administrateur.';
       msgEl.style.color = '#ff8a80';
       return;
     }
-    FERME_ID = data.id;
-    NOM_FERME = data.nom;
+    FERME_ID = ferme.ferme_id;
+    NOM_FERME = ferme.nom;
     localStorage.setItem('avigest_ferme_id', FERME_ID);
     localStorage.setItem('avigest_nom_ferme', NOM_FERME);
     window.sb = initSupabaseClient(FERME_ID);
