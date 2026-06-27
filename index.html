@@ -1736,12 +1736,17 @@ async function doLogout() {
         console.warn('Logout verrou:', e.message);
     }
     // === FIN SUPPRESSION VERROU ===
-    location.reload();
+    document.getElementById('app-main').style.display = 'none';
+    document.getElementById('screen-pin').classList.add('hidden');
+    document.getElementById('screen-role').classList.remove('hidden');
+    _pin = ''; _loginRole = ''; _updateDots();
+    document.getElementById('key-ok').classList.remove('ready');
+    _hideErr();
 }
 
 async function doLogoutFromRole() {
     if (App.userId) await doLogout();
-    else setTimeout(() => location.reload(), 400);
+    else { document.getElementById('screen-role').classList.remove('hidden'); }
 }
 
 /* ════════════════════════════════════════════
