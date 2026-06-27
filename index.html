@@ -490,7 +490,10 @@ async function validerCodeFerme() {
   msgEl.textContent = '⏳ Vérification...';
   msgEl.style.color = '#fff3cd';
   try {
-    const sbTemp = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const sbTemp = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: {} }
+    });
     const { data, error } = await sbTemp
       .from('fermes')
       .select('id, nom, actif')
