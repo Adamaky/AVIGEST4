@@ -524,8 +524,9 @@ async function validerCodeFerme() {
     document.getElementById('input-code-ferme').value = '';
     msgEl.textContent = '';
   } catch(e) {
-    msgEl.textContent = '❌ Erreur réseau. Réessayez.';
+    msgEl.textContent = '❌ ' + (e.message || 'Erreur inconnue');
     msgEl.style.color = '#ff8a80';
+    console.error('validerCodeFerme erreur:', e);
   }
 }
 
