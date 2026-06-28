@@ -521,7 +521,7 @@ async function validerCodeFerme() {
     const nomEl = document.getElementById('nom-ferme-display');
     if (nomEl) nomEl.textContent = '🏠 ' + NOM_FERME;
     document.getElementById('screen-code-ferme').classList.add('hidden');
-    document.getElementById('screen-pin').classList.remove('hidden');
+    document.getElementById('screen-role').classList.remove('hidden');
     document.getElementById('input-code-ferme').value = '';
     msgEl.textContent = '';
   } catch(e) {
