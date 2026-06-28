@@ -1624,6 +1624,58 @@ async function _forcerDeconnexion() {
   }
 }
 
+// === PROTECTION BRUTE FORCE PIN — S1 ===
+function _getLockoutKey() {
+    return 'av_lockout_' + (window.FERME_ID || 'default');
+}
+
+function _checkLockout() {
+    try {
+        const raw = localStorage.getItem(_getLockoutKey());
+        if (!raw) return { bloque: false, tentatives: 0 };
+        const data = JSON.parse(raw);
+        if (!data.until || Date.now() > data.until) return { bloque: false, tentatives: data.tentatives || 0 };
+        const restant = Math.ceil((data.until - Date.now()) / 1000);
+        return { bloque: true, restant: restant, tentatives: data.tentatives || 0 };
+    } catch(e) { return { bloque: false, tentatives: 0 }; }
+}
+
+function _registerFailedAttempt() {
+    try {
+        const raw = localStorage.getItem(_getLockoutKey());
+        const data = raw ? JSON.parse(raw) : { tentatives: 0 };
+        data.tentatives = (data.tentatives || 0) + 1;
+        let dureeMs = 0;
+        if (data.tentatives >= 9) dureeMs = 30 * 60 * 1000;
+        else if (data.tentatives >= 6) dureeMs = 5 * 60 * 1000;
+        else if (data.tentatives >= 3) dureeMs = 30 * 1000;
+        if (dureeMs > 0) data.until = Date.now() + dureeMs;
+        localStorage.setItem(_getLockoutKey(), JSON.stringify(data));
+        return data;
+    } catch(e) { return { tentatives: 1 }; }
+}
+
+function _resetLockout() {
+    localStorage.removeItem(_getLockoutKey());
+}
+
+function _startLockoutTimer() {
+    if (window._lockoutTimer) clearInterval(window._lockoutTimer);
+    window._lockoutTimer = setInterval(function() {
+        const etat = _checkLockout();
+        if (!etat.bloque) {
+            clearInterval(window._lockoutTimer);
+            _hideErr();
+            return;
+        }
+        const mins = Math.floor(etat.restant / 60);
+        const secs = etat.restant % 60;
+        const label = mins > 0 ? mins + 'min ' + secs + 's' : secs + 's';
+        _showErr('Trop de tentatives — réessayez dans ' + label);
+    }, 1000);
+}
+// === FIN PROTECTION BRUTE FORCE PIN ===
+
 async function doLogin() {
     // === VERROU CROSS-DEVICE ===
     try {
@@ -1670,6 +1722,17 @@ async function doLogin() {
     }
     // === FIN VERROU ===
 
+    // Vérification blocage brute force
+    const lockout = _checkLockout();
+    if (lockout.bloque) {
+        const mins = Math.floor(lockout.restant / 60);
+        const secs = lockout.restant % 60;
+        const label = mins > 0 ? mins + 'min ' + secs + 's' : secs + 's';
+        _showErr('Trop de tentatives — réessayez dans ' + label);
+        _startLockoutTimer();
+        return;
+    }
+
     if (_loginBusy) return;
     window._pinSaisi = _pin;
     if (_pin.length !== 4) { _showErr('Saisissez 4 chiffres'); return; }
@@ -1687,7 +1750,19 @@ async function doLogin() {
             .single();
 
         if (error || !data) {
-            _showErr('PIN incorrect');
+            const etatFail = _registerFailedAttempt();
+            const lockoutFail = _checkLockout();
+            if (lockoutFail.bloque) {
+                const mins = Math.floor(lockoutFail.restant / 60);
+                const secs = lockoutFail.restant % 60;
+                const label = mins > 0 ? mins + 'min ' + secs + 's' : secs + 's';
+                _showErr('Trop de tentatives — réessayez dans ' + label);
+                _startLockoutTimer();
+            } else {
+                const restantes = 3 - (etatFail.tentatives % 3);
+                const msg = restantes < 3 ? 'PIN incorrect — ' + restantes + ' essai(s) restant(s)' : 'PIN incorrect';
+                _showErr(msg);
+            }
             _pin = ''; _updateDots();
             document.getElementById('key-ok').classList.remove('ready');
         } else {
@@ -1700,6 +1775,7 @@ async function doLogin() {
             App.idPart    = data.id_partenaire || '';
             // RLS header injecté au niveau du client sb (ligne 427)
             App.loginTime = Date.now();
+            _resetLockout();
 
             localStorage.setItem('av_user_id', data.id);
             localStorage.setItem('av_role',    data.role);
