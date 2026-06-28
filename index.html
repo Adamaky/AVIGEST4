@@ -1677,52 +1677,10 @@ function _startLockoutTimer() {
 // === FIN PROTECTION BRUTE FORCE PIN ===
 
 async function doLogin() {
-    // === VERROU CROSS-DEVICE ===
-    try {
-        // 1. Purger les sessions expirées (> 2h)
-        await sb
-          .from('sessions_actives')
-          .delete()
-          .lt('last_seen_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString());
+    if (_loginBusy) return;
+    if (_pin.length !== 4) { _showErr('Saisissez 4 chiffres'); return; }
 
-        // 2. Vérifier si une session active existe pour ce PIN
-        const { data: sessionExistante } = await sb
-            .from('sessions_actives')
-            .select('device_id, connected_at')
-            .eq('user_pin', _pin)
-            .eq('ferme_id', FERME_ID)
-            .maybeSingle();
-
-        if (sessionExistante && sessionExistante.device_id !== DEVICE_ID) {
-            // Autre appareil actif — bloquer
-            _afficherEcranBlocage(sessionExistante.connected_at);
-            return;
-        }
-
-        if (sessionExistante && sessionExistante.device_id === DEVICE_ID) {
-            // Même appareil — mettre à jour last_seen_at
-            await sb
-                .from('sessions_actives')
-                .update({ last_seen_at: new Date().toISOString() })
-                .eq('user_pin', _pin)
-                .eq('ferme_id', FERME_ID);
-        } else {
-            // Nouvelle session — créer le verrou
-            await sb
-                .from('sessions_actives')
-                .insert({
-                    user_pin: _pin,
-                    ferme_id: FERME_ID,
-                    device_id: DEVICE_ID
-                });
-        }
-    } catch(e) {
-        console.warn('Verrou cross-device:', e.message);
-        // En cas d'erreur réseau, on laisse passer (fail open)
-    }
-    // === FIN VERROU ===
-
-    // Vérification blocage brute force
+    // Vérification blocage brute force (S1)
     const lockout = _checkLockout();
     if (lockout.bloque) {
         const mins = Math.floor(lockout.restant / 60);
@@ -1733,23 +1691,18 @@ async function doLogin() {
         return;
     }
 
-    if (_loginBusy) return;
-    window._pinSaisi = _pin;
-    if (_pin.length !== 4) { _showErr('Saisissez 4 chiffres'); return; }
     _loginBusy = true;
     document.getElementById('pin-loading').classList.add('show');
 
     try {
-        /* Recherche directe dans Supabase par PIN + rôle + ferme */
-        const { data, error } = await sb
-            .from('utilisateurs')
-            .select('id, role, nom, id_partenaire')
-            .eq('ferme_id', FERME_ID)
-            .eq('pin', _pin)
-            .eq('actif', true)
-            .single();
+        // S2 — Vérification PIN via RPC bcrypt côté serveur
+        const { data, error } = await sb.rpc('verifier_pin', {
+            p_ferme_id : FERME_ID,
+            p_role     : _loginRole,
+            p_pin      : _pin
+        });
 
-        if (error || !data) {
+        if (error || !data || data.length === 0) {
             const etatFail = _registerFailedAttempt();
             const lockoutFail = _checkLockout();
             if (lockoutFail.bloque) {
@@ -1760,33 +1713,82 @@ async function doLogin() {
                 _startLockoutTimer();
             } else {
                 const restantes = 3 - (etatFail.tentatives % 3);
-                const msg = restantes < 3 ? 'PIN incorrect — ' + restantes + ' essai(s) restant(s)' : 'PIN incorrect';
+                const msg = restantes < 3
+                    ? 'PIN incorrect — ' + restantes + ' essai(s) restant(s)'
+                    : 'PIN incorrect';
                 _showErr(msg);
             }
             _pin = ''; _updateDots();
             document.getElementById('key-ok').classList.remove('ready');
-        } else {
-            /* Mettre à jour last_login */
-            await sb.from('utilisateurs').update({ last_login: new Date().toISOString() }).eq('id', data.id);
-
-            App.userId    = data.id;
-            App.role      = data.role;
-            App.nom       = data.nom;
-            App.idPart    = data.id_partenaire || '';
-            // RLS header injecté au niveau du client sb (ligne 427)
-            App.loginTime = Date.now();
-            _resetLockout();
-
-            localStorage.setItem('av_user_id', data.id);
-            localStorage.setItem('av_role',    data.role);
-            localStorage.setItem('av_nom',     data.nom);
-            localStorage.setItem('av_idpart',  data.id_partenaire || '');
-            localStorage.setItem('av_lt',      String(App.loginTime));
-
-            document.getElementById('screen-pin').classList.add('hidden');
-            document.getElementById('app-main').style.display = 'block';
-            startApp();
+            return;
         }
+
+        // Login réussi
+        const utilisateur = data[0];
+
+        // Verrou cross-device — basculé sur user_id (plus de PIN clair)
+        try {
+            await sb
+                .from('sessions_actives')
+                .delete()
+                .lt('last_seen_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString());
+
+            const { data: sessionExistante } = await sb
+                .from('sessions_actives')
+                .select('device_id, connected_at')
+                .eq('user_pin', utilisateur.id)
+                .eq('ferme_id', FERME_ID)
+                .maybeSingle();
+
+            if (sessionExistante && sessionExistante.device_id !== DEVICE_ID) {
+                _afficherEcranBlocage(sessionExistante.connected_at);
+                return;
+            }
+
+            if (sessionExistante && sessionExistante.device_id === DEVICE_ID) {
+                await sb
+                    .from('sessions_actives')
+                    .update({ last_seen_at: new Date().toISOString() })
+                    .eq('user_pin', utilisateur.id)
+                    .eq('ferme_id', FERME_ID);
+            } else {
+                await sb
+                    .from('sessions_actives')
+                    .insert({
+                        user_pin  : utilisateur.id,
+                        ferme_id  : FERME_ID,
+                        device_id : DEVICE_ID
+                    });
+            }
+        } catch(e) {
+            console.warn('Verrou cross-device:', e.message);
+        }
+
+        // Mise à jour last_login + démarrage session
+        await sb.from('utilisateurs')
+            .update({ last_login: new Date().toISOString() })
+            .eq('id', utilisateur.id);
+
+        App.userId    = utilisateur.id;
+        App.role      = utilisateur.role;
+        App.nom       = utilisateur.nom;
+        App.idPart    = utilisateur.id_partenaire || '';
+        App.loginTime = Date.now();
+        _resetLockout();
+
+        window._pinSaisi = utilisateur.id;
+
+        localStorage.setItem('av_user_id', utilisateur.id);
+        localStorage.setItem('av_role',    utilisateur.role);
+        localStorage.setItem('av_nom',     utilisateur.nom);
+        localStorage.setItem('av_idpart',  utilisateur.id_partenaire || '');
+        localStorage.setItem('av_lt',      String(App.loginTime));
+
+        _pin = ''; _loginRole = ''; _updateDots();
+        document.getElementById('screen-pin').classList.add('hidden');
+        document.getElementById('app-main').style.display = 'block';
+        startApp();
+
     } catch(e) {
         _showErr('Erreur réseau — réessayez');
         console.error('doLogin:', e);
