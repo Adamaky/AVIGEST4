@@ -389,6 +389,7 @@
         <button class="pin-key key-del" onclick="pinDel()">⌫</button>
         <button class="pin-key" onclick="pinTap('0')">0</button>
         <button class="pin-key key-ok" id="key-ok" onclick="doLogin()">OK</button>
+        <button onclick="resetBruteForce()" style="color:#ff8a80;background:none;border:none;font-size:0.75rem;margin-top:0.5rem;cursor:pointer;">Reset (debug)</button>
     </div>
     <div class="pin-loading" id="pin-loading">
         <div class="spinner"></div>
@@ -1627,6 +1628,13 @@ async function _forcerDeconnexion() {
 // === PROTECTION BRUTE FORCE PIN — S1 ===
 function _getLockoutKey() {
     return 'av_lockout_' + (window.FERME_ID || 'default');
+}
+
+function resetBruteForce() {
+  Object.keys(localStorage).filter(k => k.startsWith('av_lockout') || k.startsWith('av_att')).forEach(k => localStorage.removeItem(k));
+  _pin = ''; _updateDots();
+  _hideErr();
+  console.log('Brute force reseté');
 }
 
 function _checkLockout() {
