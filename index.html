@@ -698,7 +698,7 @@ async function getBandesEnCours() {
         .eq('ferme_id', FERME_ID)
         .in('statut', ['PREPARATION', 'EN COURS'])
         .eq('is_deleted', false);
-    if (error) return [];
+    if (error) { showToast('Erreur chargement bandes — réessayez', 'error'); return []; }
     return data || [];
 }
 
@@ -709,7 +709,7 @@ async function getBatiments() {
         .select('*, bandes(id, id_bande, statut, date_arrivee, effectif_initial, race, is_deleted)')
         .eq('ferme_id', FERME_ID)
         .order('numero');
-    if (error) return [];
+    if (error) { showToast('Erreur chargement bâtiments — réessayez', 'error'); return []; }
     /* Filtrer les bandes supprimées dans chaque bâtiment */
     return (data || []).map(bat => ({
         ...bat,
@@ -726,7 +726,7 @@ async function getTachesAgent(bandeId) {
         .eq('bande_id', bandeId)
         .in('statut', ['ENVOYEE', 'EXECUTEE', 'PLANIFIEE', 'REJETEE'])
         .order('date_prevue');
-    if (error) return [];
+    if (error) { showToast('Erreur chargement tâches — réessayez', 'error'); return []; }
     return data || [];
 }
 
@@ -738,7 +738,7 @@ async function getJournal(bandeId) {
         .eq('ferme_id', FERME_ID)
         .eq('bande_id', bandeId)
         .order('date_ecriture', { ascending: false });
-    if (error) return [];
+    if (error) { showToast('Erreur chargement journal — réessayez', 'error'); return []; }
     return data || [];
 }
 
@@ -749,7 +749,7 @@ async function getStock(bandeId) {
         .select('*')
         .eq('ferme_id', FERME_ID)
         .eq('bande_id', bandeId);
-    if (error) return [];
+    if (error) { showToast('Erreur chargement stock — réessayez', 'error'); return []; }
     return data || [];
 }
 
@@ -2321,7 +2321,7 @@ async function getStockBande(bandeId) {
         .eq('ferme_id', FERME_ID)
         .eq('bande_id', bandeId)
         .order('date_fabrication', { ascending: false });
-    if (error) return [];
+    if (error) { showToast('Erreur chargement stock bande — réessayez', 'error'); return []; }
     return data || [];
 }
 
@@ -5369,7 +5369,7 @@ async function _getJournalConfirme(bande_id) {
     .eq('bande_id', bande_id)
     .eq('statut', 'CONFIRME')
     .order('date_ecriture', { ascending: false });
-  if (error) return [];
+  if (error) { showToast('Erreur chargement journal confirmé — réessayez', 'error'); return []; }
   return data || [];
 }
 
@@ -5380,7 +5380,7 @@ async function _getJournalEnAttente(ferme_id) {
     .eq('ferme_id', ferme_id)
     .eq('statut', 'EN_ATTENTE')
     .order('date_ecriture', { ascending: false });
-  if (error) return [];
+  if (error) { showToast('Erreur chargement validations en attente — réessayez', 'error'); return []; }
   return data || [];
 }
 
