@@ -1790,6 +1790,7 @@ async function doLogin() {
         localStorage.setItem('av_lt',      String(App.loginTime));
 
         _pin = ''; _loginRole = ''; _updateDots();
+        document.getElementById('screen-welcome').classList.add('hidden');
         document.getElementById('screen-pin').classList.add('hidden');
         document.getElementById('app-main').style.display = 'block';
         startApp();
@@ -5602,6 +5603,7 @@ async function startApp() {
 
 window.onload = function() {
     if (App.userId && isSessionValid()) {
+        document.getElementById('screen-welcome').classList.add('hidden');
         document.getElementById('screen-role').classList.add('hidden');
         document.getElementById('screen-pin').classList.add('hidden');
         document.getElementById('app-main').style.display = 'block';
