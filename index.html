@@ -1596,12 +1596,11 @@ function _hideErr() {
     if (e) e.classList.remove('show');
 }
 
-function _afficherEcranBlocage(connectedAt) {
+function _afficherEcranBlocage(connectedAt, role) {
   const depuis = connectedAt
     ? new Date(connectedAt).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})
     : '--:--';
-  const estGerant = (localStorage.getItem('av_role') === 'GERANT') ||
-                    (App && App.role === 'GERANT');
+  const estGerant = role === 'GERANT';
   const boutonForcer = estGerant
     ? '<button onclick="_forcerDeconnexion()" style="margin-top:12px;padding:10px 20px;background:#e74c3c;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;">Forcer la deconnexion</button>'
     : '';
@@ -1749,7 +1748,7 @@ async function doLogin() {
                 .maybeSingle();
 
             if (sessionExistante && sessionExistante.device_id !== DEVICE_ID) {
-                _afficherEcranBlocage(sessionExistante.connected_at);
+                _afficherEcranBlocage(sessionExistante.connected_at, utilisateur.role);
                 return;
             }
 
