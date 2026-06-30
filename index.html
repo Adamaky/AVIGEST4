@@ -4842,7 +4842,7 @@ function _renderEtape() {
         contenu = `<div style="margin-top:8px"><div class="f-label">Poids moyen du lot (g)</div>${_pavHTML('pesee_val','pesee_val','g')}<button class="btn-action btn-blue" style="margin-top:12px" onclick="_repPesee()">Suivant →</button><button class="btn-action btn-ghost" onclick="_etapeSuivante(null,'Pesée non effectuée')">○ Pas de pesée aujourd'hui</button></div>`;
     } else if (e.type === 'stock_autres') {
         contenu = '<div style="margin-top:8px" id="stock-autres-zone">'
-            + '<div style="color:var(--text2);font-size:12px;margin-bottom:12px">Saisissez les quantités utilisées ce matin.<br>Laissez à zéro si rien à imputer.</div>'
+            + '<div style="color:var(--text2);font-size:12px;margin-bottom:12px">Produits utilisés ce matin (litière, vaccin…).<br>Saisissez les quantités ou appuyez sur <strong>Passer</strong> si rien à imputer.</div>'
             + '<div id="stock-autres-liste"><div style="text-align:center;padding:20px"><div class="spinner" style="width:24px;height:24px"></div></div></div>'
             + '<button class="btn-action btn-blue" style="margin-top:12px" onclick="_repStockAutres()">Suivant →</button>'
             + '<button class="btn-action btn-ghost" onclick="_etapeSuivante([],' + "'Aucun produit imputé'" + ')">Passer →</button>'
