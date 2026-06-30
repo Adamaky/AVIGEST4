@@ -336,7 +336,7 @@
     <button onclick="afficherSaisieCode()" style="background:#fff;color:#1a472a;border:none;border-radius:12px;padding:1rem 2.5rem;font-size:1.1rem;font-weight:700;cursor:pointer;box-shadow:0 4px 15px rgba(0,0,0,0.2);">
       🏠 Accéder à ma ferme
     </button>
-    <p style="color:#6bbb8a;font-size:0.8rem;margin-top:3rem;">AviGest v26.7</p>
+    <p id="version-affichee" style="color:#6bbb8a;font-size:0.8rem;margin-top:3rem;">AviGest v26.7</p>
   </div>
 </div>
 
@@ -459,9 +459,14 @@ let FERME_ID = localStorage.getItem('avigest_ferme_id') || null;
 let NOM_FERME = localStorage.getItem('avigest_nom_ferme') || '';
 const SESSION_MS    = 12 * 3600 * 1000;
 const CACHE_TTL_MS  = 8 * 60 * 60 * 1000;
+const APP_VERSION   = 'v26.13';
+
+document.title = 'AviGest ' + APP_VERSION;
+const elVersionAffichee = document.getElementById('version-affichee');
+if (elVersionAffichee) elVersionAffichee.textContent = 'AviGest ' + APP_VERSION;
 
 // ============================================
-// GESTION CODE FERME — AviGest v26.7
+// GESTION CODE FERME
 // ============================================
 
 function initSupabaseClient(fermeId) {
