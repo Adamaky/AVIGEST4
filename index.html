@@ -395,6 +395,7 @@
         <div style="font-size:13px;color:var(--text2)">Connexion…</div>
     </div>
 </div>
+<div id="screen-blocage" class="screen hidden"></div>
 
 <!-- APP PRINCIPALE -->
 <div id="app-main">
@@ -1604,7 +1605,9 @@ function _afficherEcranBlocage(connectedAt) {
   const boutonForcer = estGerant
     ? '<button onclick="_forcerDeconnexion()" style="margin-top:12px;padding:10px 20px;background:#e74c3c;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;">Forcer la deconnexion</button>'
     : '';
-  const _conteneur = document.getElementById('app-main') || document.getElementById('app-container') || document.body;
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  const _conteneur = document.getElementById('screen-blocage');
+  _conteneur.classList.remove('hidden');
   _conteneur.innerHTML =
     '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;padding:24px;text-align:center;background:#f8f9fa;">' +
     '<div style="font-size:48px;margin-bottom:16px;">🔒</div>' +
