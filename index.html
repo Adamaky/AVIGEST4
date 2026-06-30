@@ -4550,13 +4550,13 @@ async function _navTachesAgent() {
     if (App.activeBande) {
         const { data: rejets } = await sb
             .from('journal')
-            .select('note')
+            .select('libelle')
             .eq('ferme_id', FERME_ID)
             .eq('bande_id', App.activeBande)
             .eq('statut', 'REJETEE');
         (rejets || []).forEach(r => {
-            if (r.note) ['Matin','Midi','PM','Nuit'].forEach(sid => {
-                if (r.note.includes(sid)) rejetsSessions.add(sid);
+            if (r.libelle) ['Matin','Midi','PM','Nuit'].forEach(sid => {
+                if (r.libelle.includes(sid)) rejetsSessions.add(sid);
             });
         });
     }
