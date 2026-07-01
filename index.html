@@ -460,7 +460,7 @@ let FERME_ID = localStorage.getItem('avigest_ferme_id') || null;
 let NOM_FERME = localStorage.getItem('avigest_nom_ferme') || '';
 const SESSION_MS    = 12 * 3600 * 1000;
 const CACHE_TTL_MS  = 8 * 60 * 60 * 1000;
-const APP_VERSION   = 'v26.15';
+const APP_VERSION   = 'v26.16';
 
 document.title = 'AviGest ' + APP_VERSION;
 const elVersionAffichee = document.getElementById('version-affichee');
@@ -2395,7 +2395,7 @@ function _buildCreerLotHTML(bandeId, coutTotal) {
     return '<div class="card">'
          + '<div class="card-title">📦 Nouveau lot de stock</div>'
          + '<label class="f-label">Produit</label>'
-         + '<select class="f-input" id="lot-produit"><option value="Aliment">🌾 Aliment</option><option value="Vaccin">💉 Vaccin / M\u00E9dicament</option><option value="Charbon">\u26AB Charbon</option><option value="Liti\u00E8re">🪹 Liti\u00E8re</option><option value="Autre">📦 Autre</option></select>'
+         + '<select class="f-input" id="lot-produit"><option value="Aliment">🌾 Aliment</option><option value="Vaccin">💉 Vaccin</option><option value="Médicament">💊 Médicament</option><option value="Charbon">\u26AB Charbon</option><option value="Liti\u00E8re">🪹 Liti\u00E8re</option><option value="Autre">📦 Autre</option></select>'
          + '<label class="f-label">Unit\u00E9 de mesure</label>'
          + '<select class="f-input" id="lot-unite"><option value="kg">kg</option><option value="sac">sac</option><option value="dose">dose</option><option value="litre">litre</option></select>'
          + '<label class="f-label">Quantit\u00E9 totale produite</label>'
@@ -2467,11 +2467,20 @@ async function _validerCreerLot(bandeId) {
     }, 0);
     if (!guardDouble('creer_lot_' + bandeId)) return;
     const ref = 'LOT-' + new Date().getFullYear() + '-' + Date.now().toString().slice(-4);
+    const categorieCruMap = {
+        'Aliment':     'Alimentation',
+        'Vaccin':      'Vaccin',
+        'Médicament':  'Médicament',
+        'Charbon':     'Autre',
+        'Litière':     'Litiere',
+        'Autre':       'Autre'
+    };
+    const categorieCru = categorieCruMap[produit] || 'Autre';
     const { data: lotData, error: lotErr } = await sb.from('lots_stock').insert({
         ferme_id: FERME_ID, bande_id: bandeId, reference: ref, produit, unite,
         quantite_initiale: qtt, quantite_restante: qtt, cout_total: coutTotal,
         date_fabrication: date, note, cree_par: App.userId, statut: 'EN STOCK',
-        impute_journal: imputeJournal
+        impute_journal: imputeJournal, categorie_cru: categorieCru
     }).select().single();
     if (lotErr || !lotData) { showToast('Erreur cr\u00E9ation lot','error'); console.error(lotErr); return; }
     for (var i = 0; i < composantsValides.length; i++) {
@@ -4756,12 +4765,14 @@ const SESSION_ETAPES = {
         {id:'ambiance_midi', label:'Ambiance midi',              type:'ambiance'},
         {id:'eau_midi',      label:'Eau distribuée midi (L)',     type:'number', unite:'L',  min:0, max:99999},
         {id:'aliment_midi',  label:'Aliment distribué midi (kg)',type:'number', unite:'kg', min:0, max:500},
+        {id:'stock_autres', label:'Autres produits utilisés',   type:'stock_autres'},
     ],
     PM:[
         {id:'ambiance_pm', label:'Ambiance PM',               type:'ambiance'},
         {id:'eau_pm',      label:'Eau distribuée PM (L)',      type:'number', unite:'L',  min:0, max:99999},
         {id:'aliment_pm',  label:'Aliment distribué PM (kg)', type:'number', unite:'kg', min:0, max:500},
         {id:'pesee',       label:'Pesée (si jour J+7)',        type:'pesee_conditionnel'},
+        {id:'stock_autres', label:'Autres produits utilisés',   type:'stock_autres'},
     ],
     Nuit:[
         {id:'ambiance_n',  label:'Ambiance nuit',         type:'ambiance'},
@@ -4769,6 +4780,7 @@ const SESSION_ETAPES = {
         {id:'eau_n',       label:'Compteur eau soir (L)',  type:'number', unite:'L',      min:0, max:99999},
         {id:'aliment_n',   label:'Aliment distribué (kg)', type:'number', unite:'kg',     min:0, max:500},
         {id:'sante_n',     label:'Santé générale du lot',  type:'sante_color'},
+        {id:'stock_autres', label:'Autres produits utilisés',   type:'stock_autres'},
     ]
 };
 
@@ -5081,8 +5093,8 @@ async function _confirmerEtEnvoyer() {
         }
     }
 
-    /* — Autres produits (Session Matin uniquement) — */
-    if (sid === 'Matin' && rep['stock_autres'] && rep['stock_autres'].length > 0) {
+    /* — Autres produits (toutes sessions) — */
+    if (rep['stock_autres'] && rep['stock_autres'].length > 0) {
         for (var _ap = 0; _ap < rep['stock_autres'].length; _ap++) {
             var _prod = rep['stock_autres'][_ap];
             if (!_prod.quantite || _prod.quantite <= 0) continue;
