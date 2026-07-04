@@ -460,7 +460,7 @@ let FERME_ID = localStorage.getItem('avigest_ferme_id') || null;
 let NOM_FERME = localStorage.getItem('avigest_nom_ferme') || '';
 const SESSION_MS    = 12 * 3600 * 1000;
 const CACHE_TTL_MS  = 8 * 60 * 60 * 1000;
-const APP_VERSION   = 'v26.16';
+const APP_VERSION   = 'v26.19';
 
 document.title = 'AviGest ' + APP_VERSION;
 const elVersionAffichee = document.getElementById('version-affichee');
@@ -1738,6 +1738,7 @@ async function doLogin() {
             await sb
                 .from('sessions_actives')
                 .delete()
+                .eq('ferme_id', FERME_ID)
                 .lt('last_seen_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString());
 
             const { data: sessionExistante } = await sb
