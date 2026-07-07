@@ -460,7 +460,7 @@ let FERME_ID = localStorage.getItem('avigest_ferme_id') || null;
 let NOM_FERME = localStorage.getItem('avigest_nom_ferme') || '';
 const SESSION_MS    = 12 * 3600 * 1000;
 const CACHE_TTL_MS  = 8 * 60 * 60 * 1000;
-const APP_VERSION   = 'v26.19';
+const APP_VERSION   = 'v26.20';
 
 document.title = 'AviGest ' + APP_VERSION;
 const elVersionAffichee = document.getElementById('version-affichee');
@@ -5433,16 +5433,22 @@ async function renderValidationGerant() {
 }
 
 async function _validerImputation(journalId) {
+  const pin = prompt('PIN gérant pour valider :');
+  if (!pin || pin.trim() === '') {
+    showToast('Validation annulée', 'warning');
+    return;
+  }
   const r = await sb.rpc('valider_imputation_gerant', {
     p_journal_id: journalId,
     p_action: 'VALIDER',
-    p_note_rejet: null
+    p_note_rejet: null,
+    p_pin: pin.trim()
   });
   if (r.data && r.data.success) {
     showToast('✅ Imputation validée — écriture confirmée dans le journal', 'success', 3000);
     await renderValidationGerant();
   } else {
-    showToast('Erreur lors de la validation', 'error');
+    showToast(r.data && r.data.error ? r.data.error : 'Erreur lors de la validation', 'error');
   }
 }
 
@@ -5452,16 +5458,22 @@ async function _rejeterImputation(journalId) {
     showToast('Saisissez un motif de rejet', 'warning');
     return;
   }
+  const pin = prompt('PIN gérant pour rejeter :');
+  if (!pin || pin.trim() === '') {
+    showToast('Rejet annulé', 'warning');
+    return;
+  }
   const r = await sb.rpc('valider_imputation_gerant', {
     p_journal_id: journalId,
     p_action: 'REJETER',
-    p_note_rejet: note.trim()
+    p_note_rejet: note.trim(),
+    p_pin: pin.trim()
   });
   if (r.data && r.data.success) {
     showToast('❌ Imputation rejetée — agent notifié', 'warning', 3000);
     await renderValidationGerant();
   } else {
-    showToast('Erreur lors du rejet', 'error');
+    showToast(r.data && r.data.error ? r.data.error : 'Erreur lors du rejet', 'error');
   }
 }
 
