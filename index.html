@@ -2571,7 +2571,7 @@ async function renderClotureBande(bandeId) {
 
     const [d, bandeRow, journalLignes] = await Promise.all([
         getDashboard(bandeId),
-        sb.from('bandes').select('id_bande, effectif_initial, effectif_vendu, date_arrivee, race, batiment_id, statut').eq('id', bandeId).single().then(r => r.data),
+        sb.from('bandes').select('id_bande, effectif_initial, effectif_vendu, date_arrivee, race, batiment_id, statut, abattage_demarre').eq('id', bandeId).eq('ferme_id', FERME_ID).single().then(r => r.data),
         getJournal(bandeId)
     ]);
 
@@ -2584,6 +2584,26 @@ async function renderClotureBande(bandeId) {
             + '<div style="color:var(--text2);font-size:13px;margin-bottom:20px">Cette bande a déjà été archivée.</div>'
             + '<button class="btn-action btn-ghost" onclick="Nav.back()">← Retour</button>'
             + '</div>';
+        return;
+    }
+
+    const { eligible, resultats } = _verifierEligibiliteCloture(bandeRow);
+    const _eligHTML = resultats.map(function(res) {
+        const icon  = res.ok === true ? '✅' : res.ok === false ? '🔴' : 'ℹ️';
+        const color = res.ok === true ? 'var(--green)' : res.ok === false ? 'var(--red)' : 'var(--text2)';
+        return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;color:' + color + '">'
+             + icon + ' ' + res.texte + '</div>';
+    }).join('');
+    const _eligBloc = '<div class="card" style="margin-bottom:12px">'
+        + '<div style="font-weight:800;font-size:13px;margin-bottom:10px">📋 Éligibilité — ' + (bandeRow.id_bande || '') + '</div>'
+        + _eligHTML
+        + '</div>';
+
+    if (!eligible) {
+        z.innerHTML = _eligBloc
+            + '<button class="btn-action btn-red" disabled style="opacity:0.4;cursor:not-allowed;width:100%">🏁 Démarrer la clôture</button>'
+            + '<div style="text-align:center;font-size:12px;color:var(--text2);margin-top:6px;margin-bottom:12px">Corrigez les points bloquants ci-dessus pour pouvoir clôturer.</div>'
+            + '<button class="btn-action btn-ghost" onclick="Nav.back()">← Retour</button>';
         return;
     }
 
@@ -2620,7 +2640,8 @@ async function renderClotureBande(bandeId) {
     ].join('\n');
     App._rapportPartenaire = rapportPartenaire;
 
-    z.innerHTML = '<div class="bande-header"><div class="bande-name">🏁 Clôturer la bande</div></div>'
+    z.innerHTML = _eligBloc
+        + '<div class="bande-header"><div class="bande-name">🏁 Clôturer la bande</div></div>'
         + '<div class="card" style="margin-bottom:12px;border:2px solid var(--orange)">'
         + '<div style="font-size:13px;font-weight:800;color:var(--orange);margin-bottom:12px">⚠️ Action irréversible</div>'
         + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'
@@ -2637,8 +2658,58 @@ async function renderClotureBande(bandeId) {
         + '</div>'
         + '</div>'
         + '<button class="btn-action btn-ghost" onclick="_copierRapportPartenaire()">📋 Copier rapport partenaires</button>'
-        + '<button class="btn-action btn-red" onclick="_confirmerCloture(\'' + esc(bandeId) + '\',\'' + esc(bandeRow.batiment_id||'') + '\')">🏁 Confirmer la clôture</button>'
+        + '<button class="btn-action btn-red" onclick="_lancerCloture(\'' + esc(bandeId) + '\',\'' + esc(bandeRow.batiment_id||'') + '\')">🏁 Démarrer la clôture</button>'
         + '<button class="btn-action btn-ghost" onclick="Nav.back()">← Annuler</button>';
+}
+
+function _verifierEligibiliteCloture(bande) {
+  const resultats = [];
+  let eligible = true;
+
+  const jours = Math.floor(
+    (new Date() - new Date(bande.date_arrivee)) / (1000 * 60 * 60 * 24)
+  );
+  if (jours >= 14) {
+    resultats.push({ ok: true, texte: 'Ancienneté : ' + jours + ' jours (≥ 14 requis)' });
+  } else {
+    eligible = false;
+    resultats.push({ ok: false, texte: 'Ancienneté : ' + jours + ' jours — clôture possible à partir de 14 jours' });
+  }
+
+  if (bande.statut === 'EN COURS') {
+    resultats.push({ ok: true, texte: 'Statut : bande en cours (clôturable)' });
+  } else if (bande.statut === 'PREPARATION') {
+    eligible = false;
+    resultats.push({ ok: false, texte: 'Statut : bande en préparation — pas encore démarrée' });
+  } else if (bande.statut === 'CLOTURE') {
+    eligible = false;
+    resultats.push({ ok: false, texte: 'Statut : bande déjà clôturée' });
+  } else if (bande.statut === 'ARCHIVE') {
+    eligible = false;
+    resultats.push({ ok: false, texte: 'Statut : bande archivée' });
+  } else {
+    eligible = false;
+    resultats.push({ ok: false, texte: 'Statut inattendu : ' + bande.statut });
+  }
+
+  const abat = bande.abattage_demarre === true ? 'Oui' : 'Non';
+  resultats.push({ ok: null, texte: 'Abattage démarré : ' + abat + ' (indicatif)' });
+
+  return { eligible, resultats };
+}
+
+async function _lancerCloture(bandeId, batimentId) {
+  const { data: bandeCheck } = await sb.from('bandes')
+      .select('id_bande, date_arrivee, statut, abattage_demarre')
+      .eq('id', bandeId).eq('ferme_id', FERME_ID).single();
+  if (!bandeCheck) { showToast('Erreur — bande introuvable', 'error'); return; }
+  const { eligible } = _verifierEligibiliteCloture(bandeCheck);
+  if (!eligible) {
+      showToast('Bande non éligible à la clôture', 'error');
+      Nav.replace('renderClotureBande', bandeId);
+      return;
+  }
+  _confirmerCloture(bandeId, batimentId);
 }
 
 async function _confirmerCloture(bandeId, batimentId) {
