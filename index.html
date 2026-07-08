@@ -2653,6 +2653,21 @@ async function renderClotureBande(bandeId) {
         +   '<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center"><div style="font-size:15px;font-weight:800;color:var(--red)">-' + fmt(totalDepenses) + '</div><div style="font-size:10px;color:var(--text2)">Dépenses</div></div>'
         +   '<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center"><div style="font-size:15px;font-weight:800;color:' + margeColor + '">' + (margeNette>=0?'+':'') + fmt(margeNette) + '</div><div style="font-size:10px;color:var(--text2)">Marge nette</div></div>'
         + '</div>'
+        + '<div style="margin:8px 0">'
+        +   '<button class="btn-action btn-ghost" style="font-size:13px;margin-bottom:4px" onclick="_toggleFormCorrectionEffectif()">✏️ Corriger l\'effectif</button>'
+        +   (bandeRow.effectif_final_corrige != null ? '<button class="btn-action btn-ghost" style="font-size:12px;color:var(--text2);margin-bottom:4px" onclick="_retablirEffectifAuto(\'' + bandeId + '\')">&#8617;&#65039; R&#233;tablir le calcul auto</button>' : '')
+        + '</div>'
+        + '<div id="form-correction-effectif" style="display:none;padding:12px;background:var(--bg3);border-radius:10px;margin-bottom:8px">'
+        +   '<div style="font-size:13px;font-weight:700;margin-bottom:8px">Corriger l\'effectif final</div>'
+        +   '<label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Nouvel effectif</label>'
+        +   '<input id="input-effectif-corrige" type="number" min="0" value="' + effectifRetenu + '" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--bg3);background:var(--bg2);color:var(--text);font-size:14px;margin-bottom:8px;box-sizing:border-box">'
+        +   '<label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Note explicative (obligatoire)</label>'
+        +   '<input id="input-effectif-note" type="text" placeholder="Ex : 4 sujets non retrouves lors du comptage final" oninput="_onNoteEffectifInput()" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--bg3);background:var(--bg2);color:var(--text);font-size:13px;margin-bottom:10px;box-sizing:border-box">'
+        +   '<div style="display:flex;gap:8px">'
+        +     '<button id="btn-valider-effectif" class="btn-action btn-primary" disabled style="opacity:0.4;cursor:not-allowed;flex:1" onclick="_validerCorrectionEffectif(\'' + bandeId + '\')">✅ Valider la correction</button>'
+        +     '<button class="btn-action btn-ghost" onclick="_toggleFormCorrectionEffectif()">Annuler</button>'
+        +   '</div>'
+        + '</div>'
         + '<div style="font-size:12px;color:var(--text2);line-height:1.6;padding:10px;background:rgba(255,157,0,.08);border-radius:8px">'
         + '🏁 Cette action va :<br>'
         + '• Archiver la bande (statut TERMINÉE)<br>'
@@ -2713,6 +2728,48 @@ async function _lancerCloture(bandeId, batimentId) {
       return;
   }
   _confirmerCloture(bandeId, batimentId);
+}
+
+function _toggleFormCorrectionEffectif() {
+  const f = document.getElementById('form-correction-effectif');
+  if (f) f.style.display = (f.style.display === 'none') ? 'block' : 'none';
+}
+
+function _onNoteEffectifInput() {
+  const note = document.getElementById('input-effectif-note');
+  const btn  = document.getElementById('btn-valider-effectif');
+  if (!note || !btn) return;
+  const vide = note.value.trim() === '';
+  btn.disabled      = vide;
+  btn.style.opacity = vide ? '0.4' : '1';
+  btn.style.cursor  = vide ? 'not-allowed' : 'pointer';
+}
+
+async function _validerCorrectionEffectif(bandeId) {
+  const inputEff  = document.getElementById('input-effectif-corrige');
+  const inputNote = document.getElementById('input-effectif-note');
+  if (!inputEff || !inputNote) return;
+  const note = inputNote.value.trim();
+  if (!note) { showToast('Note obligatoire', 'warning'); return; }
+  const nouvelEffectif = parseInt(inputEff.value, 10);
+  if (isNaN(nouvelEffectif) || nouvelEffectif < 0) { showToast('Effectif invalide', 'warning'); return; }
+  const { error } = await sb.from('bandes')
+      .update({ effectif_final_corrige: nouvelEffectif, effectif_final_note: note })
+      .eq('id', bandeId)
+      .eq('ferme_id', FERME_ID);
+  if (error) { showToast('Erreur lors de la correction', 'error'); console.error(error); return; }
+  showToast('Effectif corrigé', 'success', 2000);
+  Nav.replace('renderClotureBande', bandeId);
+}
+
+async function _retablirEffectifAuto(bandeId) {
+  const { error } = await sb.from('bandes')
+      .update({ effectif_final_corrige: null, effectif_final_note: null })
+      .eq('id', bandeId)
+      .eq('ferme_id', FERME_ID);
+  if (error) { showToast('Erreur lors du rétablissement', 'error'); console.error(error); return; }
+  showToast('Calcul auto rétabli', 'success', 2000);
+  Nav.replace('renderClotureBande', bandeId);
 }
 
 async function _confirmerCloture(bandeId, batimentId) {
