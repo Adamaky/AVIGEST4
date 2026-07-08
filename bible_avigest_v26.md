@@ -477,3 +477,75 @@ Hors périmètre (chantiers antérieurs, non traités) : table fermes policy lec
 > *💡 En clair : il restait deux problèmes de sécurité. Le premier (la fenêtre financière ouverte à tous) est RÉPARÉ et testé aujourd'hui. Le second (n'importe qui peut valider à la place du gérant) reste à faire : c'est le prochain chantier. Le reste est sain.*
 
 — Fin de la section 14 — Consolidée le 04/07/2026 (session v26.19) —
+## 15. Clôture de Bande — Cadrage (nouvelle section, session courante)
+
+> **Statut chantier** : ⏳ Cadrage validé, développement non commencé. Ordre de dev : **une phase à la fois**, phase 1 en premier, validation Adama entre chaque. Aucun code produit à ce stade.
+
+### 15.1 Principe général
+
+La clôture transforme une bande en fin de cycle en **bilan définitif archivé**, produisant le rapport fin de bande (déjà ✅ Validé, section 13.2 GÉRANT) + export WhatsApp. Organisée en **6 phases** au niveau du code (chacune testable isolément), présentée à l'écran en **3 blocs** pour rester digeste côté gérant.
+
+**Deux décisions structurantes (session courante) :**
+
+1. **Clôture réversible par le gérant (PIN).** Une bande clôturée n'est pas verrouillée à sens unique : le gérant peut rouvrir via son PIN serveur (même mécanisme que le Chantier B v26.20, RPC `verifier_pin`).
+2. **Reliquat stock valorisé AVEC écriture journal** (choix Adama).
+3. **Abattage optionnel au premier jet** (choix Adama) : la clôture est développée et éprouvée sur REVAGRO/ALIRAH avant le module Abattage structuré.
+
+> 💡 **En clair :** clôturer une bande, c'est en faire le bilan final et l'archiver, avec un bouton pour envoyer le résumé par WhatsApp. Le gérant peut rouvrir une bande fermée en tapant son code (PIN). L'aliment ou la litière qui reste à la fin est compté comme une valeur récupérée, notée dans le journal.
+
+### 15.2 Règle CRITIQUE — Valorisation du reliquat sans casser le CRU
+
+La règle CRU est **définitive** (section 4.3) : `CRU = SUM(montant) WHERE type_ecriture = 'DEPENSE' AND categorie != 'Achat stock' / effectif`. Le filtre ne doit **jamais** être modifié.
+
+Pour valoriser le reliquat via écriture journal **sans toucher le filtre CRU**, l'écriture doit être un **crédit / RECETTE**, jamais une dépense négative :
+
+- Catégorie dédiée : `'Reliquat stock'`
+- `type_ecriture = 'RECETTE'` (crédit)
+- → Le filtre CRU ne lit que les `DEPENSE` ⇒ reliquat **automatiquement exclu du CRU**, sans ajouter aucune exception au filtre.
+
+**Corollaire réouverture** : une ligne journal étant créée à la clôture, la **réouverture doit supprimer cette ligne** pour éviter les doublons à chaque cycle clôture → réouverture → re-clôture.
+
+> 💡 **En clair :** on note la valeur de l'aliment restant comme une « rentrée d'argent » (recette), pas comme une dépense. Ainsi ça n'affecte pas le coût de revient par poulet (le CRU), qui ne regarde que les dépenses. Si on rouvre la bande, on efface cette note pour ne pas la compter deux fois.
+
+### 15.3 Les 6 phases
+
+| Phase | Rôle | Sources / Écritures | Vigilance |
+|---|---|---|---|
+| 1 — Éligibilité | Garde-fou d'entrée : ≥ 14 jours, statut cohérent, abattage vérifié *s'il existe* (non bloquant) | Lecture `bandes` | Filtre `ferme_id` explicite |
+| 2 — Effectif final | `initial − mortalités − abattus` = effectif final ; gérant confirme/corrige. Si pas d'abattage saisi, effectif abattu entré à la main | Lecture `bandes`, `saisies_techniques` | — |
+| 3 — Solde stock valorisé | Reliquats `lots_stock` (qté restante × `cout_unitaire`) → écriture journal **RECETTE / `'Reliquat stock'`** | Lecture `lots_stock`, écriture `journal` | `ferme_id` explicite obligatoire dans la RPC (audit 14.2, `lots_stock` sans filtre sur SELECT détail) |
+| 4 — Bilan financier | Total dépenses, recettes, solde, CRU (règle définitive, jamais recalculée), marge nette, marge/sujet | Lecture `journal` | CRU intouché |
+| 5 — Validation gérant | Écran récap + validation **PIN serveur** (`verifier_pin`), contrôle rôle GERANT | RPC PIN (Chantier B v26.20) | — |
+| 6 — Archivage + rapport | Statut → CLÔTURÉE (réversible PIN) + rapport fin de bande + WhatsApp. Réouverture = annule statut + **supprime ligne journal `'Reliquat stock'`** | Écriture `bandes`, lecture rapport | Suppression ligne à la réouverture |
+
+> 💡 **En clair :** l'app vérifie que la bande peut être fermée (au moins 14 jours), calcule combien de poulets restent, compte la valeur du stock restant, fait le bilan financier (dépenses, recettes, bénéfice par poulet), le gérant tape son code pour confirmer, et la bande passe en « fermée » avec le rapport WhatsApp prêt.
+
+### 15.4 Présentation à l'écran (3 blocs, code en 6 phases)
+
+| Bloc écran | Phases regroupées |
+|---|---|
+| Bloc A — Métier | Phase 1 (éligibilité) + Phase 2 (effectif) + Phase 3 (solde stock) |
+| Bloc B — Financier | Phase 4 (bilan) |
+| Bloc C — Clôture | Phase 5 (validation PIN) + Phase 6 (archivage/rapport) |
+
+### 15.5 Dépendances et points de vigilance
+
+- **Abattage (non bloquant)** : optionnel au premier jet. **À tracer / ne pas oublier** : brancher l'abattage automatique en phases 1/2 **avant l'intégration du 3e client (janvier 2027)**, car le cycle complet est un prérequis client (section 13.5).
+- **Sécurité `lots_stock`** : filtre `ferme_id` explicite obligatoire dans la RPC de clôture (audit 14.2).
+- **Réouverture ↔ doublons journal** : règle de suppression de la ligne `'Reliquat stock'` à graver dans la RPC de réouverture.
+
+### 15.6 Points restant à trancher avec Adama (avant dev)
+
+1. **Format `'Reliquat stock'`** : confirmer RECETTE (crédit) — validé en principe, à re-confirmer avant code.
+2. **Effectif final corrigeable** : le gérant peut-il écraser le calcul auto (phase 2), ou seulement le constater ?
+
+### 15.7 Suivi
+
+| Élément | Statut |
+|---|---|
+| Cadrage 6 phases | ✅ Validé (session courante) |
+| Phase 1 — Éligibilité | ○ À faire (prochaine brique dev) |
+| Phases 2 à 6 | ○ À faire |
+| Branchement abattage auto | ○ À faire (avant janvier 2027) |
+
+> Tout bug détecté sur ce chantier se numérote dans le **registre 13.3** (prochain numéro disponible : B10).
