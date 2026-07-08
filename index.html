@@ -2571,7 +2571,7 @@ async function renderClotureBande(bandeId) {
 
     const [d, bandeRow, journalLignes] = await Promise.all([
         getDashboard(bandeId),
-        sb.from('bandes').select('id_bande, effectif_initial, effectif_vendu, date_arrivee, race, batiment_id, statut, abattage_demarre').eq('id', bandeId).eq('ferme_id', FERME_ID).single().then(r => r.data),
+        sb.from('bandes').select('id_bande, effectif_initial, effectif_vendu, date_arrivee, race, batiment_id, statut, abattage_demarre, effectif_final_corrige, effectif_final_note').eq('id', bandeId).eq('ferme_id', FERME_ID).single().then(r => r.data),
         getJournal(bandeId)
     ]);
 
@@ -2613,6 +2613,9 @@ async function renderClotureBande(bandeId) {
     const effectifVendu   = parseInt(bandeRow.effectif_vendu   || 0);
     const totalMorts      = parseInt(p.morts || 0);
     const effectifRestant = Math.max(0, effectifInitial - totalMorts - effectifVendu);
+    const effectifRetenu  = (bandeRow.effectif_final_corrige != null)
+        ? bandeRow.effectif_final_corrige
+        : effectifRestant;
     const tauxMort        = effectifInitial > 0 ? (totalMorts / effectifInitial * 100).toFixed(1) : 0;
     const totalDepenses   = journalLignes.filter(function(l){ return l.type_ecriture==='DEPENSE'; }).reduce(function(s,l){ return s+(parseFloat(l.montant)||0); }, 0);
     const totalRecettes   = journalLignes.filter(function(l){ return l.type_ecriture==='RECETTE'; }).reduce(function(s,l){ return s+(parseFloat(l.montant)||0); }, 0);
@@ -2645,7 +2648,7 @@ async function renderClotureBande(bandeId) {
         + '<div class="card" style="margin-bottom:12px;border:2px solid var(--orange)">'
         + '<div style="font-size:13px;font-weight:800;color:var(--orange);margin-bottom:12px">⚠️ Action irréversible</div>'
         + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'
-        +   '<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center"><div style="font-size:15px;font-weight:800">' + effectifRestant.toLocaleString('fr') + '</div><div style="font-size:10px;color:var(--text2)">Vivants restants</div></div>'
+        +   '<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center"><div style="font-size:15px;font-weight:800">' + effectifRetenu.toLocaleString('fr') + (bandeRow.effectif_final_corrige != null ? ' <span style="font-size:10px;color:var(--orange)">(corrigé)</span>' : '') + '</div>' + (bandeRow.effectif_final_corrige != null && bandeRow.effectif_final_note ? '<div style="font-size:10px;color:var(--orange);margin-top:2px">' + bandeRow.effectif_final_note + '</div>' : '') + '<div style="font-size:10px;color:var(--text2)">Vivants restants</div></div>'
         +   '<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center"><div style="font-size:15px;font-weight:800">' + effectifVendu.toLocaleString('fr') + '</div><div style="font-size:10px;color:var(--text2)">Commercialisés</div></div>'
         +   '<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center"><div style="font-size:15px;font-weight:800;color:var(--red)">-' + fmt(totalDepenses) + '</div><div style="font-size:10px;color:var(--text2)">Dépenses</div></div>'
         +   '<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center"><div style="font-size:15px;font-weight:800;color:' + margeColor + '">' + (margeNette>=0?'+':'') + fmt(margeNette) + '</div><div style="font-size:10px;color:var(--text2)">Marge nette</div></div>'
