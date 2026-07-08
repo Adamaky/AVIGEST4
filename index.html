@@ -2658,7 +2658,7 @@ async function renderClotureBande(bandeId) {
         + '</div>'
         + '</div>'
         + '<button class="btn-action btn-ghost" onclick="_copierRapportPartenaire()">📋 Copier rapport partenaires</button>'
-        + '<button class="btn-action btn-red" onclick="_lancerCloture(\'' + esc(bandeId) + '\',\'' + esc(bandeRow.batiment_id||'') + '\')">🏁 Démarrer la clôture</button>'
+        + '<button class="btn-action btn-red" disabled style="opacity:0.4;cursor:not-allowed;width:100%">⏳ Clôture complète — en cours de développement</button>'
         + '<button class="btn-action btn-ghost" onclick="Nav.back()">← Annuler</button>';
 }
 
