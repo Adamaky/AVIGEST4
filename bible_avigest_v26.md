@@ -549,3 +549,236 @@ Pour valoriser le reliquat via écriture journal **sans toucher le filtre CRU**,
 | Branchement abattage auto | ○ À faire (avant janvier 2027) |
 
 > Tout bug détecté sur ce chantier se numérote dans le **registre 13.3** (prochain numéro disponible : B10).
+# 🔧 Kit de mise à jour Bible — Section 15 Clôture
+
+> À appliquer **à l'identique dans les DEUX fichiers** : `bible_avigest_v26.docx` (source) **et** `bible_avigest_v26.md` (copie). 3 modifications au total.
+
+---
+
+## ✅ Modification 1 — Ajouter la section 15 (le gros morceau)
+
+**Où :** après la fin de la section 14, **avant** la section « Points en suspens » qui clôture le document.
+
+**Quoi :** coller l'intégralité du bloc du fichier `bible_section15_cloture.md` (déjà rédigé et présenté séparément).
+
+---
+
+## ✅ Modification 2 — Mettre à jour le suivi en section 13.2 (bloc PROCESSUS)
+
+**Où :** section 13.2, tableau du bloc **PROCESSUS**, ligne « Clôture bande — 6 phases ».
+
+**Remplacer :**
+
+| Fonctionnalité | Statut | Note / Bug connu |
+|---|---|---|
+| Clôture bande — 6 phases | ○ À faire | 14 jours minimum |
+
+**Par :**
+
+| Fonctionnalité | Statut | Note / Bug connu |
+|---|---|---|
+| Clôture bande — 6 phases | ⏳ En cours | Cadrage validé — voir section 15. 14 jours minimum. Abattage optionnel au 1er jet |
+
+---
+
+## ✅ Modification 3 — Mettre à jour l'en-tête de synchronisation
+
+**Où :** tout en haut du document, la ligne « Synchronisation » sous le titre.
+
+**Adapter la date et le numéro de session** vers la session courante (celle où tu intègres la section 15), pour que l'en-tête reflète la dernière mise à jour. Exemple de forme (adapte la date réelle) :
+
+> **Synchronisation** : cette version `.md` est générée à partir de `bible_avigest_v26.docx` — dernière synchronisation le **[JJ/MM/2026]** (session courante, ajout section 15 Clôture). Le `.docx` reste la référence unique…
+
+---
+
+## Vérification finale (les deux fichiers)
+
+- [ ] Section 15 présente, placée entre section 14 et « Points en suspens »
+- [ ] Ligne « Clôture bande — 6 phases » passée à ⏳ En cours dans 13.2
+- [ ] En-tête de synchro : date + session à jour
+- [ ] `.docx` et `.md` identiques sur ces 3 points
+- [ ] (si repo) `.md` committé via GitHub Desktop à côté de `SCHEMA.md`
+
+---
+
+## Rappel workflow
+
+Le `.docx` est ta **source unique** — édite-le en premier. Le `.md` est la copie dérivée. Ici tu colles à la main dans les deux (choix validé cette session pour éviter toute désynchro avec ta version réelle).
+## 15. Clôture de Bande — Cadrage (nouvelle section, session courante)
+
+> **Statut chantier** : ⏳ Cadrage validé, développement non commencé. Ordre de dev : **une phase à la fois**, phase 1 en premier, validation Adama entre chaque. Aucun code produit à ce stade.
+
+### 15.1 Principe général
+
+La clôture transforme une bande en fin de cycle en **bilan définitif archivé**, produisant le rapport fin de bande (déjà ✅ Validé, section 13.2 GÉRANT) + export WhatsApp. Organisée en **6 phases** au niveau du code (chacune testable isolément), présentée à l'écran en **3 blocs** pour rester digeste côté gérant.
+
+**Deux décisions structurantes (session courante) :**
+
+1. **Clôture réversible par le gérant (PIN).** Une bande clôturée n'est pas verrouillée à sens unique : le gérant peut rouvrir via son PIN serveur (même mécanisme que le Chantier B v26.20, RPC `verifier_pin`).
+2. **Reliquat stock valorisé AVEC écriture journal** (choix Adama).
+3. **Abattage optionnel au premier jet** (choix Adama) : la clôture est développée et éprouvée sur REVAGRO/ALIRAH avant le module Abattage structuré.
+
+> 💡 **En clair :** clôturer une bande, c'est en faire le bilan final et l'archiver, avec un bouton pour envoyer le résumé par WhatsApp. Le gérant peut rouvrir une bande fermée en tapant son code (PIN). L'aliment ou la litière qui reste à la fin est compté comme une valeur récupérée, notée dans le journal.
+
+### 15.2 Règle CRITIQUE — Valorisation du reliquat sans casser le CRU
+
+La règle CRU est **définitive** (section 4.3) : `CRU = SUM(montant) WHERE type_ecriture = 'DEPENSE' AND categorie != 'Achat stock' / effectif`. Le filtre ne doit **jamais** être modifié.
+
+Pour valoriser le reliquat via écriture journal **sans toucher le filtre CRU**, l'écriture doit être un **crédit / RECETTE**, jamais une dépense négative :
+
+- Catégorie dédiée : `'Reliquat stock'`
+- `type_ecriture = 'RECETTE'` (crédit)
+- → Le filtre CRU ne lit que les `DEPENSE` ⇒ reliquat **automatiquement exclu du CRU**, sans ajouter aucune exception au filtre.
+
+**Corollaire réouverture** : une ligne journal étant créée à la clôture, la **réouverture doit supprimer cette ligne** pour éviter les doublons à chaque cycle clôture → réouverture → re-clôture.
+
+> 💡 **En clair :** on note la valeur de l'aliment restant comme une « rentrée d'argent » (recette), pas comme une dépense. Ainsi ça n'affecte pas le coût de revient par poulet (le CRU), qui ne regarde que les dépenses. Si on rouvre la bande, on efface cette note pour ne pas la compter deux fois.
+
+### 15.3 Les 6 phases
+
+| Phase | Rôle | Sources / Écritures | Vigilance |
+|---|---|---|---|
+| 1 — Éligibilité | Garde-fou d'entrée : ≥ 14 jours, statut cohérent, abattage vérifié *s'il existe* (non bloquant) | Lecture `bandes` | Filtre `ferme_id` explicite |
+| 2 — Effectif final | `initial − mortalités − abattus` = effectif final ; gérant peut **surcharger avec note obligatoire** (conserve calculé + corrigé + motif, pattern score santé §5). Si pas d'abattage saisi, effectif abattu entré à la main | Lecture `bandes`, `saisies_techniques` | Traçabilité : garder les deux valeurs |
+| 3 — Solde stock valorisé | Reliquats `lots_stock` (qté restante × `cout_unitaire`) → écriture journal **RECETTE / `'Reliquat stock'`** | Lecture `lots_stock`, écriture `journal` | `ferme_id` explicite obligatoire dans la RPC (audit 14.2, `lots_stock` sans filtre sur SELECT détail) |
+| 4 — Bilan financier | Total dépenses, recettes, solde, CRU (règle définitive, jamais recalculée), marge nette, marge/sujet | Lecture `journal` | CRU intouché |
+| 5 — Validation gérant | Écran récap + validation **PIN serveur** (`verifier_pin`), contrôle rôle GERANT | RPC PIN (Chantier B v26.20) | — |
+| 6 — Archivage + rapport | Statut → CLÔTURÉE (réversible PIN) + rapport fin de bande + WhatsApp. Réouverture = annule statut + **supprime ligne journal `'Reliquat stock'`** | Écriture `bandes`, lecture rapport | Suppression ligne à la réouverture |
+
+> 💡 **En clair :** l'app vérifie que la bande peut être fermée (au moins 14 jours), calcule combien de poulets restent, compte la valeur du stock restant, fait le bilan financier (dépenses, recettes, bénéfice par poulet), le gérant tape son code pour confirmer, et la bande passe en « fermée » avec le rapport WhatsApp prêt.
+
+### 15.4 Présentation à l'écran (3 blocs, code en 6 phases)
+
+| Bloc écran | Phases regroupées |
+|---|---|
+| Bloc A — Métier | Phase 1 (éligibilité) + Phase 2 (effectif) + Phase 3 (solde stock) |
+| Bloc B — Financier | Phase 4 (bilan) |
+| Bloc C — Clôture | Phase 5 (validation PIN) + Phase 6 (archivage/rapport) |
+
+### 15.5 Dépendances et points de vigilance
+
+- **Abattage (non bloquant)** : optionnel au premier jet. **À tracer / ne pas oublier** : brancher l'abattage automatique en phases 1/2 **avant l'intégration du 3e client (janvier 2027)**, car le cycle complet est un prérequis client (section 13.5).
+- **Sécurité `lots_stock`** : filtre `ferme_id` explicite obligatoire dans la RPC de clôture (audit 14.2).
+- **Réouverture ↔ doublons journal** : règle de suppression de la ligne `'Reliquat stock'` à graver dans la RPC de réouverture.
+
+### 15.6 Points tranchés avec Adama (session courante)
+
+1. ~~**Format `'Reliquat stock'`**~~ — **Décidé** : RECETTE (crédit) confirmé, reste hors CRU.
+2. ~~**Effectif final corrigeable**~~ — **Décidé** : Option C — corrigeable par le gérant **avec note obligatoire**, conservation des deux valeurs (calculé + corrigé + motif), pattern surcharge score santé (§5).
+
+*Aucun point bloquant restant — chantier prêt pour le dev de la phase 1.*
+
+### 15.7 Suivi
+
+| Élément | Statut |
+|---|---|
+| Cadrage 6 phases | ✅ Validé (session courante) |
+| Phase 1 — Éligibilité | ○ À faire (prochaine brique dev) |
+| Phases 2 à 6 | ○ À faire |
+| Branchement abattage auto | ○ À faire (avant janvier 2027) |
+
+> Tout bug détecté sur ce chantier se numérote dans le **registre 13.3** (prochain numéro disponible : B10).
+# 🔧 Kit de mise à jour Bible — Session clôture phases 1 & 2
+
+> À appliquer **à l'identique dans les DEUX fichiers** : `bible_avigest_v26.docx` (source) **et** `bible_avigest_v26.md` (copie). **5 modifications.**
+> Coche au fur et à mesure.
+
+---
+
+## ☐ MODIF 1 — Registre de bugs §13.3 : ajouter B10
+
+**Où :** section 13.3, dans le tableau du registre (actuellement vide, « prochain numéro : B10 »).
+
+**Remplacer la ligne :**
+`| *(registre vide pour l'instant — prochain numéro disponible : B10)* | | | | | |`
+
+**Par :**
+
+| Numéro | Titre court | Domaine | Statut | Session ouverture | Session fermeture |
+|---|---|---|---|---|---|
+| B10 | Statut 'TERMINEE' invalide dans `_confirmerCloture` | Clôture | ⏳ En cours | session courante | — |
+
+**Et ajouter sous le tableau :**
+> **B10 (détail)** : la fonction `_confirmerCloture` écrit `statut = 'TERMINEE'`, valeur absente de la contrainte CHECK de `bandes` (`'PREPARATION'`, `'EN COURS'`, `'CLOTURE'`, `'ARCHIVE'`) → l'écriture échouerait. Bouton d'appel neutralisé temporairement (désactivé, libellé « Clôture complète — en cours de développement »). Correction réelle prévue en **phase 6** (remplacer par `'CLOTURE'`). Prochain numéro disponible : B11.
+
+---
+
+## ☐ MODIF 2 — Section 15.7 : phases 1 et 2 validées
+
+**Où :** section 15.7 (tableau de suivi).
+
+**Remplacer le tableau par :**
+
+| Élément | Statut |
+|---|---|
+| Cadrage 6 phases | ✅ Validé |
+| Phase 1 — Éligibilité | ✅ Validé (testé REVAGRO : EN COURS 15j éligible / PREPARATION 8j bloquée) |
+| Phase 2 — Effectif final | ✅ Validé (migration 032 + affichage COALESCE + correction manuelle avec note obligatoire, testé bout-en-bout) |
+| Phases 3 à 6 | ○ À faire |
+| Branchement abattage auto | ○ À faire (avant janvier 2027) |
+| Correction B10 (statut TERMINEE) | ⏳ À faire en phase 6 |
+
+**Et ajouter une sous-section :**
+
+### 15.8 Détail technique livré (phases 1 & 2)
+
+**Phase 1 — `_verifierEligibiliteCloture(bande)`** : 3 contrôles — ancienneté ≥ 14 j (depuis `date_arrivee`, bloquant), statut `'EN COURS'` (bloquant), abattage `abattage_demarre` (informatif, non bloquant). Double protection (bouton désactivé + re-vérif au clic). Affiche `id_bande` (pas `nom`).
+
+**Phase 2 — Effectif final corrigeable :**
+- Migration 032 : colonnes `effectif_final_corrige` (integer, NULL) + `effectif_final_note` (text, NULL) sur `bandes`.
+- Calcul auto (déjà existant, correct) : `effectif_initial − (MortaliteMatin + MortaliteSoir) − effectif_vendu`, avec `Math.max(0,...)`.
+- Effectif retenu = `effectif_final_corrige` si non NULL, sinon calcul auto (COALESCE, test `!= null`).
+- Correction par le gérant : formulaire inline (input number + note **obligatoire**), UPDATE direct avec `.eq('ferme_id', FERME_ID)`, double protection sur la note. Bouton « Rétablir le calcul auto » remet les 2 colonnes à NULL.
+- Pas de PIN à ce stade (le PIN sera en phase 5).
+
+---
+
+## ☐ MODIF 3 — Schéma `bandes` §2.4 : corriger
+
+**Où :** section 2.4, ligne de la table `bandes`.
+
+**Remplacer la ligne `bandes` par :**
+
+| Table | Colonnes / Rôle |
+|---|---|
+| bandes | id (uuid), ferme_id (uuid), batiment_id (uuid), id_bande (text — identifiant lisible, PAS de colonne `nom`), date_arrivee (date), effectif_initial (int), race, statut (text : 'PREPARATION' / 'EN COURS' / 'CLOTURE' / 'ARCHIVE' — contrainte CHECK), commentaire, created_at, updated_at, is_deleted, prep_terminee (bool), abattage_demarre (bool), fournisseur_poussins, effectif_vendu (int — nombre d'abattus/vendus), date_cloture (date), effectif_final_corrige (int, NULL — surcharge gérant, migration 032), effectif_final_note (text, NULL — motif, migration 032) |
+
+**Ajouter une note sous le tableau §2.4 :**
+> ⚠️ La colonne `nom` n'existe PAS dans `bandes` (erreur d'une version antérieure de la Bible). L'identifiant lisible est `id_bande`. Statuts figés par contrainte CHECK `bandes_statut_check`.
+
+---
+
+## ☐ MODIF 4 — Migrations §2.5 : ajouter 032
+
+**Où :** section 2.5, tableau des migrations.
+
+**Ajouter la ligne :**
+
+| Fichier | Contenu |
+|---|---|
+| 032_effectif_final_corrige.sql | Colonnes `effectif_final_corrige` + `effectif_final_note` sur `bandes` (phase 2 clôture, surcharge manuelle effectif). Rollback fourni. |
+
+*(Note : 031_fix_get_dashboard_ferme_filter.sql existe déjà — la Bible s'arrêtait à 030, mettre à jour la mention « jusqu'à 030 » en « jusqu'à 032 ».)*
+
+---
+
+## ☐ MODIF 5 — Mortalités & effectif (§5 ou §15)
+
+**Où :** section 5 (Score santé) ou §15.8 — au choix, là où c'est le plus logique pour toi.
+
+**Ajouter :**
+> **Sources de l'effectif final (vérifié en base session courante)** : les mortalités saisies par l'agent existent en 2 catégories seulement dans `saisies_techniques` : **`MortaliteMatin`** et **`MortaliteSoir`** (pas de Midi/PM/Nuit). La mortalité cumulée = somme de ces deux catégories. Les abattus/vendus sont portés par la colonne `bandes.effectif_vendu` (déjà renseignée, indépendante du module Abattage à venir).
+
+---
+
+## ☐ Vérification finale
+
+- [ ] Les 5 modifs faites dans `.docx` ET `.md`
+- [ ] En-tête de synchro (haut du doc) : date + session mises à jour
+- [ ] `.md` committé via GitHub Desktop à côté de SCHEMA.md
+- [ ] `.docx` reste la source (édité en premier)
+
+---
+
+## Rappel workflow
+`.docx` = source unique, éditée en premier. `.md` = copie, tu colles à la main les mêmes blocs (choix validé pour éviter la désynchro). Ne pas régénérer le .md automatiquement tant que le .docx n'est pas à jour.
