@@ -2569,11 +2569,13 @@ async function renderClotureBande(bandeId) {
     if (!bandeId) { Nav.back(); return; }
     z.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
 
-    const [d, bandeRow, journalLignes] = await Promise.all([
+    const [d, bandeRow, journalLignes, reliquatRes] = await Promise.all([
         getDashboard(bandeId),
         sb.from('bandes').select('id_bande, effectif_initial, effectif_vendu, date_arrivee, race, batiment_id, statut, abattage_demarre, effectif_final_corrige, effectif_final_note').eq('id', bandeId).eq('ferme_id', FERME_ID).single().then(r => r.data),
-        getJournal(bandeId)
+        getJournal(bandeId),
+        sb.rpc('calculer_reliquat_stock', { p_bande_id: bandeId, p_ferme_id: FERME_ID })
     ]);
+    const reliquatStock = parseFloat(reliquatRes?.data) || 0;
 
     if (!d || !bandeRow) { z.innerHTML = '<div style="text-align:center;padding:40px;color:var(--red)">Erreur chargement</div>'; return; }
 
@@ -2652,6 +2654,7 @@ async function renderClotureBande(bandeId) {
         +   '<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center"><div style="font-size:15px;font-weight:800">' + effectifVendu.toLocaleString('fr') + '</div><div style="font-size:10px;color:var(--text2)">Commercialisés</div></div>'
         +   '<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center"><div style="font-size:15px;font-weight:800;color:var(--red)">-' + fmt(totalDepenses) + '</div><div style="font-size:10px;color:var(--text2)">Dépenses</div></div>'
         +   '<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center"><div style="font-size:15px;font-weight:800;color:' + margeColor + '">' + (margeNette>=0?'+':'') + fmt(margeNette) + '</div><div style="font-size:10px;color:var(--text2)">Marge nette</div></div>'
+        +   '<div style="background:var(--bg3);border-radius:10px;padding:10px;text-align:center;grid-column:1/-1;border:1px solid rgba(0,153,255,.3)"><div style="font-size:15px;font-weight:800;color:var(--blue)">' + fmt(reliquatStock) + ' F</div><div style="font-size:10px;color:var(--text2)">📦 Reliquat stock estimé</div></div>'
         + '</div>'
         + '<div style="margin:8px 0">'
         +   '<button class="btn-action btn-ghost" style="font-size:13px;margin-bottom:4px" onclick="_toggleFormCorrectionEffectif()">✏️ Corriger l\'effectif</button>'
