@@ -460,7 +460,7 @@ let FERME_ID = localStorage.getItem('avigest_ferme_id') || null;
 let NOM_FERME = localStorage.getItem('avigest_nom_ferme') || '';
 const SESSION_MS    = 12 * 3600 * 1000;
 const CACHE_TTL_MS  = 8 * 60 * 60 * 1000;
-const APP_VERSION   = 'v26.20';
+const APP_VERSION   = 'v26.21';
 
 document.title = 'AviGest ' + APP_VERSION;
 const elVersionAffichee = document.getElementById('version-affichee');
@@ -2673,7 +2673,7 @@ async function renderClotureBande(bandeId) {
         + '</div>'
         + '<div style="font-size:12px;color:var(--text2);line-height:1.6;padding:10px;background:rgba(255,157,0,.08);border-radius:8px">'
         + '🏁 Cette action va :<br>'
-        + '• Archiver la bande (statut TERMINÉE)<br>'
+        + '• Archiver la bande (statut CLÔTURÉE)<br>'
         + '• Libérer le bâtiment pour une nouvelle bande<br>'
         + '• Générer le rapport final'
         + '</div>'
@@ -2824,9 +2824,15 @@ async function _validerCloturePin(bandeId) {
     return;
   }
 
-  showToast('Reliquat stock enregistré ✅', 'success');
   _pinCloture = '';
-  Nav.replace('renderClotureBande', bandeId);
+
+  // 3. Reliquat OK → archiver la bande + libérer le bâtiment
+  const { data: bandeInfo } = await sb.from('bandes')
+    .select('batiment_id')
+    .eq('id', bandeId)
+    .eq('ferme_id', FERME_ID)
+    .single();
+  await _confirmerCloture(bandeId, bandeInfo ? bandeInfo.batiment_id : null);
 }
 
 function _showClotErr(msg) {
@@ -2879,7 +2885,7 @@ async function _retablirEffectifAuto(bandeId) {
 async function _confirmerCloture(bandeId, batimentId) {
     if (!guardDouble('cloture_bande')) return;
     const updates = [
-        sb.from('bandes').update({ statut: 'TERMINEE', date_cloture: _dateAujourd_hui() }).eq('id', bandeId)
+        sb.from('bandes').update({ statut: 'CLOTURE', date_cloture: _dateAujourd_hui() }).eq('id', bandeId).eq('ferme_id', FERME_ID)
     ];
     if (batimentId) {
         updates.push(sb.from('batiments').update({ statut: 'LIBRE' }).eq('id', batimentId));
