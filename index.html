@@ -2687,7 +2687,31 @@ async function renderClotureBande(bandeId) {
         +   '<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:var(--text2)"><span>📦 Reliquat stock estimé</span><span>' + fmt(reliquatStock) + ' FCFA</span></div>'
         + '</div>'
         + '<button class="btn-action btn-ghost" onclick="_copierRapportPartenaire()">📋 Copier rapport partenaires</button>'
-        + '<button class="btn-action btn-red" disabled style="opacity:0.4;cursor:not-allowed;width:100%">⏳ Clôture complète — en cours de développement</button>'
+        + '<div class="card" style="margin-bottom:12px;padding:16px">'
+        + '<div style="font-size:13px;font-weight:800;color:var(--red);margin-bottom:4px">🔒 Validation gérant requise</div>'
+        + '<div style="font-size:12px;color:var(--text2);margin-bottom:12px">Saisissez le PIN gérant pour clôturer définitivement la bande et écrire le reliquat stock.</div>'
+        + '<div style="display:flex;justify-content:center;gap:12px;margin-bottom:14px">'
+        +   '<div id="dot-clot-0" class="pin-dot"></div>'
+        +   '<div id="dot-clot-1" class="pin-dot"></div>'
+        +   '<div id="dot-clot-2" class="pin-dot"></div>'
+        +   '<div id="dot-clot-3" class="pin-dot"></div>'
+        + '</div>'
+        + '<div id="pin-clot-err" style="text-align:center;color:var(--red);font-size:12px;min-height:16px;margin-bottom:8px"></div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
+        +   '<button class="pin-key" onclick="_pinClotureTap(\'1\')">1</button>'
+        +   '<button class="pin-key" onclick="_pinClotureTap(\'2\')">2</button>'
+        +   '<button class="pin-key" onclick="_pinClotureTap(\'3\')">3</button>'
+        +   '<button class="pin-key" onclick="_pinClotureTap(\'4\')">4</button>'
+        +   '<button class="pin-key" onclick="_pinClotureTap(\'5\')">5</button>'
+        +   '<button class="pin-key" onclick="_pinClotureTap(\'6\')">6</button>'
+        +   '<button class="pin-key" onclick="_pinClotureTap(\'7\')">7</button>'
+        +   '<button class="pin-key" onclick="_pinClotureTap(\'8\')">8</button>'
+        +   '<button class="pin-key" onclick="_pinClotureTap(\'9\')">9</button>'
+        +   '<button class="pin-key key-del" onclick="_pinClotureDel()">⌫</button>'
+        +   '<button class="pin-key" onclick="_pinClotureTap(\'0\')">0</button>'
+        +   '<button id="btn-clot-ok" class="pin-key key-ok" onclick="_validerCloturePin(\'' + bandeId + '\')">✅</button>'
+        + '</div>'
+        + '</div>'
         + '<button class="btn-action btn-ghost" onclick="Nav.back()">← Annuler</button>';
 }
 
@@ -2739,6 +2763,75 @@ async function _lancerCloture(bandeId, batimentId) {
       return;
   }
   _confirmerCloture(bandeId, batimentId);
+}
+
+let _pinCloture = '';
+
+function _pinClotureTap(digit) {
+  if (_pinCloture.length >= 4) return;
+  _pinCloture += digit;
+  _updateDotsCloture();
+}
+
+function _pinClotureDel() {
+  if (!_pinCloture.length) return;
+  _pinCloture = _pinCloture.slice(0, -1);
+  _updateDotsCloture();
+}
+
+function _updateDotsCloture() {
+  for (let i = 0; i < 4; i++) {
+    const d = document.getElementById('dot-clot-' + i);
+    if (d) d.classList.toggle('filled', i < _pinCloture.length);
+  }
+  const btn = document.getElementById('btn-clot-ok');
+  if (btn) btn.classList.toggle('ready', _pinCloture.length === 4);
+}
+
+async function _validerCloturePin(bandeId) {
+  if (_pinCloture.length !== 4) {
+    _showClotErr('Saisissez 4 chiffres');
+    return;
+  }
+  _showClotErr('');
+  const btn = document.getElementById('btn-clot-ok');
+  if (btn) btn.style.pointerEvents = 'none';
+
+  // 1. Vérifier que c'est bien le PIN du GÉRANT (contrôle serveur)
+  const { data, error } = await sb.rpc('verifier_pin', {
+    p_ferme_id: FERME_ID,
+    p_role: 'GERANT',
+    p_pin: _pinCloture
+  });
+
+  if (error || !data || data.length === 0) {
+    _showClotErr('PIN gérant incorrect');
+    _pinCloture = '';
+    _updateDotsCloture();
+    if (btn) btn.style.pointerEvents = 'auto';
+    return;
+  }
+
+  // 2. PIN valide → écrire réellement le reliquat stock
+  const { error: errReliquat } = await sb.rpc('cloturer_phase3_reliquat', {
+    p_bande_id: bandeId,
+    p_ferme_id: FERME_ID
+  });
+
+  if (errReliquat) {
+    showToast('Erreur écriture reliquat — réessayez', 'error');
+    if (btn) btn.style.pointerEvents = 'auto';
+    return;
+  }
+
+  showToast('Reliquat stock enregistré ✅', 'success');
+  _pinCloture = '';
+  Nav.replace('renderClotureBande', bandeId);
+}
+
+function _showClotErr(msg) {
+  const e = document.getElementById('pin-clot-err');
+  if (e) e.textContent = msg;
 }
 
 function _toggleFormCorrectionEffectif() {
