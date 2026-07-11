@@ -1,337 +1,441 @@
 # 🐔 AviGest v26
 
-Bible du Projet — Document de Référence Permanent
+## Bible du Projet --- Document de Référence Permanent
 
-*Version 26 — Adama Désiré — Ouagadougou, Burkina Faso*
+*Version 26 --- Adama Désiré --- Ouagadougou, Burkina Faso*
 
-> **Synchronisation** : ce `.md` est régénéré à partir de `bible_avigest_v26.docx` — dernière synchronisation le **08/07/2026** (session v26.20). Le `.docx` reste la référence unique ; ce `.md` est une copie dérivée lue par Claude Code depuis le repo, à côté de `SCHEMA.md`. Ne jamais éditer ce `.md` comme source — toujours régénérer depuis le `.docx` à jour.
+> **Synchronisation** : cette version `.md` est générée à partir de `bible_avigest_v26.docx` --- dernière synchronisation le **10/07/2026 (session v26.21).**. Le `.docx` reste la référence unique pour toute modification manuelle ; ce fichier `.md` est une copie dérivée destinée à être lue par Claude Code depuis le repo GitHub, à côté de `SCHEMA.md`. Ne jamais éditer ce `.md` comme source --- toujours régénérer depuis le `.docx` à jour.
 
-# 1. Contexte et Objectif
+------------------------------------------------------------------------
+
+## 1. Contexte et Objectif
 
 AviGest est une Progressive Web App (PWA) de gestion avicole à Ouagadougou. Elle gère un élevage de poulets de chair sur plusieurs poulaillers, avec trois rôles : gérant, agent, partenaires investisseurs.
 
 **Contraintes clés :**
 
-- Connexion variable — mode hors ligne prévu (non encore implémenté)
-
-- Agent peu familier avec le numérique — interface pavé numérique, un champ à la fois
-
+- Connexion variable --- mode hors ligne prévu (non encore implémenté)
+- Agent peu familier avec le numérique --- interface pavé numérique, un champ à la fois
 - Backend : Supabase PostgreSQL + Realtime · Frontend : GitHub Pages · SDK local supabase.js
 
-# 2. Architecture Technique
+------------------------------------------------------------------------
 
-## 2.1 URLs et Identifiants
+## 2. Architecture Technique
 
-| **Élément**           | **Valeur**                                          |
-|-----------------------|-----------------------------------------------------|
-| URL Frontend          | https://adamaky.github.io/AVIGEST4/                 |
-| GitHub Repo           | https://github.com/Adamaky/AVIGEST4                 |
-| Supabase URL          | https://jzlmnpxcnrcajludtkpt.supabase.co            |
-| Supabase Project ID   | Jzlmnpxcnrcajludtkpt                                |
-| Ferme ID (REVAGRO)    | e56574a9-54c1-430d-b480-b9bdd1090dd7                |
-| Ferme ID (ALIRAH2026) | 40ee764e-d073-463e-b07b-bf95a9d7a675                |
-| Client Supabase       | sb (toujours sb, jamais supabase)                   |
-| SDK local             | supabase.js ligne 17 (téléchargé depuis unpkg.com)  |
-| Session               | 12 heures · Avertissement 1h avant expiration       |
-| Fichier de travail    | C:\Users\kyada\Documents\GitHub\AVIGEST4\index.html |
+### 2.1 URLs et Identifiants
 
-## 2.2 Terminologie — Deux niveaux
+  ------------------------------------------------------------------------------------
+  Élément                 Valeur
+  ----------------------- ------------------------------------------------------------
+  URL Frontend            https://adamaky.github.io/AVIGEST4/
 
-| **Terme visible (interface)** | **Terme technique (code)** | **Explication**                   |
-|-------------------------------|----------------------------|-----------------------------------|
-| Poulailler 1, 2...            | Batiment-1, Batiment-2...  | Salle d'élevage physique          |
-| Bande                         | bande / bande_id           | Lot de poulets dans un poulailler |
-| Agent                         | AGENT / role               | Responsable terrain               |
-| Partenaire                    | PARTENAIRE / role          | Investisseur                      |
-| Gérant                        | GERANT / role              | Gestionnaire principal            |
+  GitHub Repo             https://github.com/Adamaky/AVIGEST4
 
-## 2.3 Format ID Bande
+  Supabase URL            https://jzlmnpxcnrcajludtkpt.supabase.co
 
-Format : Bande-YYYY-NNN (ex : Bande-2026-001)
+  Supabase Project ID     jzlmnpxcnrcajludtkpt
 
-- Regex de validation : /^Bande-\d{4}-\d{3}\$/
+  Ferme ID (REVAGRO)      e56574a9-54c1-430d-b480-b9bdd1090dd7
 
+  Ferme ID (ALIRAH2026)   40ee764e-d073-463e-b07b-bf95a9d7a675
+
+  Client Supabase         sb (toujours sb, jamais supabase)
+
+  SDK local               supabase.js ligne 17 (téléchargé depuis unpkg.com)
+
+  Session                 12 heures · Avertissement 1h avant expiration
+
+  Fichier de travail      C:.html
+
+  **Version actuelle**    **APP_VERSION = 'v26.19' · CACHE_NAME = 'avigest-v26-19'**
+  ------------------------------------------------------------------------------------
+
+### 2.2 Terminologie --- Deux niveaux
+
+  -------------------------------------------------------------------------------------------
+  Terme visible (interface)   Terme technique (code)      Explication
+  --------------------------- --------------------------- -----------------------------------
+  Poulailler 1, 2...          Batiment-1, Batiment-2...   Salle d'élevage physique
+
+  Bande                       bande / bande_id            Lot de poulets dans un poulailler
+
+  Agent                       AGENT / role                Responsable terrain
+
+  Partenaire                  PARTENAIRE / role           Investisseur
+
+  Gérant                      GERANT / role               Gestionnaire principal
+  -------------------------------------------------------------------------------------------
+
+### 2.3 Format ID Bande
+
+Format : `Bande-YYYY-NNN` (ex : `Bande-2026-001`)
+
+- Regex de validation : `/^Bande-\d{4}-\d{3}$/`
 - Auto-génération avec possibilité de saisie manuelle
+- Soft-delete : toujours ajouter `.eq('``is_deleted``', false)` sur les requêtes bandes
 
-- Soft-delete : toujours ajouter .eq('is_deleted', false) sur les requêtes bandes
+### 2.4 Architecture Supabase --- Tables principales
 
-## 2.4 Architecture Supabase — Tables principales
+  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  Table                Colonnes / Rôle
+  -------------------- ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  bandes               id (UUID, clé primaire), id_bande (identifiant lisible ex. \"Bande-2026-999\", text), ferme_id (UUID), batiment_id (UUID), race, effectif_initial (int), effectif_vendu (int), date_arrivee (date), date_cloture (date), statut (text), prep_terminee (bool), abattage_demarre (bool), fournisseur_poussins (text), effectif_final_corrige (int), effectif_final_note (text), commentaire (text), created_at, updated_at, is_deleted (bool)
 
-| **Table**          | **Colonnes / Rôle**                                                                                                                      |
-|--------------------|------------------------------------------------------------------------------------------------------------------------------------------|
-| bandes             | id, ferme_id, nom, race, effectif_initial, date_arrivee, statut, is_deleted                                                              |
-| saisies_techniques | id, ferme_id, bande_id, date_saisie, session, categorie, valeur, valeur2, unite, note, rôle                                              |
-| taches             | id, ferme_id, bande_id, titre, statut, type_tache, date_creation, date_validation                                                        |
-| journal            | id, ferme_id, bande_id, date_ecriture, type_ecriture, categorie, montant, note                                                           |
-| lots_stock         | id, ferme_id, bande_id, produit, reference, quantite_initiale, quantite_restante, cout_unitaire (généré), seuil_alerte, date_fabrication |
-| mouvements_stock   | id, ferme_id, lot_id, type_mouvement (ENTREE/SORTIE), quantite, session, cout_impute, note                                               |
-| rapports_hebdo     | id, ferme_id, bande_id, semaine, contenu_agent, contenu_gerant, lu_par_agent, lu_par_gerant                                              |
-| sessions_actives   | id, ferme_id, user_id, device_fingerprint — RLS désactivée — verrouillage multi-appareils                                                |
+  saisies_techniques   id, ferme_id, bande_id, date_saisie, session, categorie, valeur, valeur2, unite, note, rôle
 
-## 2.5 Migrations SQL — GitHub
+  taches               id, ferme_id, bande_id, titre, statut, type_tache, date_creation, date_validation
 
-| **Fichier**                 | **Contenu**                                                             |
-|-----------------------------|-------------------------------------------------------------------------|
-| 001_schema_initial.sql      | Tables de base : bandes, saisies_techniques, taches, journal            |
-| 002_stock_tables.sql        | Tables lots_stock et mouvements_stock                                   |
-| 003_rls_policies.sql        | Politiques RLS sur les 14 tables                                        |
-| 004_get_ferme_id_fix.sql    | Correction SECURITY DEFINER + cast JSON sur get_ferme_id()              |
-| 005_imputer_aliment_rpc.sql | RPC imputer_aliment() — imputation atomique stock depuis sessions agent |
-| 006_stock_dashboard_rpc.sql | RPC pour vue stock dashboard gérant                                     |
+  journal              id, ferme_id, bande_id, date_ecriture, type_ecriture, categorie, montant, note
 
-# 3. Utilisateurs et Rôles
+  lots_stock           id, ferme_id, bande_id, produit, reference, quantite_initiale, quantite_restante, cout_unitaire (généré), seuil_alerte, date_fabrication, categorie_cru
 
-| **Rôle**   | **Limite** | **PIN actuel**     | **Accès**                                                        |
-|------------|------------|--------------------|------------------------------------------------------------------|
-| GERANT     | Max 2      | 0000 (Adama)       | Tout — supervision, planif, compta, poulaillers, stock, rapports |
-| AGENT      | Max 2      | 1111 (Agent Ferme) | Terrain — sessions, saisies, tâches                              |
-| PARTENAIRE | Illimité   | PIN individuel     | Ses bandes — résultats, état lot, créances                       |
+  mouvements_stock     id, ferme_id, lot_id, type_mouvement (ENTREE/SORTIE), quantite, session, cout_impute, note
 
-# 4. Règles Techniques Critiques
+  rapports_hebdo       id, ferme_id, bande_id, semaine, contenu_agent, contenu_gerant, lu_par_agent, lu_par_gerant
 
-## 4.1 Règles Supabase
+  sessions_actives     id, ferme_id, user_id, device_fingerprint --- RLS désactivée (choix documenté) --- verrouillage multi-appareils. **Voir section 14 --- Audit sécurité v26.18 : DELETE cross-tenant corrigé v26.19.**
+  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-- Client toujours nommé sb — jamais supabase
+### 💡 *En clair : on garde la bonne version (dans le tableau, en haut) et on efface la copie en double (en bas, après sessions_actives). Il ne doit rester qu\'une seule ligne « bandes ».*
 
-- Header x-ferme-id injecté globalement à la création du client (ligne 427)
+### 2.5 Migrations SQL --- GitHub
 
-- RLS active sur toutes les tables sauf sessions_actives
+  ------------------------------------------------------------------------------------------------------------------
+  Fichier                       Contenu
+  ----------------------------- ------------------------------------------------------------------------------------
+  001_schema_initial.sql        Tables de base : bandes, saisies_techniques, taches, journal
 
-- get_ferme_id() avec SECURITY DEFINER — retourne l'ID ferme depuis le header
+  002_stock_tables.sql          Tables lots_stock et mouvements_stock
 
-- Statelessness REST : set_config ne persiste pas entre requêtes — utiliser le header global
+  003_rls_policies.sql          Politiques RLS sur les 14 tables
 
+  004_get_ferme_id_fix.sql      Correction SECURITY DEFINER + cast JSON sur get_ferme_id()
+
+  005_imputer_aliment_rpc.sql   RPC imputer_aliment() --- imputation atomique stock depuis sessions agent
+
+  006_stock_dashboard_rpc.sql   RPC pour vue stock dashboard gérant
+
+  ...                           (migrations suivantes numérotées jusqu'à 030 --- voir dossier migrations/ du repo)
+  ------------------------------------------------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+
+## 3. Utilisateurs et Rôles
+
+  -----------------------------------------------------------------------------------------------------------------
+  Rôle         Limite     PIN actuel           Accès
+  ------------ ---------- -------------------- --------------------------------------------------------------------
+  GERANT       Max 2      0000 (Adama)         Tout --- supervision, planif, compta, poulaillers, stock, rapports
+
+  AGENT        Max 2      1111 (Agent Ferme)   Terrain --- sessions, saisies, tâches
+
+  PARTENAIRE   Illimité   PIN individuel       Ses bandes --- résultats, état lot, créances
+  -----------------------------------------------------------------------------------------------------------------
+
+> PIN stocké en bcrypt via RPC `verifier_pin``()` (colonne PIN en clair supprimée --- Migration 028).
+
+------------------------------------------------------------------------
+
+## 4. Règles Techniques Critiques
+
+### 4.1 Règles Supabase
+
+- Client toujours nommé `sb` --- jamais `supabase`
+- Header `x-ferme-id` injecté globalement à la création du client (ligne 427)
+- RLS active sur toutes les tables sauf `sessions_actives`
+- `get_ferme_id``()` avec SECURITY DEFINER --- retourne l'ID ferme depuis le header
+- Statelessness REST : `set_config` ne persiste pas entre requêtes --- utiliser le header global
 - Avant tout INSERT : vérifier colonnes NOT NULL, defaults, et colonnes générées
+- `cout_unitaire` dans `lots_stock` est une colonne GÉNÉRÉE --- ne jamais l'inclure dans un INSERT
+- `lots_stock.produit` : noms complets (ex : 'Aliment de démarrage') --- chercher avec `LOWER(produit) LIKE`
+- `mouvements_stock.type_mouvement` : uniquement 'ENTREE' ou 'SORTIE'
+- `SET LOCAL ``row_security`` = off` dans les RPCs SECURITY DEFINER qui interrogent `utilisateurs`, pour bypasser RLS
+- Appeler `extensions.crypt``()` et non `crypt``()` --- pgcrypto est dans le schéma extensions
+- **Toute opération DELETE/UPDATE sur une table sans RLS (ex:** `sessions_actives`**) doit systématiquement filtrer par** `ferme_id` **côté client --- leçon de l'audit sécurité v26.18 (voir section 14)**
 
-- cout_unitaire dans lots_stock est une colonne GÉNÉRÉE — ne jamais l'inclure dans un INSERT
+### 4.2 Règles JavaScript
 
-- lots_stock.produit : noms complets (ex : 'Aliment de démarrage') — chercher avec LOWER(produit) LIKE
+- Apostrophes dans les chaînes JS : toujours échapper avec `\'` ou utiliser des guillemets doubles
+- Ne jamais imbriquer des template literals dans `.``map``()` --- utiliser la concaténation
+- `&``quot``;` au lieu d'apostrophes dans les attributs onclick inline
+- `node`` --check` échoue sur les fichiers `.html` --- utiliser la commande PowerShell d'extraction JS
+- jsDelivr CDN inaccessible depuis le Burkina Faso --- utiliser unpkg.com ou le fichier local
 
-- mouvements_stock.type_mouvement : uniquement 'ENTREE' ou 'SORTIE'
+### 4.3 Règles de travail
 
-## 4.2 Règles JavaScript
-
-- Apostrophes dans les chaînes JS : toujours échapper avec \\ ou utiliser des guillemets doubles
-
-- Ne jamais imbriquer des template literals dans .map() — utiliser la concaténation
-
-- &quot; au lieu d'apostrophes dans les attributs onclick inline
-
-- node --check échoue sur les fichiers .html — utiliser la commande PowerShell d'extraction JS
-
-- jsDelivr CDN inaccessible depuis le Burkina Faso — utiliser unpkg.com ou le fichier local
-
-## 4.3 Règles de travail
-
-- Fichier unique : C:\Users\kyada\Documents\GitHub\AVIGEST4\index.html
-
+- Fichier unique : `C:\Users\kyada\Documents\GitHub\AVIGEST4\index.html`
 - Workflow : VS Code → Claude Code → vérification syntaxe PowerShell → GitHub Desktop → Push
-
-- Chaque modification SQL = un nouveau fichier de migration numéroté dans migrations/
-
-- APP_VERSION mis à jour à chaque session
-
+- Chaque modification SQL = un nouveau fichier de migration numéroté dans `migrations/`
+- `APP_VERSION` (ligne \~463 index.html) mis à jour EN MÊME TEMPS que `CACHE_NAME` (ligne 9 sw.js) à chaque session --- format `'v26.XX'`
 - Sélectionner 'Yes, allow all edits this session' dans Claude Code pour les sessions multi-patches
+- Vérification après patch : commandes `Ctrl+Shift+F` avec nombre d'occurrences attendu
+- **Un seul changement par patch** --- ne jamais mixer des modifications non liées dans un même commit (leçon B6/isolation stricte)
+- **Séquence de vérification stricte (confirmée v26.18)** : édition → `node`` --check` (confirmation explicite du résultat, ne jamais supposer que c'est fait) → diff GitHub Desktop complet → incrément version si dernier changement de la session → commit avec message combiné (version + description)
 
-- Vérification après patch : commandes Ctrl+Shift+F avec nombre d'occurrences attendu
+**RÈGLE STOCK --- Deux types de lots**
 
-RÈGLE STOCK — Deux types de lots
+Avant tout INSERT `lots_stock`, vérifier le flag `impute_journal` (BOOLEAN) : - `true` : RPC déclenche écriture journal - `false` : RPC décrémente stock uniquement, pas d'écriture journal
 
-Avant tout INSERT lots_stock, vérifier le flag
+**RÈGLE CRU --- Filtre catégories charges consommées (définitive, ne pas modifier)**
 
-impute_journal (BOOLEAN) :
+    CRU = SUM(montant) WHERE type_ecriture = 'DEPENSE' 
+                        AND categorie != 'Achat stock'
+          / effectif_vivants
 
-→ true : RPC déclenche écriture journal
+Filtre par **exclusion**, pas par liste fermée. La litière (comme tout produit avec `impute_journal`` = ``true`) entre correctement dans le CRU via ce filtre --- ne jamais ajouter de catégorie spécifique au filtre, l'exclusion `!= 'Achat stock'` suffit et gère tout automatiquement.
 
-→ false : RPC décrémente stock uniquement,
+**RÈGLE JOURNAL --- Catégories prédéfinies (v2)**
 
-pas d'écriture journal
+Charges consommées (CRU) : - Alimentation (auto RPC) - Vaccin \[type + unité + qté + PU\] - Médicament \[type + unité + qté + PU\] - Litière \[type + unité + qté + PU\] --- traitée comme l'aliment (Type A)
 
-RÈGLE CRU — Filtre catégories charges consommées
+Charges exploitation (hors CRU par exclusion, mais toujours DEPENSE) : - Salaire \[forfait ou qté×PU\] - Prestation de service \[forfait ou qté×PU\] - Transport \[forfait ou qté×PU\] - Glace \[forfait ou qté×PU\] - Autre \[texte libre + montant\]
 
-CRU = SUM(montant) WHERE categorie IN
+Hors charges (mouvement stock, jamais dans le CRU) : - Achat stock \[lié à lots_stock\]
 
-('Alimentation','Vaccin','Médicament')
+------------------------------------------------------------------------
 
-/ effectif_vivants
+## 5. Score Santé --- Règle de Calcul
 
-NE PAS inclure : Salaire, Prestation, Transport,
+Validé session 18 juin 2026 --- Cobb 500, Ouagadougou, J14+
 
-Glace, Achat stock, Autre
+  --------------------------------------------------------------
+  Paramètre          Bon 🟢       Passable 🟡   Mauvais 🔴
+  ------------------ ------------ ------------- ----------------
+  Température (°C)   26--32°C     33--35°C      \<26 ou \>35°C
 
-RÈGLE JOURNAL — Catégories prédéfinies (v2)
+  Hygrométrie (%)    50--70%      71--80%       \<50 ou \>80%
 
-Charges consommées (CRU) :
-
-→ Alimentation (auto RPC)
-
-→ Vaccin [type + unité + qté + PU]
-
-→ Médicament [type + unité + qté + PU]
-
-Charges exploitation (hors CRU) :
-
-→ Salaire [forfait ou qté×PU]
-
-→ Prestation de service [forfait ou qté×PU]
-
-→ Transport [forfait ou qté×PU]
-
-→ Glace [forfait ou qté×PU]
-
-→ Autre [texte libre + montant]
-
-Hors charges (mouvement stock) :
-
-→ Achat stock [lié à lots_stock]
-
-# 5. Score Santé — Règle de Calcul
-
-Validé session 18 juin 2026 — Cobb 500, Ouagadougou, J14+
-
-| **Paramètre**    | **Bon 🟢** | **Passable 🟡** | **Mauvais 🔴** |
-|------------------|------------|-----------------|----------------|
-| Température (°C) | 26–32°C    | 33–35°C         | <26 ou >35°C |
-| Hygrométrie (%)  | 50–70%     | 71–80%          | <50 ou >80%  |
-| Mortalité/jour   | 0–2 morts  | 3–5 morts       | >5 morts      |
+  Mortalité/jour     0--2 morts   3--5 morts    \>5 morts
+  --------------------------------------------------------------
 
 **Règle de calcul : Score final = le PIRE des 3 scores individuels**
 
 Surcharge manuelle : l'agent peut modifier le score calculé + saisir une note explicative
 
-# 6. Module Stock — Architecture complète
+> **Bug cosmétique (v26.17, toujours non résolu, priorité moyenne)** : écran de confirmation agent affiche le score santé avec balises HTML brutes (`<``strong``>BON</``strong``>` au lieu de **BON** en gras). Cause : la fonction `esc()` échappe les balises `<``strong``>` volontairement insérées dans `_``renderSessionResume``()`. Correctif prêt (retrait de `<``strong``>`/`</``strong``>`, le CSS `.rapport-ligne ``span:last-child` gère déjà le gras) --- non encore appliqué. Estimé 5 minutes.
 
-```
-TYPE DE LOT STOCK
-─────────────────────────────────────────────
+------------------------------------------------------------------------
 
-Type A — Avec imputation journal (charge)
+## 6. Module Stock --- Architecture complète (CHANTIER CLOS --- v26.18)
 
- → Aliment, Vaccin, Médicament, Litière
+**TYPE DE LOT STOCK**
 
- → Décrémente stock + écriture journal auto
+**Type A --- Avec imputation journal (charge)** - → Aliment, Vaccin, Médicament, Litière - → Décrémente stock + écriture journal auto - → Entre dans le CRU (sauf catégorie "Achat stock")
 
- → Entre dans le CRU (sauf catégorie "Achat stock")
+**Type B --- Sans imputation journal** - → Produits créés par le gérant avec `impute_journal`` = false` - → Décrémente stock uniquement - → N'entre PAS dans le CRU
 
-Type B — Sans imputation journal
+**FLAG sur lots_stock (implémenté) :**
 
- → Produits créés par le gérant avec impute_journal = false
+    impute_journal BOOLEAN DEFAULT false
+    categorie_cru TEXT (v26.16) — catégorie comptable du lot,
+      lue en priorité par imputer_stock(), avec repli sur
+      l'ancien CASE (nom produit) si NULL
 
- → Décrémente stock uniquement
+**Imputation générique multi-produits depuis sessions agent (confirmé v26.18) :** L'étape `stock_autres` (« Autres produits utilisés ») est présente dans les 4 sessions agent (Matin/Midi/PM/Nuit), pas seulement Matin. Elle liste tout lot dont le produit n'est pas l'aliment (`.not('produit', '``ilike``', '%aliment%')`) et impute chaque quantité saisie via `imputer_stock``()` --- mécanisme générique, non câblé spécifiquement pour un produit donné. Testé en conditions réelles avec deux produits distincts, flux complet jusqu'à validation gérant (EN_ATTENTE → CONFIRME) confirmé pour les deux : - **Litière** --- B8, testé 01/07/2026 - **Médicament** --- testé, session v26.18 (02/07/2026)
 
- → N'entre PAS dans le CRU
+Le vaccin n'a pas fait l'objet d'un test terrain distinct, mais utilise exactement le même mécanisme générique que la litière et le médicament --- risque de comportement différent jugé très faible.
 
-FLAG sur lots_stock (implémenté) : 
+### ÉTAPES MODULE STOCK
 
- impute_journal BOOLEAN DEFAULT false
- categorie_cru TEXT (v26.16) — catégorie comptable du lot,
- lue en priorité par imputer_stock(), avec repli sur
- l'ancien CASE (nom produit) si NULL
+  --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  Étape                                                                         Statut
+  ----------------------------------------------------------------------------- --------------------------------------------------------------------------------------------------------------------------------------
+  Étape 1 --- Schéma SQL                                                        ✅ Validé
 
-─────────────────────────────────────────────
+  Étape 2 --- Interface création lot                                            ✅ Validé
 
-ÉTAPES MODULE STOCK
-Étape 1 — Schéma SQL ✅ Validé
-Étape 2 — Interface création lot ✅ Validé
-Étape 3 — Imputation auto sessions agent ✅ Validé
-Étape 4 — Vue stock dashboard gérant ✅ Validé
-Étape 5 — Validation gérant alimentation ✅ Validé — mécanisme EN_ATTENTE + écran validation gérant opérationnel
-Étape 6 — RPC litière (Type A, alignée aliment) ✅ Validé — Migration 029, testé en conditions réelles 01/07/2026
-Étape 7 — Formulaire dépense enrichi ○ À faire
-Étape 8 — CRU filtré charges consommées ○ À faire
-```
+  Étape 3 --- Imputation auto sessions agent                                    ✅ Validé
 
-# 13. Tableau de Suivi — Outil Permanent du Non-Codeur
+  Étape 4 --- Vue stock dashboard gérant                                        ✅ Validé
+
+  Étape 5 --- Validation gérant alimentation                                    ✅ Validé --- mécanisme EN_ATTENTE + écran validation gérant opérationnel
+
+  Étape 6 --- RPC litière (Type A, alignée aliment)                             ✅ Validé --- Migration 029, testé en conditions réelles 01/07/2026
+
+  Étape 7 --- Formulaire dépense enrichi                                        ✅ Validé --- confirmé session v26.18, `renderNouvelleEcriture``()` avec `<``optgroup``>` Charges CRU / Mouvement stock, mode Qté×PU
+
+  Étape 8 --- CRU filtré charges consommées                                     ✅ Validé --- confirmé session v26.18, filtre `categorie`` !== 'Achat stock'` présent et cohérent à 3 endroits du code
+
+  Imputation multi-produits (litière/vaccin/médicament) depuis sessions agent   ✅ Validé --- confirmé session v26.18, voir détail ci-dessus
+  --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+**Le module Stock est désormais entièrement clos --- zéro item ouvert.**
+
+------------------------------------------------------------------------
+
+## 13. Tableau de Suivi --- Outil Permanent du Non-Codeur
 
 Cette section est la mémoire vivante du projet. Claude la lit à chaque session pour savoir où en est le projet sans qu'Adama ait besoin de tout réexpliquer.
 
-## 13.1 Légende des Statuts
+### 13.1 Légende des Statuts
 
-| **Statut**  | **Signification**                       | **Action suivante**                            |
-|-------------|-----------------------------------------|------------------------------------------------|
-| ✅ Validé   | Testé sur l'app et confirmé fonctionnel | Passer à la prochaine fonctionnalité           |
-| ⏳ En cours | Code produit mais pas encore testé      | Tester sur https://adamaky.github.io/AVIGEST4/ |
-| 🐛 Bug      | Testé — comportement incorrect observé  | Décrire le bug précis à Claude                 |
-| ○ À faire   | Pas encore commencé                     | Briefer Claude quand c'est la priorité         |
-| ☁️ SaaS     | Fonctionnalité prévue multi-fermes      | À planifier après stabilisation v1             |
+  -----------------------------------------------------------------------------------------------------------------------
+  Statut         Signification                              Action suivante
+  -------------- ------------------------------------------ -------------------------------------------------------------
+  ✅ Validé      Testé sur l'app et confirmé fonctionnel    Passer à la prochaine fonctionnalité
 
-## 13.2 Tableau de Suivi des Fonctionnalités
+  ⏳ En cours    Code produit mais pas encore testé         Tester sur https://adamaky.github.io/AVIGEST4/
 
-| **Fonctionnalité**                  | **Statut**      | **Note / Bug connu**                                                         | **SaaS** |
-|-------------------------------------|-----------------|------------------------------------------------------------------------------|----------|
-| **FONDATIONS**                      |                 |                                                                              |          |
-| Login PIN + session 12h             | **✅ Validé**   | Testé PIN 0000 → OK                                                          |          |
-| Verrouillage multi-appareils        | **✅ Validé**   | Table sessions_actives + device fingerprint                                  |          |
-| Écran blocage session concurrente   | **✅ Validé**   | Ex-B2 — écran dédié screen-blocage (au lieu d'injection dans app-main caché) |          |
-| Bouton Forcer déconnexion           | **✅ Validé**   | Ex-B9 — role passé en paramètre, corrige dépendance circulaire localStorage  |          |
-| Système de navigation Nav           | **✅ Validé**   | Bug pavé PIN corrigé                                                         |          |
-| Mode hors ligne + sync auto         | **○ À faire**   | Queue localStorage à implémenter                                             |          |
-| Notifications OneSignal             | **○ À faire**   | Géré en arrière-plan                                                         |          |
-| **AGENT**                           |                 |                                                                              |          |
-| Tuiles sessions dans onglet Tâches  | **✅ Validé**   | 4 sessions : Matin/Midi/PM/Nuit                                              |          |
-| Session Matin — 6 étapes            | **✅ Validé**   | Pavé numérique fonctionnel                                                   |          |
-| Session Midi — 3 étapes             | **✅ Validé**   | Testé 18/06/2026                                                             |          |
-| Session PM — 3 étapes               | **✅ Validé**   | Testé 18/06/2026                                                             |          |
-| Session Nuit — 4 étapes             | **✅ Validé**   | Testé 18/06/2026                                                             |          |
-| Score santé — calcul auto           | **🐛 Bug**      | B1 : 'Score undefined' — à corriger prochaine session                        |          |
-| Score santé — surcharge manuelle    | **○ À faire**   | Prévu : bouton Bon/Passable/Mauvais + note agent                             |          |
-| Blocage sessions hors plage horaire | **🐛 Bug**      | B3 : sessions accessibles hors horaire — à corriger                          |          |
-| Écran abattage — 3 étapes           | **○ À faire**   | Calcul poids moyen auto                                                      |          |
-| **GÉRANT**                          |                 |                                                                              |          |
-| Accueil gérant — navigation         | **✅ Validé**   | ACCUEIL · BANDES · ANALYSES                                                  |          |
-| Onglet Tâches gérant                | **✅ Validé**   | B4 corrigé 18/06 — termineesHTML déclarée                                    |          |
-| Planifier tâches agent              | **✅ Validé**   | 3 types : Quotidienne · Hebdomadaire · Abattage                              |          |
-| Journal comptable                   | **✅ Validé**   | Dépenses + Recettes + CRU/sujet                                              |          |
-| Analyses — zootechnie               | **🐛 Bug**      | B5 : Poids moyen et IC vides — données manquantes                            |          |
-| Analyses — finance                  | **✅ Validé**   | Marge nette · Dépenses · Recettes                                            |          |
-| Planifier abattage                  | **✅ Validé**   | Formulaire Date + Nb sujets + Client cible                                   |          |
-| Rapports hebdomadaires              | **⏳ En cours** | À tester prochaine session                                                   |          |
-| Rapport fin de bande + WhatsApp     | **○ À faire**   | Export texte structuré                                                       |          |
-| Gestion utilisateurs                | **○ À faire**   | Créer / activer / désactiver                                                 |          |
-| **STOCK**                           |                 |                                                                              |          |
-| Étape 1 — Schéma SQL                | **✅ Validé**   | Tables lots_stock + mouvements_stock                                         |          |
-| Étape 2 — Interface création lot    | **✅ Validé**   | Formulaire gérant fonctionnel                                                |          |
-| Étape 3 — Imputation auto sessions  | **✅ Validé**   | RPC imputer_aliment() validé 18/06 — -50kg/-20kg/-10kg OK                    |          |
-| Étape 4 — Vue stock dashboard       | **✅ Validé**   | Synthèse + détail + seuil + historique mouvements                            |          |
-| Navigation retour vues stock        | **✅ Validé**   | Testé 18/06/2026                                                             |          |
-| **PARTENAIRE**                      |                 |                                                                              |          |
-| Interface partenaire — 3 tuiles     | **○ À faire**   | Filtré par idPartenaire                                                      |          |
-| Assignation quotes-parts            | **○ À faire**   | Total ≤ 100%                                                                 |          |
-| **PROCESSUS**                       |                 |                                                                              |          |
-| Clôture bande — 6 phases            | **○ À faire**   | 14 jours minimum                                                             |          |
-| Fabrication aliment                 | **○ À faire**   | Lignes dynamiques                                                            |          |
-| Alertes automatiques in-app         | **○ À faire**   | 7 KPI configurés                                                             |          |
-| Abattage progressif — 6 étapes      | **○ À faire**   | Plan → Exec → Validation                                                     |          |
-| **VISION SAAS**                     |                 |                                                                              |          |
-| Multi-fermes (multi-tenant)         | **✅ Validé**   | 2 fermes actives (REVAGRO, ALIRAH2026) — chaque ferme = espace isolé         | ☁️       |
-| Authentification sécurisée SaaS     | **○ À faire**   | PIN → tokens JWT ou équivalent                                               | ☁️       |
-| Plans tarifaires (Free / Pro)       | **○ À faire**   | Gestion abonnements                                                          | ☁️       |
-| Dashboard gérant SaaS               | **○ À faire**   | Vue de toutes les fermes                                                     | ☁️       |
-| Onboarding nouvelle ferme           | **○ À faire**   | Option A : intégré (pas subdomain)                                           | ☁️       |
+  🐛 Bug         Testé --- comportement incorrect observé   Décrire le bug précis à Claude
 
-## 13.3 Bugs ouverts — À corriger prochaine session
+  ○ À faire      Pas encore commencé                        Briefer Claude quand c'est la priorité
 
-## 13.4 Protocole de Brief de Session
+  ☁️ SaaS        Fonctionnalité prévue multi-fermes         À planifier après stabilisation v1
+
+  ⏹️ Abandonné   Décision définitive de ne pas traiter      Aucune --- ne jamais rouvrir sans demande explicite d'Adama
+  -----------------------------------------------------------------------------------------------------------------------
+
+### 13.2 Tableau de Suivi des Fonctionnalités
+
+**FONDATIONS**
+
+  ----------------------------------------------------------------------------------------------------------------------------------------------------------------
+  Fonctionnalité                                               Statut          Note / Bug connu
+  ------------------------------------------------------------ --------------- -----------------------------------------------------------------------------------
+  Login PIN + session 12h                                      ✅ Validé       Testé PIN 0000 → OK
+
+  Verrouillage multi-appareils                                 ✅ Validé       Table sessions_actives + device fingerprint
+
+  Écran blocage session concurrente                            ✅ Validé       Ex-B2 --- écran dédié screen-blocage (au lieu d'injection dans app-main caché)
+
+  Bouton Forcer déconnexion                                    ✅ Validé       Ex-B9 --- role passé en paramètre, corrige dépendance circulaire localStorage
+
+  Système de navigation Nav                                    ✅ Validé       Bug pavé PIN corrigé
+
+  **Correctif RLS --- sessions_actives DELETE cross-tenant**   **✅ Validé**   **v26.19 --- filtre** `.eq('``ferme_id``', FERME_ID)` **ajouté, voir section 14**
+
+  Mode hors ligne + sync auto                                  ○ À faire       Queue localStorage à implémenter
+
+  Notifications OneSignal                                      ○ À faire       Géré en arrière-plan
+  ----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+**AGENT**
+
+  ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  Fonctionnalité                        Statut         Note / Bug connu
+  ------------------------------------- -------------- ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  Tuiles sessions dans onglet Tâches    ✅ Validé      4 sessions : Matin/Midi/PM/Nuit
+
+  Session Matin --- 6 étapes            ✅ Validé      Pavé numérique fonctionnel
+
+  Session Midi --- 3 étapes             ✅ Validé      Testé 18/06/2026
+
+  Session PM --- 3 étapes               ✅ Validé      Testé 18/06/2026
+
+  Session Nuit --- 4 étapes             ✅ Validé      Testé 18/06/2026
+
+  Score santé --- calcul auto           ⏹️ Abandonné   Ex-B1 : "Score undefined" --- décision définitive d'Adama (session v26.18) de ne pas traiter, non prioritaire. Distinct du bug cosmétique `<``strong``>` (voir section 5), toujours actif celui-là
+
+  Score santé --- surcharge manuelle    ○ À faire      Prévu : bouton Bon/Passable/Mauvais + note agent
+
+  Blocage sessions hors plage horaire   ✅ Validé      Ex-B3 --- confirmé implémenté dans `renderSession``()` : plages par session (Matin 5h-10h, Midi 10h-14h, PM 14h-19h, Nuit 19h-5h), double protection (bouton désactivé + re-vérification fonction)
+
+  Écran abattage --- 3 étapes           ○ À faire      Calcul poids moyen auto
+  ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+**GÉRANT**
+
+  ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  Fonctionnalité                    Statut        Note / Bug connu
+  --------------------------------- ------------- ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  Accueil gérant --- navigation     ✅ Validé     ACCUEIL · BANDES · ANALYSES
+
+  Onglet Tâches gérant              ✅ Validé     Ex-B4 --- confirmé résolu (termineesHTML déclarée) ; collision historique de numérotation avec un autre B4 cité ailleurs restée non éclaircie mais sans impact pratique --- voir Points en suspens
+
+  Planifier tâches agent            ✅ Validé     3 types : Quotidienne · Hebdomadaire · Abattage
+
+  Journal comptable                 ✅ Validé     Dépenses + Recettes + CRU/sujet
+
+  Analyses --- zootechnie           ✅ Validé     Ex-B5 : Poids moyen et IC --- confirmé résolu par Adama (testé/observé récemment, session v26.18)
+
+  Analyses --- finance              ✅ Validé     Marge nette · Dépenses · Recettes
+
+  Planifier abattage                ✅ Validé     Formulaire Date + Nb sujets + Client cible
+
+  Rapports hebdomadaires            ⏳ En cours   À tester prochaine session
+
+  Rapport fin de bande + WhatsApp   ✅ Validé     Export texte structuré (fermé v26.9)
+
+  Gestion utilisateurs              ○ À faire     Créer / activer / désactiver
+  ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+**STOCK**
+
+Voir section 6 --- module entièrement clos (8 étapes + imputation multi-produits, toutes ✅ Validé).
+
+**PARTENAIRE**
+
+  -------------------------------------------------------------------------
+  Fonctionnalité                      Statut      Note / Bug connu
+  ----------------------------------- ----------- -------------------------
+  Interface partenaire --- 3 tuiles   ○ À faire   Filtré par idPartenaire
+
+  Assignation quotes-parts            ○ À faire   Total ≤ 100%
+  -------------------------------------------------------------------------
+
+**PROCESSUS**
+
+  --------------------------------------------------------------------------
+  Fonctionnalité                     Statut      Note / Bug connu
+  ---------------------------------- ----------- ---------------------------
+  Clôture bande --- 6 phases         ○ À faire   14 jours minimum
+
+  Fabrication aliment                ○ À faire   Lignes dynamiques
+
+  Alertes automatiques in-app        ○ À faire   7 KPI configurés
+
+  Abattage progressif --- 6 étapes   ○ À faire   Plan → Exec → Validation
+  --------------------------------------------------------------------------
+
+**VISION SAAS**
+
+  ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+  Fonctionnalité                    Statut      Note / Bug connu                                                                                           SaaS
+  --------------------------------- ----------- ---------------------------------------------------------------------------------------------------------- ------
+  Multi-fermes (multi-tenant)       ✅ Validé   2 fermes actives (REVAGRO, ALIRAH2026), 3e client en cours d'intégration --- chaque ferme = espace isolé   ☁️
+
+  Authentification sécurisée SaaS   ○ À faire   PIN → tokens JWT ou équivalent                                                                             ☁️
+
+  Plans tarifaires (Free / Pro)     ○ À faire   Gestion abonnements                                                                                        ☁️
+
+  Dashboard gérant SaaS             ○ À faire   Vue de toutes les fermes                                                                                   ☁️
+
+  Onboarding nouvelle ferme         ○ À faire   Option A : intégré (pas subdomain)                                                                         ☁️
+  ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+### 13.3 Registre des bugs (créé session v26.18)
+
+Registre centralisé transversal, source unique de numérotation des bugs. Les tableaux de section (AGENT, GÉRANT, etc.) ci-dessus restent la référence de lecture rapide, mais tout nouveau bug détecté à partir de maintenant doit être numéroté ici en premier.
+
+**Règles établies (session v26.18) :** - Numérotation strictement croissante, jamais réutilisée, identique dans tous les documents (Bible + mémoire de session) - Sync Bible déclenchée proactivement par Claude dès qu'une ligne passe à ✅ Validé (granularité fine, pas d'attente de fin de chantier) --
+
+*« B10 fermé en v26.21. Prochain numéro disponible : B11. »*
+
+  --------------------------------------------------------------------------------------------------------------------------------------
+  **Numéro**   **Titre court**                                **Domaine**   **Statut**   **Session ouverture**   **Session fermeture**
+  ------------ ---------------------------------------------- ------------- ------------ ----------------------- -----------------------
+  B10          Statut \'TERMINEE\' invalide (→ \'CLOTURE\')   Clôture       ✅ Fermé     v26.18                  v26.21
+
+  --------------------------------------------------------------------------------------------------------------------------------------
+
+### 13.4 Protocole de Brief de Session
 
 Avant chaque session avec Claude, Adama colle ce bloc en début de message :
 
-**📋 BRIEF SESSION AVIGEST v26**
+    📋 BRIEF SESSION AVIGEST v26
 
-Objectif du jour : [une phrase]
+    Objectif du jour : [une phrase]
+    Dernière chose validée : [fonctionnalité]
+    Bug en suspens : [description ou 'Aucun']
 
-Dernière chose validée : [fonctionnalité]
-
-Bug en suspens : [description ou 'Aucun']
-
-## 13.5 Multi-fermes — État actuel et Feuille de Route SaaS
+### 13.5 Multi-fermes --- État actuel et Feuille de Route SaaS
 
 **ÉTAT ACTUEL (production) :**
 
-AviGest gère aujourd'hui 2 fermes actives sur une architecture multi-tenant déjà fonctionnelle : un seul frontend GitHub Pages, sélection de ferme via code d'accès au login (écran-code-ferme), isolation des données par ferme_id + header x-ferme-id + RLS Supabase.
+AviGest gère aujourd'hui 2 fermes actives sur une architecture multi-tenant déjà fonctionnelle : un seul frontend GitHub Pages, sélection de ferme via code d'accès au login (écran-code-ferme), isolation des données par `ferme_id` + header `x-ferme-id` + RLS Supabase.
 
-→ REVAGRO (ferme_id : e56574a9-54c1-430d-b480-b9bdd1090dd7)
-
-→ ALIRAH2026 (ferme_id : 40ee764e-d073-463e-b07b-bf95a9d7a675)
+- → REVAGRO (ferme_id : e56574a9-54c1-430d-b480-b9bdd1090dd7)
+- → ALIRAH2026 (ferme_id : 40ee764e-d073-463e-b07b-bf95a9d7a675)
 
 **EN COURS D'ENGAGEMENT :**
 
@@ -341,444 +445,139 @@ Un 3e client est actuellement en cours d'intégration sur cette même architectu
 
 La vision SaaS plus large (accueil de clients externes non encore identifiés, abonnements, dashboard central multi-fermes) reste documentée ici pour que chaque fonctionnalité v1 soit conçue de façon compatible. Ne pas commencer le chantier SaaS élargi avant que les sections Fondations, Agent et Gérant soient toutes à statut Validé.
 
-| **Pré-requis SaaS élargi**           | **Condition de démarrage**                                        |
-|--------------------------------------|-------------------------------------------------------------------|
-| v1 stable                            | Zéro bug ouvert en Fondations + Agent + Gérant + Stock            |
-| Architecture multi-tenant            | **✅ Déjà en place et validée en production (2 fermes actives)**  |
-| Authentification sécurisée           | Remplacer PIN seul par token JWT avec expiration                  |
-| Plans tarifaires                     | Définir Free (1 poulailler) vs Pro (6+ poulaillers)               |
-| Onboarding                           | Option A : écran onboarding intégré — pas de subdomains par ferme |
-| Client(s) au-delà des 3 déjà engagés | Cible : début janvier 2027                                        |
+  -------------------------------------------------------------------------------------------------------------------------------------------------------
+  Pré-requis SaaS élargi                 Condition de démarrage
+  -------------------------------------- ----------------------------------------------------------------------------------------------------------------
+  v1 stable                              Zéro bug ouvert en Fondations + Agent + Gérant + Stock --- **Stock atteint ce seuil depuis la session v26.18**
 
-## 13.6 Checklists anti-régression
+  Architecture multi-tenant              ✅ Déjà en place et validée en production (2 fermes actives)
 
-Checklists opérationnelles à dérouler à chaque étape sensible. Intégrées depuis `bible_updates_v26.9.md` (session v26.20).
+  Authentification sécurisée             Remplacer PIN seul par token JWT avec expiration
 
-**Avant chaque déploiement :**
+  Plans tarifaires                       Définir Free (1 poulailler) vs Pro (6+ poulaillers)
 
-- Mettre à jour `CACHE_NAME` dans `sw.js` (format `'avigest-v26-XX'`) — force les navigateurs à vider leur cache, sinon les utilisateurs voient une ancienne version.
+  Onboarding                             Option A : écran onboarding intégré --- pas de subdomains par ferme
 
-- Vérifier que `APP_VERSION` dans `index.html` correspond à la version déployée.
+  Client(s) au-delà des 3 déjà engagés   Cible : début janvier 2027
+  -------------------------------------------------------------------------------------------------------------------------------------------------------
 
-**Avant chaque test terrain :**
+------------------------------------------------------------------------
 
-- Ouvrir un onglet InPrivate (`Ctrl+Shift+N`).
+## 14. Sécurité --- État et Audit (nouvelle section, session v26.18)
 
-- `Ctrl+Shift+R` pour forcer le rechargement sans cache.
+### 14.1 Chantiers sécurité fermés (historique)
 
-- Vérifier que le numéro de version affiché en bas de l'écran d'accueil correspond au dernier commit poussé.
+S1-S4 --- voir version précédente de la Bible : protection brute force PIN, hachage bcrypt, erreurs contextuelles showToast, fetch natif remplaçant sbTemp. Tous validés v26.9/v26.10.
 
-- Si la version ne correspond pas, désinscrire le Service Worker via la console :
+### 14.2 Audit RLS --- session v26.18 (via Claude Code)
 
-```js
-navigator.serviceWorker.getRegistrations().then(function(r) {
-for (let reg of r) { reg.unregister(); }
-location.reload(true);
-});
-```
+Premier audit structuré de sécurité RLS effectué le 02/07/2026. Méthode : analyse exhaustive du code JS (`index.html`) pour repérer les opérations sans filtre `ferme_id` ; accès direct aux policies RLS réelles en base non disponible dans cette passe (nécessite Supabase Studio/psql).
 
-**Avant tout SQL (règle absolue) :**
+**Point CRITIQUE confirmé et corrigé :** - `sessions_actives` --- RLS désactivée (choix documenté) + un DELETE cross-tenant sans filtre `ferme_id` trouvé ligne \~1739 (`doLogin``()`, nettoyage sessions expirées). **Corrigé v26.19** : ajout de `.eq('``ferme_id``', FERME_ID)`. Commit : `"v26.19 - Fix RLS gap: DELETE ``sessions_actives`` sans filtre ``ferme_id`` (audit sécurité v26.18)"`. - Limite du correctif : protège contre l'erreur applicative côté code légitime, mais ne remplace pas une policy RLS réelle --- un accès direct via devtools/clé anon pourrait théoriquement encore contourner ce filtre tant que RLS reste désactivée sur cette table.
 
-- Lire `SCHEMA.md` depuis GitHub.
+**Points restés CONDITIONNELS (état RLS réel non vérifié) :**
 
-- Vérifier les types exacts des colonnes avant tout INSERT/UPDATE :
+  --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  Table                                                                  Filtre ferme_id côté code                                                       Risque si RLS off                                   Exemple
+  ---------------------------------------------------------------------- ------------------------------------------------------------------------------- --------------------------------------------------- ---------------------------------------------------------
+  bandes                                                                 Partiel --- \~20 opérations sans ferme_id, dont des UPDATE/DELETE par id seul   🔴 Élevé                                            Soft-delete bande, changement statut, par id seul
 
-```sql
-SELECT column_name, data_type, is_nullable
-FROM information_schema.columns
-WHERE table_schema = 'public' AND table_name = 'NOM_TABLE'
-ORDER BY ordinal_position;
-```
+  batiments                                                              Absent --- 4 UPDATE par id seul                                                 🔴 Élevé                                            Changement statut poulailler par id seul
 
-- Ne jamais supposer un type — toujours vérifier. `SCHEMA.md` est mis à jour après chaque migration.
+  taches                                                                 Partiel --- \~10 opérations sans ferme_id                                       🟠 Moyen-élevé                                      Marquer tâche exécutée par id seul
 
-# 14. Sécurité — État et Audit
+  lots_stock / mouvements_stock                                          Absent sur SELECT/UPDATE détail                                                 🟠 Moyen                                            Détail lot, historique mouvements par id seul
 
-Section consolidée le 04/07/2026 (session v26.19). Fusionne les résultats des audits sécurité successifs en un état unique et à jour.
+  RPCs (`get_dashboard`, `imputer_stock`, `valider_imputation_gerant`)   Pas de ferme_id explicite en paramètre                                          Inconnu --- dépend de la vérification interne SQL   À lire directement en base
 
-## 14.1 — Chantiers sécurité fermés (historique)
+  utilisateurs                                                           Absent --- UPDATE last_login par id seul                                        🟡 Faible                                           Impact métier faible
 
-S1 à S4 (validés v26.9/v26.10) : protection brute force PIN, hachage bcrypt des PIN, erreurs contextuelles via showToast, remplacement de sbTemp par fetch natif. Tous fermés.
+  partenaires_bandes                                                     Absent --- SELECT par utilisateur_id seul                                       🟡 Faible                                           Pertinent si un utilisateur multi-fermes existe un jour
+  --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-## 14.2 — Audit RLS des tables (isolation cross-tenant confirmée)
+**Tables jugées saines (filtre ferme_id systématique côté code) :** journal, rapports_hebdo, composants_lot, vue_stock_actuel.
 
-Méthode : audit du code JS (repérage des opérations sans filtre ferme_id) PUIS audit de la base réelle (pg_tables, pg_policies). Les 5 tables signalées à risque par l'audit de code se sont révélées saines en base.
+### 14.3 Session RLS dédiée --- programmée, non planifiée dans le temps
 
-Résultat — 5 tables, isolation cross-tenant confirmée en base (RLS active + policies ferme_id = get_ferme_id()) :
+**Objectif** : lever l'incertitude sur l'état RLS réel des tables listées ci-dessus. Nécessite l'exécution directe en base (Supabase Studio ou psql) des requêtes suivantes :
 
-- bandes : RLS active ; policies acces_par_ferme (anon), ferme_isolation (public), partenaire_ses_bandes (SELECT). ✅ Confirmée
+    SELECT schemaname, tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;
+    SELECT schemaname, tablename, policyname, cmd, roles, qual, with_check FROM pg_policies WHERE schemaname = 'public' ORDER BY tablename, policyname;
+    SELECT routine_name, routine_definition FROM information_schema.routines
+    WHERE routine_schema = 'public' AND routine_name IN ('get_dashboard','imputer_stock','valider_imputation_gerant','get_ferme_id','verifier_pin');
 
-- batiments : RLS active ; 5 policies découpées par commande, toutes ferme_id = get_ferme_id() (INSERT via with_check). ✅ Confirmée
+Une fois ces résultats obtenus, les points conditionnels du tableau 14.2 deviendront des diagnostics fermes, exploitables pour prioriser d'éventuels correctifs. **Aucun correctif ne doit être appliqué avant validation explicite d'Adama, patch par patch, comme pour le point sessions_actives.**
 
-- taches : RLS active ; acces_par_ferme (anon) + ferme_isolation (public). ✅ Confirmée
+------------------------------------------------------------------------
 
-- lots_stock : RLS active ; acces_par_ferme (anon). ✅ Confirmée
+## Points en suspens (à clarifier avec Adama)
 
-- mouvements_stock : RLS active ; acces_par_ferme (anon) + ferme_isolation (public). ✅ Confirmée
+1.  **~~Collision de numérotation B1~~** --- **Refermé session v26.18.** B1 "score santé" passé au statut ⏹️ Abandonné, décision définitive d'Adama.
+2.  **B4** --- collision historique entre deux mentions du même numéro reste non éclaircie (un B4 "corrigé 18/06" dans GÉRANT vs un B4 parfois cité en basse priorité ailleurs), **mais sans conséquence pratique** : le comportement fonctionnel est confirmé résolu par Adama (session v26.18). Point purement historique, non bloquant.
+3.  **Bug cosmétique score santé** (balises `<``strong``>` brutes) : toujours non résolu, priorité moyenne --- voir section 5. Le blocage technique précédent ("0 changed files" GitHub Desktop) n'a pas été creusé ; à la reprise, vérifier d'abord la sauvegarde (Ctrl+S) avant de retenter l'édition.
+4.  **Cohérence .md/.docx** : cette version .md (v26.18) doit être répercutée manuellement par Adama dans le `.docx`, qui reste l'unique source. Après édition du `.docx`, il faudra confirmer avec Adama s'il souhaite une régénération .md à committer dans le repo GitHub, à côté de SCHEMA.md.
+5.  **Prochaine priorité de développement** : à redéfinir. Le chantier initialement annoncé comme "priorité haute" (imputation multi-produits stock) est en réalité déjà clos (voir section 6). Restent en attente : bug cosmétique score santé (priorité moyenne, 5 min), session RLS dédiée (section 14.3), verrou session agent non déblocable à distance par le gérant (limitation connue, chantier futur), mode offline et dashboard SaaS (vision long terme).
 
-Note de méthode : l'audit de code v26.18 signalait bandes/batiments en risque élevé et taches/lots_stock/mouvements_stock en risque moyen (opérations par id seul sans filtre ferme_id côté JS). Le diagnostic base montre que RLS compense intégralement côté serveur : chaque UPDATE/DELETE/SELECT par id est re-filtré par PostgreSQL via ferme_id = get_ferme_id(). Leçon transversale : un risque détecté à l'audit de code n'est un vrai trou que si RLS ne compense pas en base — les deux audits sont complémentaires, jamais l'un sans l'autre.
+------------------------------------------------------------------------
 
-Note factuelle ALIRAH : au moment de l'audit, la table bandes ne contient aucune bande pour ALIRAH2026 (ferme onboardée, cycle d'élevage pas encore lancé). Le test cross-tenant a donc été mené en miroir (header ALIRAH ciblant une bande REVAGRO). Sans impact sécurité.
+**15. Module Clôture de Bande (CHANTIER CLOS --- v26.21)**
 
-> *💡 En clair : chaque ferme est comme un appartement dans un immeuble. On a vérifié que les serrures (RLS) empêchent bien un locataire d'entrer chez le voisin. Les 5 pièces principales (les données de base : bandes, bâtiments, tâches, stock) sont correctement cloisonnées entre fermes.*
+Le module clôture permet au gérant de terminer définitivement une bande : archiver son statut, valoriser le stock restant, libérer le bâtiment et générer un rapport final. Architecture en **6 phases**, fonction principale renderClotureBande(bandeId).
 
-## 14.3 — Session RLS dédiée : socle et tests dynamiques
+💡 *En clair : c\'est l\'étape « fin de cycle ». Quand les poulets sont partis, le gérant clôture la bande --- l\'app fait le bilan, remet le poulailler à disposition, et fige les chiffres.*
 
-Socle vérifié — get_ferme_id() : LANGUAGE sql, STABLE SECURITY DEFINER, lit current_setting('request.headers', true)::json->>'x-ferme-id' cast en uuid. Fail-closed sur header absent (retourne NULL → ferme_id = NULL exclut toutes les lignes). ✅ Propre.
+**15.1 Les 6 phases**
 
-Tests dynamiques (rôle anon simulé via SET LOCAL role, transaction ROLLBACK) :
+  -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  **Phase**                            **Rôle**                                                                                                                                  **Statut**
+  ------------------------------------ ----------------------------------------------------------------------------------------------------------------------------------------- ------------
+  Phase 1 --- Éligibilité              Vérifie l\'ancienneté (14 jours minimum) et le statut clôturable                                                                          ✅ Validé
 
-- Test A — header absent → count(bandes) = 0. ✅ Fail-closed prouvé.
+  Phase 2 --- Effectif final           Affiche l\'effectif restant, avec correction manuelle possible (colonnes effectif_final_corrige, effectif_final_note --- migration 032)   ✅ Validé
 
-- Test B — header REVAGRO → count(bandes) = 6. ✅ Laisse passer la bonne ferme.
+  Phase 3 --- Reliquat stock           Valorise le stock restant en écriture RECETTE (catégorie \'Reliquat stock\')                                                              ✅ Validé
 
-- Test C — header ALIRAH, cible bande REVAGRO Bande-2026-002 (id 928f44ef-b6f5-4874-bbb8-3fac51437b8a) → count = 0. ✅ Blocage cross-tenant frontal confirmé.
+  Phase 4 --- Bilan financier          5 lignes lues depuis get_dashboard : recettes, dépenses, CRU, marge nette, reliquat estimé                                                ✅ Validé
 
-Conclusion : isolation cross-tenant démontrée, statique + dynamique, sur les 5 tables prioritaires. Volet isolation RLS clos.
+  Phase 5 --- Validation PIN gérant    Pavé PIN dédié, contrôle serveur via verifier_pin (rôle GERANT)                                                                           ✅ Validé
 
-Réserve méthodologique : tests effectués via SET LOCAL role anon dans le SQL Editor (~95 % fidèle au chemin PostgREST réel, mais pas un test end-to-end via l'API REST). Fidélité jugée suffisante pour l'objectif d'audit.
+  Phase 6 --- Archivage + libération   Passe la bande en \'CLOTURE\' et libère le bâtiment (\'LIBRE\')                                                                           ✅ Validé
+  -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-> *💡 En clair : on a testé les serrures pour de vrai, pas juste sur le papier. Sans clé de ferme : rien ne s'ouvre (bon réflexe). Avec la clé REVAGRO : on voit REVAGRO. Avec la clé ALIRAH en essayant d'ouvrir une porte REVAGRO : bloqué. La preuve que le cloisonnement fonctionne dans les trois cas.*
+**15.2 Migrations associées**
 
-## 14.4 — Audit des RPC et des vues (session v26.19)
+  ----------------------------------------------------------------------------------------------------------------------------
+  **Migration**   **Contenu**
+  --------------- ------------------------------------------------------------------------------------------------------------
+  032             Colonnes effectif_final_corrige, effectif_final_note sur bandes (correction manuelle de l\'effectif final)
 
-RPC réellement câblées par le front (index.html) : get_dashboard (ligne 693), verifier_pin (1706), get_stock_dashboard (2262), imputer_stock ×2 (5067 aliment / 5101 autres produits, signature V1), valider_imputation_gerant ×2 (5435/5454).
+  033             RPC cloturer_phase3_reliquat --- écrit l\'écriture RECETTE du reliquat stock
 
-imputer_stock — DEUX versions coexistent en base : V1 (p_bande_id, p_produit_like… ; RETURNS jsonb ; écrit DEPENSE + categorie_cru) = seule appelée par le front (sessions agent), isolation ✅. V2 (p_lot_id, p_montant, p_prix_unitaire, p_libelle ; RETURNS json ; écrit CHARGE) = imputation manuelle gérant, chantier voulu mais écran front pas encore développé, orpheline, isolation ✅.
+  034             RPC calculer_reliquat_stock --- calcul en lecture seule pour l\'affichage (ne modifie rien)
+  ----------------------------------------------------------------------------------------------------------------------------
 
-Vues — les 3 vues du schéma sont toutes en security_invoker = false (reloptions NULL), donc RLS bypassée en lecture via ces vues :
+**15.3 Règle reliquat --- hors CRU**
 
-- vue_dashboard_bande : ne filtre pas ferme_id en interne → non protégée (à l'origine de la fuite get_dashboard, voir 14.6 Chantier A).
+Le reliquat stock est enregistré comme une **RECETTE** (pas une dépense). Il reste donc automatiquement **hors CRU** (le CRU ne compte que les DEPENSE hors \'Achat stock\'). Aucun filtre spécial nécessaire.
 
-- vue_stock_actuel : expose ferme_id, non filtrée en interne MAIS ses 2 consommateurs front (lignes 754, 5484) filtrent par .eq('ferme_id', FERME_ID). ✅ Protégée applicativement.
+💡 *En clair : le stock qui reste en fin de bande a de la valeur --- c\'est de l\'argent « récupéré », pas une charge. On le compte donc comme une recette, et il n\'alourdit pas le coût de revient par poulet.*
 
-- vue_taches_agent : non filtrée, orpheline (aucun consommateur). Risque pratique nul.
+**15.4 Validation PIN gérant (Piste A)**
 
-> *💡 En clair : les « RPC » et les « vues » sont des raccourcis que l'app utilise pour lire les données. Certains de ces raccourcis contournaient les serrures : c'est par là que fuyait le tableau de bord financier (corrigé, voir 14.6). Les autres raccourcis sont soit protégés, soit inutilisés.*
+La clôture définitive exige le PIN du gérant. Le front appelle verifier_pin (p_role = \'GERANT\') côté serveur ; si le PIN est correct, il enchaîne l\'écriture du reliquat (cloturer_phase3_reliquat) puis \_confirmerCloture (archivage bande + libération bâtiment).
 
-## 14.5 — Limite structurelle assumée
+Fonctions du pavé PIN : \_pinClotureTap, \_pinClotureDel, \_updateDotsCloture, \_validerCloturePin, \_showClotErr. Variable globale \_pinCloture. Pavé isolé du login (classes pin-key, points dot-clot-0 à dot-clot-3).
 
-L'isolation repose sur la confidentialité de l'UUID ferme_id (transmis via header x-ferme-id, visible en devtools d'un utilisateur légitime). Modèle suffisant pour clients de confiance (2-3 fermes actuelles qui se connaissent). Un UUID forgé ou intercepté permettrait à un tiers d'agir dans une ferme dont il connaît l'identifiant. À remplacer par une vraie authentification (JWT) pour un SaaS ouvert à des clients externes non liés. Ce n'est PAS un trou d'isolation RLS (l'isolation fonctionne), mais une limite du modèle d'authentification. Renvoi feuille de route SaaS : PIN → JWT.
+💡 *En clair : pour éviter qu\'un agent clôture une bande par erreur, seul le gérant peut valider --- en tapant son code secret, vérifié directement par le serveur.*
 
-## 14.6 — Chantiers sécurité (état au 04/07/2026)
+**15.5 Bug B10 --- fermé (v26.21)**
 
-CHANTIER A (PRIORITÉ 1) — Fuite lecture cross-tenant get_dashboard. ✅ CORRIGÉ ET DÉPLOYÉ (v26.19, 03-04/07/2026). Problème : get_dashboard filtrait par bande_id seul ; vue vue_dashboard_bande non filtrée + security_invoker=false + SECURITY DEFINER → un appel API direct get_dashboard('<bande d'une autre ferme>') remontait les finances (recettes, marge) d'une autre ferme. Correctif : Migration 031 — ajout de v_ferme_id := get_ferme_id(), fail-closed si NULL, et AND ferme_id = v_ferme_id sur les deux lectures (WHERE principal + sous-requête stockSacs). Testé et validé : header REVAGRO → données visibles ; header ALIRAH sur bande REVAGRO → success:false (bloqué). Appliqué en base, testé en conditions réelles (login + dashboard OK), archivé dans migrations/ (031_fix + 031_ROLLBACK).
+Le code écrivait statut = \'TERMINEE\', valeur **invalide** (la contrainte bandes_statut_check n\'accepte que \'PREPARATION\', \'EN COURS\', \'CLOTURE\', \'ARCHIVE\'). Corrigé aux 3 endroits : l\'écriture réelle du statut, la détection « déjà clôturée », et le texte affiché (« CLÔTURÉE »). Ajout au passage du filtre .eq(\'ferme_id\', FERME_ID) sur l\'UPDATE de clôture (sécurité multi-fermes).
 
-CHANTIER B (PRIORITÉ 2) — Contrôle de rôle serveur valider_imputation_gerant. 🔴 OUVERT. Isolation ferme ✅ mais aucun contrôle de rôle : tout utilisateur de la ferme (agent inclus) peut valider/rejeter une imputation via appel API direct, court-circuitant le contrôle gérant. Protection actuelle = le front cache le bouton (contournable). Couvre aussi le branchement futur de V2 imputer_stock (même besoin). Pré-requis : définir comment la base authentifie « gérant » (PIN re-vérifié via verifier_pin ? header signé ? fondation PIN→JWT). Priorité 2 : intra-ferme, atténué par le front.
+**15.6 Limite connue --- clôture non atomique**
 
-Correctif sessions_actives DELETE cross-tenant : ✅ déployé v26.19 (ajout .eq('ferme_id', FERME_ID) sur le DELETE de nettoyage ligne 1741 dans doLogin). Testé (login OK).
+L\'enchaînement archivage bande → libération bâtiment se fait en deux écritures séparées (via Promise.all), pas dans une transaction unique. **Risque théorique** : si la libération du bâtiment échoue après l\'archivage réussi (coupure réseau), la bande serait clôturée mais le bâtiment resterait « occupé ». Impact faible et réparable manuellement (remettre le bâtiment en \'LIBRE\'). Chantier futur si observé sur le terrain : basculer vers une RPC unique tout-ou-rien.
 
-Vigilance : V2 imputer_stock est appelable via l'API (écriture CHARGE intra-ferme) même si aucun écran ne l'appelle. À sécuriser au moment du branchement (relève du Chantier B).
+💡 *En clair : dans un cas très rare (coupure au mauvais moment), le poulailler pourrait rester marqué « occupé » alors que la bande est finie. Facile à corriger à la main. On blindera seulement si ça arrive vraiment.*
 
-Principes d'architecture à graver : (1) toute vue = security_invoker=true OU filtre ferme_id en dur ; (2) toute RPC SECURITY DEFINER lisant une vue filtre ferme_id explicitement, jamais déléguer l'isolation à la vue.
-
-Hors périmètre (chantiers antérieurs, non traités) : table fermes policy lecture_publique_code_acces (qual=true) toujours à corriger ; mode offline ; dashboard SaaS central. Convergence long terme : Chantiers A+B → auth JWT (rôle + ferme signés).
-
-> *💡 En clair : il restait deux problèmes de sécurité. Le premier (la fenêtre financière ouverte à tous) est RÉPARÉ et testé aujourd'hui. Le second (n'importe qui peut valider à la place du gérant) reste à faire : c'est le prochain chantier. Le reste est sain.*
-
-— Fin de la section 14 — Consolidée le 04/07/2026 (session v26.19) —
-## 15. Clôture de Bande — Cadrage (nouvelle section, session courante)
-
-> **Statut chantier** : ⏳ Cadrage validé, développement non commencé. Ordre de dev : **une phase à la fois**, phase 1 en premier, validation Adama entre chaque. Aucun code produit à ce stade.
-
-### 15.1 Principe général
-
-La clôture transforme une bande en fin de cycle en **bilan définitif archivé**, produisant le rapport fin de bande (déjà ✅ Validé, section 13.2 GÉRANT) + export WhatsApp. Organisée en **6 phases** au niveau du code (chacune testable isolément), présentée à l'écran en **3 blocs** pour rester digeste côté gérant.
-
-**Deux décisions structurantes (session courante) :**
-
-1. **Clôture réversible par le gérant (PIN).** Une bande clôturée n'est pas verrouillée à sens unique : le gérant peut rouvrir via son PIN serveur (même mécanisme que le Chantier B v26.20, RPC `verifier_pin`).
-2. **Reliquat stock valorisé AVEC écriture journal** (choix Adama).
-3. **Abattage optionnel au premier jet** (choix Adama) : la clôture est développée et éprouvée sur REVAGRO/ALIRAH avant le module Abattage structuré.
-
-> 💡 **En clair :** clôturer une bande, c'est en faire le bilan final et l'archiver, avec un bouton pour envoyer le résumé par WhatsApp. Le gérant peut rouvrir une bande fermée en tapant son code (PIN). L'aliment ou la litière qui reste à la fin est compté comme une valeur récupérée, notée dans le journal.
-
-### 15.2 Règle CRITIQUE — Valorisation du reliquat sans casser le CRU
-
-La règle CRU est **définitive** (section 4.3) : `CRU = SUM(montant) WHERE type_ecriture = 'DEPENSE' AND categorie != 'Achat stock' / effectif`. Le filtre ne doit **jamais** être modifié.
-
-Pour valoriser le reliquat via écriture journal **sans toucher le filtre CRU**, l'écriture doit être un **crédit / RECETTE**, jamais une dépense négative :
-
-- Catégorie dédiée : `'Reliquat stock'`
-- `type_ecriture = 'RECETTE'` (crédit)
-- → Le filtre CRU ne lit que les `DEPENSE` ⇒ reliquat **automatiquement exclu du CRU**, sans ajouter aucune exception au filtre.
-
-**Corollaire réouverture** : une ligne journal étant créée à la clôture, la **réouverture doit supprimer cette ligne** pour éviter les doublons à chaque cycle clôture → réouverture → re-clôture.
-
-> 💡 **En clair :** on note la valeur de l'aliment restant comme une « rentrée d'argent » (recette), pas comme une dépense. Ainsi ça n'affecte pas le coût de revient par poulet (le CRU), qui ne regarde que les dépenses. Si on rouvre la bande, on efface cette note pour ne pas la compter deux fois.
-
-### 15.3 Les 6 phases
-
-| Phase | Rôle | Sources / Écritures | Vigilance |
-|---|---|---|---|
-| 1 — Éligibilité | Garde-fou d'entrée : ≥ 14 jours, statut cohérent, abattage vérifié *s'il existe* (non bloquant) | Lecture `bandes` | Filtre `ferme_id` explicite |
-| 2 — Effectif final | `initial − mortalités − abattus` = effectif final ; gérant confirme/corrige. Si pas d'abattage saisi, effectif abattu entré à la main | Lecture `bandes`, `saisies_techniques` | — |
-| 3 — Solde stock valorisé | Reliquats `lots_stock` (qté restante × `cout_unitaire`) → écriture journal **RECETTE / `'Reliquat stock'`** | Lecture `lots_stock`, écriture `journal` | `ferme_id` explicite obligatoire dans la RPC (audit 14.2, `lots_stock` sans filtre sur SELECT détail) |
-| 4 — Bilan financier | Total dépenses, recettes, solde, CRU (règle définitive, jamais recalculée), marge nette, marge/sujet | Lecture `journal` | CRU intouché |
-| 5 — Validation gérant | Écran récap + validation **PIN serveur** (`verifier_pin`), contrôle rôle GERANT | RPC PIN (Chantier B v26.20) | — |
-| 6 — Archivage + rapport | Statut → CLÔTURÉE (réversible PIN) + rapport fin de bande + WhatsApp. Réouverture = annule statut + **supprime ligne journal `'Reliquat stock'`** | Écriture `bandes`, lecture rapport | Suppression ligne à la réouverture |
-
-> 💡 **En clair :** l'app vérifie que la bande peut être fermée (au moins 14 jours), calcule combien de poulets restent, compte la valeur du stock restant, fait le bilan financier (dépenses, recettes, bénéfice par poulet), le gérant tape son code pour confirmer, et la bande passe en « fermée » avec le rapport WhatsApp prêt.
-
-### 15.4 Présentation à l'écran (3 blocs, code en 6 phases)
-
-| Bloc écran | Phases regroupées |
-|---|---|
-| Bloc A — Métier | Phase 1 (éligibilité) + Phase 2 (effectif) + Phase 3 (solde stock) |
-| Bloc B — Financier | Phase 4 (bilan) |
-| Bloc C — Clôture | Phase 5 (validation PIN) + Phase 6 (archivage/rapport) |
-
-### 15.5 Dépendances et points de vigilance
-
-- **Abattage (non bloquant)** : optionnel au premier jet. **À tracer / ne pas oublier** : brancher l'abattage automatique en phases 1/2 **avant l'intégration du 3e client (janvier 2027)**, car le cycle complet est un prérequis client (section 13.5).
-- **Sécurité `lots_stock`** : filtre `ferme_id` explicite obligatoire dans la RPC de clôture (audit 14.2).
-- **Réouverture ↔ doublons journal** : règle de suppression de la ligne `'Reliquat stock'` à graver dans la RPC de réouverture.
-
-### 15.6 Points restant à trancher avec Adama (avant dev)
-
-1. **Format `'Reliquat stock'`** : confirmer RECETTE (crédit) — validé en principe, à re-confirmer avant code.
-2. **Effectif final corrigeable** : le gérant peut-il écraser le calcul auto (phase 2), ou seulement le constater ?
-
-### 15.7 Suivi
-
-| Élément | Statut |
-|---|---|
-| Cadrage 6 phases | ✅ Validé (session courante) |
-| Phase 1 — Éligibilité | ○ À faire (prochaine brique dev) |
-| Phases 2 à 6 | ○ À faire |
-| Branchement abattage auto | ○ À faire (avant janvier 2027) |
-
-> Tout bug détecté sur ce chantier se numérote dans le **registre 13.3** (prochain numéro disponible : B10).
-# 🔧 Kit de mise à jour Bible — Section 15 Clôture
-
-> À appliquer **à l'identique dans les DEUX fichiers** : `bible_avigest_v26.docx` (source) **et** `bible_avigest_v26.md` (copie). 3 modifications au total.
-
----
-
-## ✅ Modification 1 — Ajouter la section 15 (le gros morceau)
-
-**Où :** après la fin de la section 14, **avant** la section « Points en suspens » qui clôture le document.
-
-**Quoi :** coller l'intégralité du bloc du fichier `bible_section15_cloture.md` (déjà rédigé et présenté séparément).
-
----
-
-## ✅ Modification 2 — Mettre à jour le suivi en section 13.2 (bloc PROCESSUS)
-
-**Où :** section 13.2, tableau du bloc **PROCESSUS**, ligne « Clôture bande — 6 phases ».
-
-**Remplacer :**
-
-| Fonctionnalité | Statut | Note / Bug connu |
-|---|---|---|
-| Clôture bande — 6 phases | ○ À faire | 14 jours minimum |
-
-**Par :**
-
-| Fonctionnalité | Statut | Note / Bug connu |
-|---|---|---|
-| Clôture bande — 6 phases | ⏳ En cours | Cadrage validé — voir section 15. 14 jours minimum. Abattage optionnel au 1er jet |
-
----
-
-## ✅ Modification 3 — Mettre à jour l'en-tête de synchronisation
-
-**Où :** tout en haut du document, la ligne « Synchronisation » sous le titre.
-
-**Adapter la date et le numéro de session** vers la session courante (celle où tu intègres la section 15), pour que l'en-tête reflète la dernière mise à jour. Exemple de forme (adapte la date réelle) :
-
-> **Synchronisation** : cette version `.md` est générée à partir de `bible_avigest_v26.docx` — dernière synchronisation le **[JJ/MM/2026]** (session courante, ajout section 15 Clôture). Le `.docx` reste la référence unique…
-
----
-
-## Vérification finale (les deux fichiers)
-
-- [ ] Section 15 présente, placée entre section 14 et « Points en suspens »
-- [ ] Ligne « Clôture bande — 6 phases » passée à ⏳ En cours dans 13.2
-- [ ] En-tête de synchro : date + session à jour
-- [ ] `.docx` et `.md` identiques sur ces 3 points
-- [ ] (si repo) `.md` committé via GitHub Desktop à côté de `SCHEMA.md`
-
----
-
-## Rappel workflow
-
-Le `.docx` est ta **source unique** — édite-le en premier. Le `.md` est la copie dérivée. Ici tu colles à la main dans les deux (choix validé cette session pour éviter toute désynchro avec ta version réelle).
-## 15. Clôture de Bande — Cadrage (nouvelle section, session courante)
-
-> **Statut chantier** : ⏳ Cadrage validé, développement non commencé. Ordre de dev : **une phase à la fois**, phase 1 en premier, validation Adama entre chaque. Aucun code produit à ce stade.
-
-### 15.1 Principe général
-
-La clôture transforme une bande en fin de cycle en **bilan définitif archivé**, produisant le rapport fin de bande (déjà ✅ Validé, section 13.2 GÉRANT) + export WhatsApp. Organisée en **6 phases** au niveau du code (chacune testable isolément), présentée à l'écran en **3 blocs** pour rester digeste côté gérant.
-
-**Deux décisions structurantes (session courante) :**
-
-1. **Clôture réversible par le gérant (PIN).** Une bande clôturée n'est pas verrouillée à sens unique : le gérant peut rouvrir via son PIN serveur (même mécanisme que le Chantier B v26.20, RPC `verifier_pin`).
-2. **Reliquat stock valorisé AVEC écriture journal** (choix Adama).
-3. **Abattage optionnel au premier jet** (choix Adama) : la clôture est développée et éprouvée sur REVAGRO/ALIRAH avant le module Abattage structuré.
-
-> 💡 **En clair :** clôturer une bande, c'est en faire le bilan final et l'archiver, avec un bouton pour envoyer le résumé par WhatsApp. Le gérant peut rouvrir une bande fermée en tapant son code (PIN). L'aliment ou la litière qui reste à la fin est compté comme une valeur récupérée, notée dans le journal.
-
-### 15.2 Règle CRITIQUE — Valorisation du reliquat sans casser le CRU
-
-La règle CRU est **définitive** (section 4.3) : `CRU = SUM(montant) WHERE type_ecriture = 'DEPENSE' AND categorie != 'Achat stock' / effectif`. Le filtre ne doit **jamais** être modifié.
-
-Pour valoriser le reliquat via écriture journal **sans toucher le filtre CRU**, l'écriture doit être un **crédit / RECETTE**, jamais une dépense négative :
-
-- Catégorie dédiée : `'Reliquat stock'`
-- `type_ecriture = 'RECETTE'` (crédit)
-- → Le filtre CRU ne lit que les `DEPENSE` ⇒ reliquat **automatiquement exclu du CRU**, sans ajouter aucune exception au filtre.
-
-**Corollaire réouverture** : une ligne journal étant créée à la clôture, la **réouverture doit supprimer cette ligne** pour éviter les doublons à chaque cycle clôture → réouverture → re-clôture.
-
-> 💡 **En clair :** on note la valeur de l'aliment restant comme une « rentrée d'argent » (recette), pas comme une dépense. Ainsi ça n'affecte pas le coût de revient par poulet (le CRU), qui ne regarde que les dépenses. Si on rouvre la bande, on efface cette note pour ne pas la compter deux fois.
-
-### 15.3 Les 6 phases
-
-| Phase | Rôle | Sources / Écritures | Vigilance |
-|---|---|---|---|
-| 1 — Éligibilité | Garde-fou d'entrée : ≥ 14 jours, statut cohérent, abattage vérifié *s'il existe* (non bloquant) | Lecture `bandes` | Filtre `ferme_id` explicite |
-| 2 — Effectif final | `initial − mortalités − abattus` = effectif final ; gérant peut **surcharger avec note obligatoire** (conserve calculé + corrigé + motif, pattern score santé §5). Si pas d'abattage saisi, effectif abattu entré à la main | Lecture `bandes`, `saisies_techniques` | Traçabilité : garder les deux valeurs |
-| 3 — Solde stock valorisé | Reliquats `lots_stock` (qté restante × `cout_unitaire`) → écriture journal **RECETTE / `'Reliquat stock'`** | Lecture `lots_stock`, écriture `journal` | `ferme_id` explicite obligatoire dans la RPC (audit 14.2, `lots_stock` sans filtre sur SELECT détail) |
-| 4 — Bilan financier | Total dépenses, recettes, solde, CRU (règle définitive, jamais recalculée), marge nette, marge/sujet | Lecture `journal` | CRU intouché |
-| 5 — Validation gérant | Écran récap + validation **PIN serveur** (`verifier_pin`), contrôle rôle GERANT | RPC PIN (Chantier B v26.20) | — |
-| 6 — Archivage + rapport | Statut → CLÔTURÉE (réversible PIN) + rapport fin de bande + WhatsApp. Réouverture = annule statut + **supprime ligne journal `'Reliquat stock'`** | Écriture `bandes`, lecture rapport | Suppression ligne à la réouverture |
-
-> 💡 **En clair :** l'app vérifie que la bande peut être fermée (au moins 14 jours), calcule combien de poulets restent, compte la valeur du stock restant, fait le bilan financier (dépenses, recettes, bénéfice par poulet), le gérant tape son code pour confirmer, et la bande passe en « fermée » avec le rapport WhatsApp prêt.
-
-### 15.4 Présentation à l'écran (3 blocs, code en 6 phases)
-
-| Bloc écran | Phases regroupées |
-|---|---|
-| Bloc A — Métier | Phase 1 (éligibilité) + Phase 2 (effectif) + Phase 3 (solde stock) |
-| Bloc B — Financier | Phase 4 (bilan) |
-| Bloc C — Clôture | Phase 5 (validation PIN) + Phase 6 (archivage/rapport) |
-
-### 15.5 Dépendances et points de vigilance
-
-- **Abattage (non bloquant)** : optionnel au premier jet. **À tracer / ne pas oublier** : brancher l'abattage automatique en phases 1/2 **avant l'intégration du 3e client (janvier 2027)**, car le cycle complet est un prérequis client (section 13.5).
-- **Sécurité `lots_stock`** : filtre `ferme_id` explicite obligatoire dans la RPC de clôture (audit 14.2).
-- **Réouverture ↔ doublons journal** : règle de suppression de la ligne `'Reliquat stock'` à graver dans la RPC de réouverture.
-
-### 15.6 Points tranchés avec Adama (session courante)
-
-1. ~~**Format `'Reliquat stock'`**~~ — **Décidé** : RECETTE (crédit) confirmé, reste hors CRU.
-2. ~~**Effectif final corrigeable**~~ — **Décidé** : Option C — corrigeable par le gérant **avec note obligatoire**, conservation des deux valeurs (calculé + corrigé + motif), pattern surcharge score santé (§5).
-
-*Aucun point bloquant restant — chantier prêt pour le dev de la phase 1.*
-
-### 15.7 Suivi
-
-| Élément | Statut |
-|---|---|
-| Cadrage 6 phases | ✅ Validé (session courante) |
-| Phase 1 — Éligibilité | ○ À faire (prochaine brique dev) |
-| Phases 2 à 6 | ○ À faire |
-| Branchement abattage auto | ○ À faire (avant janvier 2027) |
-
-> Tout bug détecté sur ce chantier se numérote dans le **registre 13.3** (prochain numéro disponible : B10).
-# 🔧 Kit de mise à jour Bible — Session clôture phases 1 & 2
-
-> À appliquer **à l'identique dans les DEUX fichiers** : `bible_avigest_v26.docx` (source) **et** `bible_avigest_v26.md` (copie). **5 modifications.**
-> Coche au fur et à mesure.
-
----
-
-## ☐ MODIF 1 — Registre de bugs §13.3 : ajouter B10
-
-**Où :** section 13.3, dans le tableau du registre (actuellement vide, « prochain numéro : B10 »).
-
-**Remplacer la ligne :**
-`| *(registre vide pour l'instant — prochain numéro disponible : B10)* | | | | | |`
-
-**Par :**
-
-| Numéro | Titre court | Domaine | Statut | Session ouverture | Session fermeture |
-|---|---|---|---|---|---|
-| B10 | Statut 'TERMINEE' invalide dans `_confirmerCloture` | Clôture | ⏳ En cours | session courante | — |
-
-**Et ajouter sous le tableau :**
-> **B10 (détail)** : la fonction `_confirmerCloture` écrit `statut = 'TERMINEE'`, valeur absente de la contrainte CHECK de `bandes` (`'PREPARATION'`, `'EN COURS'`, `'CLOTURE'`, `'ARCHIVE'`) → l'écriture échouerait. Bouton d'appel neutralisé temporairement (désactivé, libellé « Clôture complète — en cours de développement »). Correction réelle prévue en **phase 6** (remplacer par `'CLOTURE'`). Prochain numéro disponible : B11.
-
----
-
-## ☐ MODIF 2 — Section 15.7 : phases 1 et 2 validées
-
-**Où :** section 15.7 (tableau de suivi).
-
-**Remplacer le tableau par :**
-
-| Élément | Statut |
-|---|---|
-| Cadrage 6 phases | ✅ Validé |
-| Phase 1 — Éligibilité | ✅ Validé (testé REVAGRO : EN COURS 15j éligible / PREPARATION 8j bloquée) |
-| Phase 2 — Effectif final | ✅ Validé (migration 032 + affichage COALESCE + correction manuelle avec note obligatoire, testé bout-en-bout) |
-| Phases 3 à 6 | ○ À faire |
-| Branchement abattage auto | ○ À faire (avant janvier 2027) |
-| Correction B10 (statut TERMINEE) | ⏳ À faire en phase 6 |
-
-**Et ajouter une sous-section :**
-
-### 15.8 Détail technique livré (phases 1 & 2)
-
-**Phase 1 — `_verifierEligibiliteCloture(bande)`** : 3 contrôles — ancienneté ≥ 14 j (depuis `date_arrivee`, bloquant), statut `'EN COURS'` (bloquant), abattage `abattage_demarre` (informatif, non bloquant). Double protection (bouton désactivé + re-vérif au clic). Affiche `id_bande` (pas `nom`).
-
-**Phase 2 — Effectif final corrigeable :**
-- Migration 032 : colonnes `effectif_final_corrige` (integer, NULL) + `effectif_final_note` (text, NULL) sur `bandes`.
-- Calcul auto (déjà existant, correct) : `effectif_initial − (MortaliteMatin + MortaliteSoir) − effectif_vendu`, avec `Math.max(0,...)`.
-- Effectif retenu = `effectif_final_corrige` si non NULL, sinon calcul auto (COALESCE, test `!= null`).
-- Correction par le gérant : formulaire inline (input number + note **obligatoire**), UPDATE direct avec `.eq('ferme_id', FERME_ID)`, double protection sur la note. Bouton « Rétablir le calcul auto » remet les 2 colonnes à NULL.
-- Pas de PIN à ce stade (le PIN sera en phase 5).
-
----
-
-## ☐ MODIF 3 — Schéma `bandes` §2.4 : corriger
-
-**Où :** section 2.4, ligne de la table `bandes`.
-
-**Remplacer la ligne `bandes` par :**
-
-| Table | Colonnes / Rôle |
-|---|---|
-| bandes | id (uuid), ferme_id (uuid), batiment_id (uuid), id_bande (text — identifiant lisible, PAS de colonne `nom`), date_arrivee (date), effectif_initial (int), race, statut (text : 'PREPARATION' / 'EN COURS' / 'CLOTURE' / 'ARCHIVE' — contrainte CHECK), commentaire, created_at, updated_at, is_deleted, prep_terminee (bool), abattage_demarre (bool), fournisseur_poussins, effectif_vendu (int — nombre d'abattus/vendus), date_cloture (date), effectif_final_corrige (int, NULL — surcharge gérant, migration 032), effectif_final_note (text, NULL — motif, migration 032) |
-
-**Ajouter une note sous le tableau §2.4 :**
-> ⚠️ La colonne `nom` n'existe PAS dans `bandes` (erreur d'une version antérieure de la Bible). L'identifiant lisible est `id_bande`. Statuts figés par contrainte CHECK `bandes_statut_check`.
-
----
-
-## ☐ MODIF 4 — Migrations §2.5 : ajouter 032
-
-**Où :** section 2.5, tableau des migrations.
-
-**Ajouter la ligne :**
-
-| Fichier | Contenu |
-|---|---|
-| 032_effectif_final_corrige.sql | Colonnes `effectif_final_corrige` + `effectif_final_note` sur `bandes` (phase 2 clôture, surcharge manuelle effectif). Rollback fourni. |
-
-*(Note : 031_fix_get_dashboard_ferme_filter.sql existe déjà — la Bible s'arrêtait à 030, mettre à jour la mention « jusqu'à 030 » en « jusqu'à 032 ».)*
-
----
-
-## ☐ MODIF 5 — Mortalités & effectif (§5 ou §15)
-
-**Où :** section 5 (Score santé) ou §15.8 — au choix, là où c'est le plus logique pour toi.
-
-**Ajouter :**
-> **Sources de l'effectif final (vérifié en base session courante)** : les mortalités saisies par l'agent existent en 2 catégories seulement dans `saisies_techniques` : **`MortaliteMatin`** et **`MortaliteSoir`** (pas de Midi/PM/Nuit). La mortalité cumulée = somme de ces deux catégories. Les abattus/vendus sont portés par la colonne `bandes.effectif_vendu` (déjà renseignée, indépendante du module Abattage à venir).
-
----
-
-## ☐ Vérification finale
-
-- [ ] Les 5 modifs faites dans `.docx` ET `.md`
-- [ ] En-tête de synchro (haut du doc) : date + session mises à jour
-- [ ] `.md` committé via GitHub Desktop à côté de SCHEMA.md
-- [ ] `.docx` reste la source (édité en premier)
-
----
-
-## Rappel workflow
-`.docx` = source unique, éditée en premier. `.md` = copie, tu colles à la main les mêmes blocs (choix validé pour éviter la désynchro). Ne pas régénérer le .md automatiquement tant que le .docx n'est pas à jour.
+*--- Fin de la Bible AviGest v26 --- Version .md générée le 10/07/2026 (session v26.21), à répercuter manuellement dans le .docx ---*
