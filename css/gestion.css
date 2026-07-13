@@ -1,0 +1,37 @@
+/* ============================================================
+   css/gestion.css — Styles des écrans GESTION
+   ------------------------------------------------------------
+   Réutilise les variables CSS d'index.html (--bg2, --border,
+   --text2...). N'ajoute QUE ce qui n'existe pas déjà.
+   Les classes .tuile, .tuile-icon, .tuile-label, .tuile-sub,
+   .tuile-arrow viennent d'index.html — on ne les redéfinit pas.
+   ============================================================ */
+
+/* Tuile de la page GESTION : reprend .tuile, avec disposition
+   en ligne (icône | texte | flèche) */
+.gestion-tuile {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    cursor: pointer;
+}
+
+/* Tuile dont le module n'est pas encore construit */
+.gestion-tuile-inactive {
+    opacity: .45;
+    cursor: default;
+}
+
+.gestion-tuile-inactive:active {
+    transform: none;
+}
+
+/* Bandeau vide (aucune donnée) */
+.gestion-vide {
+    text-align: center;
+    padding: 32px 16px;
+    color: var(--text2);
+    font-size: 13px;
+}
