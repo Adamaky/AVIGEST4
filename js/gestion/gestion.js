@@ -15,6 +15,7 @@
 
 import { estGerant } from '../shared/db.js';
 import { zone, toast } from '../shared/helpers.js';
+import '../clients/clients.js';
 
 
 /* ------------------------------------------------------------
