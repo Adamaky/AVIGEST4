@@ -92,3 +92,15 @@
     font-size: 14px;
     box-sizing: border-box;
 }
+/* ─── Badges statut commande ─────────────────────────── */
+.gestion-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.gestion-badge-precommande { background: #FEF3C7; color: #92400E; }
+.gestion-badge-planifiee   { background: #DBEAFE; color: #1E40AF; }
+.gestion-badge-livree      { background: #D1FAE5; color: #065F46; }
+.gestion-badge-annulee     { background: #F3F4F6; color: #6B7280; }

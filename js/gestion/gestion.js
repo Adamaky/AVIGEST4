@@ -1,34 +1,41 @@
-/* ============================================================
+/* ═══════════════════════════════════════════════════════
    js/gestion/gestion.js — Page GESTION (tuiles)
-   ------------------------------------------------------------
+   ───────────────────────────────────────────────────────
    RÔLE : l'écran d'accueil du nouvel onglet GESTION du gérant.
    Il affiche des tuiles menant aux sous-modules (Clients,
-   Trésorerie, Stock...).
+   Commandes, Trésorerie, Stock...).
 
    COMMENT IL EST APPELÉ :
    Le Nav d'index.html exécute window[fn]() où fn vient de
    NAVBAR_CONFIG. On expose donc UNE SEULE fonction sur window :
-   window.renderGestion. Tout le reste du module reste privé —
-   c'est ce qui évite les collisions de noms avec les ~5900
-   lignes d'index.html.
-   ============================================================ */
+   window.renderGestion. Tout le reste du module reste privé.
+   ═══════════════════════════════════════════════════════ */
 
 import { estGerant } from '../shared/db.js';
 import { zone, toast } from '../shared/helpers.js';
 import '../clients/clients.js';
+import '../commandes/commandes.js';
 
 
-/* ------------------------------------------------------------
+/* ───────────────────────────────────────────────────────
    Définition des tuiles.
    `dispo: false` = tuile grisée, module pas encore construit.
-   ------------------------------------------------------------ */
+   ─────────────────────────────────────────────────────── */
 const TUILES = [
     {
         id: 'clients',
         icon: '👥',
         label: 'Clients',
-        sub: 'Commandes, livraisons, créances',
+        sub: 'Fiches, contacts',
         fn: 'renderClients',
+        dispo: true
+    },
+    {
+        id: 'commandes',
+        icon: '📋',
+        label: 'Commandes',
+        sub: 'Ventes, livraisons',
+        fn: 'renderCommandes',
         dispo: true
     },
     {
@@ -50,9 +57,9 @@ const TUILES = [
 ];
 
 
-/* ------------------------------------------------------------
+/* ───────────────────────────────────────────────────────
    Rendu de la page GESTION
-   ------------------------------------------------------------ */
+   ─────────────────────────────────────────────────────── */
 function renderGestion() {
 
     // Garde-fou : réservé au gérant
@@ -87,11 +94,9 @@ function renderGestion() {
 }
 
 
-/* ------------------------------------------------------------
+/* ───────────────────────────────────────────────────────
    Ouverture d'un sous-module via le Nav existant.
-   On passe par Nav.push() pour que le bouton "retour"
-   fonctionne comme dans le reste de l'app.
-   ------------------------------------------------------------ */
+   ─────────────────────────────────────────────────────── */
 function _gestionOuvrir(fn) {
     if (typeof window[fn] !== 'function') {
         toast('Module en cours de chargement — réessayez', 'warning');
@@ -110,11 +115,9 @@ function _gestionBientot() {
 }
 
 
-/* ------------------------------------------------------------
-   EXPOSITION SUR window — la "sonnette" du module.
-   Ces trois noms sont les SEULS visibles depuis l'extérieur.
-   Tout le reste du fichier est isolé.
-   ------------------------------------------------------------ */
+/* ───────────────────────────────────────────────────────
+   EXPOSITION SUR window
+   ─────────────────────────────────────────────────────── */
 window.renderGestion  = renderGestion;
 window._gestionOuvrir = _gestionOuvrir;
 window._gestionBientot = _gestionBientot;
