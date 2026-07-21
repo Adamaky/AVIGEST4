@@ -461,7 +461,7 @@ let FERME_ID = localStorage.getItem('avigest_ferme_id') || null;
 let NOM_FERME = localStorage.getItem('avigest_nom_ferme') || '';
 const SESSION_MS    = 12 * 3600 * 1000;
 const CACHE_TTL_MS  = 8 * 60 * 60 * 1000;
-const APP_VERSION   = 'v26.25';
+const APP_VERSION   = 'v26.26';
 
 document.title = 'AviGest ' + APP_VERSION;
 const elVersionAffichee = document.getElementById('version-affichee');
@@ -4645,27 +4645,14 @@ function _jvCalcMontant(nbReels) {
 }
 
 async function _enregistrerJournalVente(tacheId, bandeId, nbReels, typeOperation) {
-    const montant = parseFloat(document.getElementById('jv-montant')?.value) || 0;
-    if (montant <= 0) { showToast('Le montant reçu est obligatoire','warning'); return; }
+    /* ── ANCIEN CHEMIN VENTE DÉBRANCHÉ (v26.26) ──
+       Les ventes passent désormais par le module Commandes (CRM).
+       On n'écrit PLUS de recette ici pour éviter le double comptage.
+       On marque juste la tâche traitée et on oriente vers les Commandes. */
     if (!guardDouble('journal_vente')) return;
-    const typeLabel = typeOperation === 'VENTE_VIF' ? 'Vente poulet vivant' : 'Vente poulet abattu';
-    const mode      = document.getElementById('jv-mode-prix')?.value || 'UNITE';
-    var note = typeLabel + ' — ' + nbReels + ' sujets';
-    if (mode === 'POIDS') {
-        const poids  = parseFloat(document.getElementById('jv-poids-moy')?.value) || 0;
-        const prixKg = parseFloat(document.getElementById('jv-prix-kg')?.value)   || 0;
-        if (poids > 0)  note += ' · ' + poids + ' kg/sujet';
-        if (prixKg > 0) note += ' · ' + fmt(prixKg) + ' FCFA/kg';
-    } else {
-        const prixU = parseFloat(document.getElementById('jv-prix-unite')?.value) || 0;
-        if (prixU > 0) note += ' · ' + fmt(prixU) + ' FCFA/sujet';
-    }
-    note += ' · ' + fmt(montant) + ' FCFA';
-    const r = await ecritureJournal(bandeId, 'RECETTE', typeLabel, note, montant);
-    if (!r) { showToast('Erreur enregistrement journal','error'); return; }
-    /* Marquer la tâche COMPTABILISEE */
-    await sb.from('taches').update({ statut: 'COMPTABILISEE' }).eq('id', tacheId);
-    showToast('✅ Vente enregistrée dans le journal','success', 4000);
+    await sb.from('taches').update({ statut: 'COMPTABILISEE' })
+        .eq('id', tacheId).eq('ferme_id', FERME_ID);
+    showToast('ℹ️ Les ventes se gèrent maintenant dans les Commandes (onglet Gestion)','info', 5000);
     Nav.replace('renderTachesBande', bandeId);
 }
 
@@ -4977,12 +4964,10 @@ async function _soumettreAbattageAgent(tacheId) {
         date_validation : new Date().toISOString()
     }).eq('id', tacheId).eq('ferme_id', FERME_ID);
     if (error) { showToast('Erreur envoi','error'); return; }
-    /* Mettre à jour effectif_vendu sur la bande */
-    if (tacheCheck?.bande_id) {
-        const { data: bande } = await sb.from('bandes').select('effectif_vendu').eq('id', tacheCheck.bande_id).single();
-        const dejaVendus = parseInt(bande?.effectif_vendu||0);
-        await sb.from('bandes').update({ effectif_vendu: dejaVendus + nb }).eq('id', tacheCheck.bande_id);
-    }
+    /* ── EFFECTIF_VENDU DÉBRANCHÉ (v26.26) ──
+       L'effectif vendu est désormais géré par la livraison CRM
+       (RPC livrer_commande). On ne l'incrémente plus ici pour éviter
+       le double comptage. La saisie nb reste un suivi terrain (nb_sujets_reels). */
     showToast('✅ Données envoyées — gérant notifié','success', 4000);
     Nav.back();
 }
