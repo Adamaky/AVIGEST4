@@ -1598,13 +1598,13 @@ function _hideErr() {
     if (e) e.classList.remove('show');
 }
 
-function _afficherEcranBlocage(connectedAt, role) {
+function _afficherEcranBlocage(connectedAt, role, deviceIdBloquant) {
   const depuis = connectedAt
     ? new Date(connectedAt).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})
     : '--:--';
   const estGerant = role === 'GERANT';
   const boutonForcer = estGerant
-    ? '<button onclick="_forcerDeconnexion()" style="margin-top:12px;padding:10px 20px;background:#e74c3c;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;">Forcer la deconnexion</button>'
+    ? '<button onclick="_forcerDeconnexion(\'' + (deviceIdBloquant || '') + '\')" style="margin-top:12px;padding:10px 20px;background:#e74c3c;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;">Forcer la deconnexion</button>'
     : '';
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   const _conteneur = document.getElementById('screen-blocage');
@@ -1619,13 +1619,14 @@ function _afficherEcranBlocage(connectedAt, role) {
     '</div>';
 }
 
-async function _forcerDeconnexion() {
+async function _forcerDeconnexion(deviceIdBloquant) {
+  if (!deviceIdBloquant) { alert('Erreur : appareil bloquant introuvable — rechargez la page.'); return; }
   if (!confirm('Forcer la deconnexion de l\'autre appareil ?')) return;
   try {
     await sb
       .from('sessions_actives')
       .delete()
-      .eq('user_pin', window._pinSaisi)
+      .eq('device_id', deviceIdBloquant)
       .eq('ferme_id', FERME_ID);
     location.reload();
   } catch(e) {
@@ -1751,7 +1752,7 @@ async function doLogin() {
                 .maybeSingle();
 
             if (sessionExistante && sessionExistante.device_id !== DEVICE_ID) {
-                _afficherEcranBlocage(sessionExistante.connected_at, utilisateur.role);
+                _afficherEcranBlocage(sessionExistante.connected_at, utilisateur.role, sessionExistante.device_id);
                 return;
             }
 
