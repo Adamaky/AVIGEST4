@@ -37,7 +37,7 @@ async function renderCommandes() {
 
     const res = await db()
         .from('commandes')
-        .select('id, date_commande, statut, clients(nom), '
+        .select('id, date_commande, statut, date_livraison_prevue, clients(nom), '
               + 'commande_lignes(quantite, prix_prevu, prix_reel)')
         .eq('ferme_id', fermeId())
         .order('date_commande', { ascending: false });
@@ -80,6 +80,9 @@ async function renderCommandes() {
             +     '<div class="gestion-carte-cmd-meta">'
             +       dateFr(c.date_commande) + ' · ' + nbTxt + ' · ' + fcfa(total)
             +     '</div>'
+            +     (c.date_livraison_prevue
+                    ? '<div class="gestion-carte-cmd-meta">📅 Livraison prévue : ' + dateFr(c.date_livraison_prevue) + '</div>'
+                    : '')
             +   '</div>'
             +   '<span class="gestion-badge ' + cls + '">' + LIB_STATUT[c.statut] + '</span>'
             +   '<span class="gestion-carte-cmd-fleche">›</span>'
@@ -447,6 +450,10 @@ function _dessinerPlanification() {
         + '</div>'
         + '<div class="gestion-detail-date" style="margin-bottom:16px">'
         +   'Choisissez la bande qui fournira chaque poulet.'
+        + '</div>'
+        + '<div class="gestion-form-group" style="margin-bottom:16px">'
+        +   '<label class="gestion-form-label">📅 Date de livraison prévue</label>'
+        +   '<input class="gestion-input" type="date" id="plan-date-livraison">'
         + '</div>';
 
     lignes.forEach(function (l) {
@@ -497,6 +504,13 @@ async function _validerPlanification() {
     const c = _planifCmd;
     const lignes = c.commande_lignes || [];
 
+    const dateLivr = document.getElementById('plan-date-livraison');
+    const dateLivraison = dateLivr ? dateLivr.value : '';
+    if (!dateLivraison) {
+        toast('Indiquez la date de livraison prévue', 'warning');
+        return;
+    }
+
     const majLignes = [];
     for (let i = 0; i < lignes.length; i++) {
         const l = lignes[i];
@@ -529,7 +543,7 @@ async function _validerPlanification() {
     }
 
     const rc = await db().from('commandes')
-        .update({ statut: 'PLANIFIEE' })
+        .update({ statut: 'PLANIFIEE', date_livraison_prevue: dateLivraison })
         .eq('ferme_id', fid)
         .eq('id', c.id);
 
