@@ -292,7 +292,7 @@ async function _ouvrirCommande(id) {
               + 'commande_lignes(id, quantite, prix_prevu, prix_reel, nb_sujets, bande_id, '
               + 'produits_catalogue(nom, unite, decremente_effectif), '
               + 'bandes(id_bande)), '
-              + 'paiements(id, montant, date_paiement, moyen, type, annule, annee, numero_seq)')
+              + 'paiements(id, montant, date_paiement, moyen, type, annule, annee, numero_seq, note)')
         .eq('ferme_id', fermeId())
         .eq('id', id)
         .single();
@@ -304,6 +304,7 @@ async function _ouvrirCommande(id) {
     }
 
     const c = res.data;
+    _detailCmd = c;
     const nom = c.clients ? c.clients.nom : '(client supprimé)';
     const lignes = c.commande_lignes || [];
     const cls = 'gestion-badge-' + c.statut.toLowerCase();
@@ -448,7 +449,14 @@ function _blocReglement(c, total) {
                   +       (p.annule ? ' · ANNULÉ' : '')
                   +     '</div>'
                   +   '</div>'
-                  +   '<div class="gestion-regl-item-montant">' + fcfa(p.montant) + '</div>'
+                  +   '<div class="gestion-regl-item-droite">'
+                  +     '<div class="gestion-regl-item-montant">' + fcfa(p.montant) + '</div>'
+                  +     (p.annule ? ''
+                          : '<button class="gestion-regl-copier" title="Copier le reçu" '
+                            + 'onclick="_copierRecu(\'' + p.id + '\')">📋</button>'
+                            + '<button class="gestion-regl-annuler" title="Annuler ce paiement" '
+                            + 'onclick="_annulerPaiement(\'' + p.id + '\')">✕</button>')
+                  +   '</div>'
                   + '</div>';
         });
         html += '</div>';
@@ -464,8 +472,162 @@ function _blocReglement(c, total) {
     return html;
 }
 
+/* ─── Reçu à copier (morceau 4) ─── */
+
+function _texteRecu(c, p, total) {
+    const nomFerme = (window.avigestContext && window.avigestContext().nomFerme)
+                   ? window.avigestContext().nomFerme : 'AviGest';
+    const nomClient = c.clients ? c.clients.nom : 'Client';
+    const paye = _totalPaye(c.paiements);
+    const reste = total - paye;
+    const seq = String(p.numero_seq);
+    const num = 'REC-' + p.annee + '-' + ('0000'.slice(0, 4 - seq.length) + seq);
+
+    let t = '';
+    t += '🧾 REÇU DE PAIEMENT\n';
+    t += nomFerme + '\n\n';
+    t += 'N° ' + num + '\n';
+    t += 'Date : ' + dateFr(p.date_paiement) + '\n\n';
+    t += 'Client : ' + nomClient + '\n';
+    t += 'Commande du ' + dateFr(c.date_commande) + '\n';
+    t += 'Total commande : ' + fcfa(total) + '\n\n';
+    t += 'Montant reçu : ' + fcfa(p.montant) + '\n';
+    t += 'Moyen : ' + (LIB_MOYEN[p.moyen] || p.moyen) + '\n';
+    t += 'Type : ' + (p.type === 'SOLDE' ? 'Solde' : 'Acompte') + '\n';
+    if (p.note) t += 'Note : ' + p.note + '\n';
+    t += '\n';
+    t += 'Reste à payer : ' + fcfa(reste <= 0 ? 0 : reste) + '\n';
+    if (reste <= 0) t += '✅ Commande soldée\n';
+    t += '\nMerci de votre confiance.';
+
+    return t;
+}
+
+async function _copierRecu(paiementId) {
+    const c = _detailCmd;
+    if (!c) { toast('Rechargez la commande', 'warning'); return; }
+
+    const p = (c.paiements || []).find(function (x) { return x.id === paiementId; });
+    if (!p) { toast('Paiement introuvable', 'error'); return; }
+
+    let total = 0;
+    (c.commande_lignes || []).forEach(function (l) {
+        const pr = (l.prix_reel === null || l.prix_reel === undefined)
+                 ? l.prix_prevu : l.prix_reel;
+        total += Number(l.quantite) * Number(pr);
+    });
+
+    const texte = _texteRecu(c, p, total);
+
+    try {
+        await navigator.clipboard.writeText(texte);
+        toast('Reçu copié — collez-le dans WhatsApp', 'success');
+    } catch (e) {
+        const ta = document.createElement('textarea');
+        ta.value = texte;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+            document.execCommand('copy');
+            toast('Reçu copié', 'success');
+        } catch (e2) {
+            toast('Copie impossible sur ce navigateur', 'error');
+        }
+        document.body.removeChild(ta);
+    }
+}
+
+/* ─── Annulation d'un paiement (morceau 5) ─── */
+
+let _annulPay = null;   // paiement en cours d'annulation
+
+function _annulerPaiement(paiementId) {
+    const c = _detailCmd;
+    if (!c) { toast('Rechargez la commande', 'warning'); return; }
+
+    const p = (c.paiements || []).find(function (x) { return x.id === paiementId; });
+    if (!p) { toast('Paiement introuvable', 'error'); return; }
+    if (p.annule) { toast('Ce paiement est déjà annulé', 'warning'); return; }
+
+    _annulPay = p;
+    _dessinerAnnulPaiement();
+}
+
+function _dessinerAnnulPaiement() {
+    const z = zone();
+    const c = _detailCmd;
+    const p = _annulPay;
+    const nom = c.clients ? c.clients.nom : '(client supprimé)';
+    const seq = String(p.numero_seq);
+    const num = 'REC-' + p.annee + '-' + ('0000'.slice(0, 4 - seq.length) + seq);
+
+    z.innerHTML = ''
+        + '<div class="section-title">Annuler un paiement</div>'
+        + '<div class="gestion-annul-bloc">'
+        +   '<div class="gestion-annul-client">' + esc(nom) + '</div>'
+        +   '<div class="gestion-payannul-num">' + num + '</div>'
+        +   '<div class="gestion-annul-meta">'
+        +     dateFr(p.date_paiement) + ' · ' + (LIB_MOYEN[p.moyen] || p.moyen)
+        +     ' · ' + fcfa(p.montant)
+        +   '</div>'
+        +   '<div class="gestion-annul-texte">'
+        +     'Ce paiement sera marqué « Annulé ». Il restera visible, barré, '
+        +     'et son numéro de reçu ne sera jamais réutilisé. '
+        +     'Le montant sera retiré du total payé.'
+        +   '</div>'
+        + '</div>'
+        + '<div class="gestion-form-compact" style="margin-top:14px">'
+        +   '<div class="gestion-form-group">'
+        +     '<label class="gestion-form-label">Motif de l\'annulation</label>'
+        +     '<input class="gestion-input" id="annul-motif" type="text" maxlength="150" '
+        +       'placeholder="Ex : erreur de saisie">'
+        +   '</div>'
+        + '</div>'
+        + '<div class="gestion-actions-bas" style="margin-top:18px">'
+        +   '<button class="gestion-pastille gestion-pastille-contour" '
+        +     'onclick="_ouvrirCommande(\'' + c.id + '\')">← Retour</button>'
+        +   '<button class="gestion-pastille gestion-pastille-danger" '
+        +     'onclick="_confirmerAnnulPaiement()">Confirmer l\'annulation</button>'
+        + '</div>';
+}
+
+async function _confirmerAnnulPaiement() {
+    const c = _detailCmd;
+    const p = _annulPay;
+
+    const inp = document.getElementById('annul-motif');
+    const motif = inp ? inp.value.trim() : '';
+
+    if (!motif) {
+        toast('Indiquez le motif de l\'annulation', 'warning');
+        return;
+    }
+
+    const aujourdhui = new Date().toISOString().slice(0, 10);
+    const prefixe = '[ANNULÉ le ' + dateFr(aujourdhui) + ' : ' + motif + ']';
+    const nouvelleNote = p.note ? (prefixe + ' ' + p.note) : prefixe;
+
+    const r = await db().from('paiements')
+        .update({ annule: true, note: nouvelleNote })
+        .eq('ferme_id', fermeId())
+        .eq('id', p.id)
+        .eq('annule', false);
+
+    if (r.error) {
+        toast('Erreur annulation : ' + r.error.message, 'error');
+        return;
+    }
+
+    toast('Paiement annulé', 'success');
+    _annulPay = null;
+    _ouvrirCommande(c.id);
+}
+
 /* ─── Saisie d'un paiement ─── */
 
+let _detailCmd = null;   // commande actuellement affichée en détail
 let _payCmd = null;   // commande en cours d'encaissement
 let _payReste = 0;    // reste à payer au moment de l'ouverture
 let _paySaisie = null; // valeurs saisies, gardées pour l'écran de confirmation
@@ -1292,3 +1454,6 @@ window._dessinerPaiement  = _dessinerPaiement;
 window._solderPaiement    = _solderPaiement;
 window._verifierPaiement  = _verifierPaiement;
 window._confirmerPaiement = _confirmerPaiement;
+window._copierRecu             = _copierRecu;
+window._annulerPaiement        = _annulerPaiement;
+window._confirmerAnnulPaiement = _confirmerAnnulPaiement;

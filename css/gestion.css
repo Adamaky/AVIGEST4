@@ -647,3 +647,51 @@
     font-weight: 700;
     color: #e8a33d;
 }
+/* ─── Bouton copier reçu ─── */
+
+.gestion-regl-item-droite {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.gestion-regl-copier {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+    border: 1px solid var(--bg3);
+    border-radius: 20px;
+    background: transparent;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.gestion-regl-copier:active {
+    opacity: .5;
+}
+
+.gestion-regl-annuler {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+    border: 1px solid var(--red);
+    border-radius: 20px;
+    background: transparent;
+    color: var(--red);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.gestion-regl-annuler:active {
+    opacity: .5;
+}
+
+.gestion-payannul-num {
+    margin-top: 6px;
+    font-family: monospace;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: .5px;
+}
