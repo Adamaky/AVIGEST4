@@ -695,3 +695,22 @@
     font-weight: 700;
     letter-spacing: .5px;
 }
+
+/* ─── Écran Paramètres ─── */
+
+.gestion-param-info {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--bg2);
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.5;
+}
+
+.gestion-param-aide {
+    margin-top: 5px;
+    font-size: 11px;
+    color: var(--text2);
+    opacity: .8;
+}

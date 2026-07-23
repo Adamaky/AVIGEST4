@@ -474,9 +474,35 @@ function _blocReglement(c, total) {
 
 /* ─── Reçu à copier (morceau 4) ─── */
 
-function _texteRecu(c, p, total) {
-    const nomFerme = (window.avigestContext && window.avigestContext().nomFerme)
-                   ? window.avigestContext().nomFerme : 'AviGest';
+// Identité de la ferme pour l'en-tête des reçus.
+// Chargée une seule fois, puis conservée.
+let _identiteFerme = null;
+
+async function _chargerIdentiteFerme() {
+    if (_identiteFerme) return _identiteFerme;
+
+    // Si l'écran Paramètres vient d'enregistrer, on réutilise sa copie
+    if (window._avigestFerme) {
+        _identiteFerme = window._avigestFerme;
+        return _identiteFerme;
+    }
+
+    const r = await db()
+        .from('fermes')
+        .select('nom, nom_commercial, telephone, ville')
+        .eq('id', fermeId())
+        .single();
+
+    _identiteFerme = (r.error || !r.data)
+        ? { nom: 'AviGest', nom_commercial: null, telephone: null, ville: null }
+        : r.data;
+
+    return _identiteFerme;
+}
+
+function _texteRecu(c, p, total, f) {
+    const ferme = f || {};
+    const nomFerme = ferme.nom_commercial || ferme.nom || 'AviGest';
     const nomClient = c.clients ? c.clients.nom : 'Client';
     const paye = _totalPaye(c.paiements);
     const reste = total - paye;
@@ -485,7 +511,10 @@ function _texteRecu(c, p, total) {
 
     let t = '';
     t += '🧾 REÇU DE PAIEMENT\n';
-    t += nomFerme + '\n\n';
+    t += nomFerme + '\n';
+    if (ferme.ville)     t += ferme.ville + '\n';
+    if (ferme.telephone) t += 'Tél : ' + ferme.telephone + '\n';
+    t += '\n';
     t += 'N° ' + num + '\n';
     t += 'Date : ' + dateFr(p.date_paiement) + '\n\n';
     t += 'Client : ' + nomClient + '\n';
@@ -517,7 +546,8 @@ async function _copierRecu(paiementId) {
         total += Number(l.quantite) * Number(pr);
     });
 
-    const texte = _texteRecu(c, p, total);
+    const ferme = await _chargerIdentiteFerme();
+    const texte = _texteRecu(c, p, total, ferme);
 
     try {
         await navigator.clipboard.writeText(texte);

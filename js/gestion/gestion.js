@@ -15,6 +15,7 @@ import { estGerant } from '../shared/db.js';
 import { zone, toast } from '../shared/helpers.js';
 import '../clients/clients.js';
 import '../commandes/commandes.js';
+import '../parametres/parametres.js';
 
 
 /* ───────────────────────────────────────────────────────
@@ -53,6 +54,14 @@ const TUILES = [
         sub: 'Lots, imputations',
         fn: 'renderStockGerant',
         dispo: false
+    },
+    {
+        id: 'parametres',
+        icon: '⚙️',
+        label: 'Paramètres',
+        sub: 'Identité de la ferme',
+        fn: 'renderParametres',
+        dispo: true
     }
 ];
 
