@@ -288,10 +288,11 @@ async function _ouvrirCommande(id) {
 
     const res = await db()
         .from('commandes')
-        .select('id, date_commande, statut, clients(nom), '
+        .select('id, date_commande, statut, date_livraison_prevue, date_reglement_prevue, clients(nom), '
               + 'commande_lignes(id, quantite, prix_prevu, prix_reel, nb_sujets, bande_id, '
               + 'produits_catalogue(nom, unite, decremente_effectif), '
-              + 'bandes(id_bande))')
+              + 'bandes(id_bande)), '
+              + 'paiements(id, montant, date_paiement, moyen, type, annule, annee, numero_seq)')
         .eq('ferme_id', fermeId())
         .eq('id', id)
         .single();
@@ -359,6 +360,11 @@ async function _ouvrirCommande(id) {
         +   '<span>' + fcfa(total) + '</span>'
         + '</div>';
 
+    // ── Bloc Règlement (CRM étape 3) ──
+    if (c.statut === 'PLANIFIEE' || c.statut === 'LIVREE') {
+        html += _blocReglement(c, total);
+    }
+
     html += '<div class="gestion-actions-bas">'
           + '<button class="gestion-pastille gestion-pastille-contour" onclick="renderCommandes()">← Retour</button>';
     if (c.statut === 'PRECOMMANDE') {
@@ -373,6 +379,94 @@ async function _ouvrirCommande(id) {
     html += '</div>';
 
     z.innerHTML = html;
+}
+
+
+/* ═══════════════════ RÈGLEMENT (CRM étape 3) ═══════════════════ */
+
+const LIB_MOYEN = {
+    CASH:         'Espèces',
+    MOBILE_MONEY: 'Mobile Money',
+    VIREMENT:     'Virement',
+    CHEQUE:       'Chèque',
+    AUTRE:        'Autre'
+};
+
+function _numeroRecu(p) {
+    const seq = String(p.numero_seq);
+    const pad = '0000'.slice(0, 4 - seq.length) + seq;
+    return 'REC-' + p.annee + '-' + pad;
+}
+
+function _totalPaye(paiements) {
+    let s = 0;
+    (paiements || []).forEach(function (p) {
+        if (!p.annule) s += Number(p.montant);
+    });
+    return s;
+}
+
+function _blocReglement(c, total) {
+    const paiements = c.paiements || [];
+    const paye = _totalPaye(paiements);
+    const reste = total - paye;
+    const soldee = (reste <= 0);
+
+    let html = '<div class="gestion-regl-bloc">'
+             + '<div class="gestion-regl-titre">Règlement</div>'
+             + '<div class="gestion-regl-ligne">'
+             +   '<span>Total commande</span><span>' + fcfa(total) + '</span>'
+             + '</div>'
+             + '<div class="gestion-regl-ligne">'
+             +   '<span>Déjà payé</span><span>' + fcfa(paye) + '</span>'
+             + '</div>';
+
+    if (soldee) {
+        html += '<div class="gestion-regl-solde">✅ Soldée</div>';
+    } else {
+        html += '<div class="gestion-regl-reste">'
+              +   '<span>Reste à payer</span><span>' + fcfa(reste) + '</span>'
+              + '</div>';
+    }
+
+    if (paiements.length === 0) {
+        html += '<div class="gestion-regl-vide">Aucun paiement enregistré.</div>';
+    } else {
+        const tries = paiements.slice().sort(function (a, b) {
+            return String(a.date_paiement).localeCompare(String(b.date_paiement));
+        });
+        html += '<div class="gestion-regl-liste">';
+        tries.forEach(function (p) {
+            const clsAnnule = p.annule ? ' gestion-regl-item-annule' : '';
+            const libType = (p.type === 'SOLDE') ? 'Solde' : 'Acompte';
+            html += '<div class="gestion-regl-item' + clsAnnule + '">'
+                  +   '<div class="gestion-regl-item-gauche">'
+                  +     '<div class="gestion-regl-item-num">' + _numeroRecu(p) + '</div>'
+                  +     '<div class="gestion-regl-item-meta">'
+                  +       dateFr(p.date_paiement) + ' · ' + libType
+                  +       ' · ' + (LIB_MOYEN[p.moyen] || p.moyen)
+                  +       (p.annule ? ' · ANNULÉ' : '')
+                  +     '</div>'
+                  +   '</div>'
+                  +   '<div class="gestion-regl-item-montant">' + fcfa(p.montant) + '</div>'
+                  + '</div>';
+        });
+        html += '</div>';
+    }
+
+    if (!soldee) {
+        html += '<button class="gestion-pastille gestion-pastille-accent gestion-regl-btn" '
+              + 'onclick="_nouveauPaiement(\'' + c.id + '\')">'
+              + '💰 Enregistrer un paiement</button>';
+    }
+
+    html += '</div>';
+    return html;
+}
+
+// Provisoire — remplacé au morceau 3
+function _nouveauPaiement(id) {
+    toast('Écran de saisie à venir (morceau 3)', 'warning');
 }
 
 
@@ -963,3 +1057,4 @@ window._validerLivraison  = _validerLivraison;
 window._annulerCommande   = _annulerCommande;
 window._dessinerAnnulation = _dessinerAnnulation;
 window._confirmerAnnulation = _confirmerAnnulation;
+window._nouveauPaiement   = _nouveauPaiement;

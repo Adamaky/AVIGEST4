@@ -453,3 +453,108 @@
     color: var(--text2);
     line-height: 1.5;
 }
+/* ═══════════════════ RÈGLEMENT (CRM étape 3) ═══════════════════ */
+
+.gestion-regl-bloc {
+    margin-top: 18px;
+    padding: 14px;
+    border: 1px solid var(--bg3);
+    border-radius: 10px;
+    background: var(--bg2);
+}
+
+.gestion-regl-titre {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    opacity: .7;
+    margin-bottom: 10px;
+}
+
+.gestion-regl-ligne {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 15px;
+}
+
+.gestion-regl-reste {
+    display: flex;
+    justify-content: space-between;
+    padding: 9px 0 4px;
+    margin-top: 6px;
+    border-top: 1px solid var(--bg3);
+    font-size: 17px;
+    font-weight: 700;
+    color: #e8a33d;
+}
+
+.gestion-regl-solde {
+    padding: 9px 0 4px;
+    margin-top: 6px;
+    border-top: 1px solid var(--bg3);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--green);
+    text-align: center;
+}
+
+.gestion-regl-vide {
+    margin-top: 12px;
+    padding: 10px;
+    font-size: 14px;
+    opacity: .6;
+    text-align: center;
+}
+
+.gestion-regl-liste {
+    margin-top: 12px;
+    border-top: 1px solid var(--bg3);
+    padding-top: 8px;
+}
+
+.gestion-regl-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+}
+
+.gestion-regl-item + .gestion-regl-item {
+    border-top: 1px solid var(--bg3);
+}
+
+.gestion-regl-item-num {
+    font-size: 13px;
+    font-weight: 700;
+    font-family: monospace;
+    letter-spacing: .5px;
+}
+
+.gestion-regl-item-meta {
+    font-size: 12px;
+    opacity: .65;
+    margin-top: 2px;
+}
+
+.gestion-regl-item-montant {
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.gestion-regl-item-annule {
+    opacity: .45;
+}
+
+.gestion-regl-item-annule .gestion-regl-item-num,
+.gestion-regl-item-annule .gestion-regl-item-montant {
+    text-decoration: line-through;
+}
+
+.gestion-regl-btn {
+    width: 100%;
+    margin-top: 14px;
+}
