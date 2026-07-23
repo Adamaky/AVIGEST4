@@ -5227,8 +5227,8 @@ function _renderSessionResume() {
             if(e.type==='ambiance') affiche=`${val.temp}°C · ${val.hygro}% · Litière ${val.litiere}/5`;
             else if(e.type==='sante'||e.type==='sante_color') {
               const _ic = val.label==='BON'?'🟢':val.label==='PASSABLE'?'🟡':'🔴';
-              const _src = val.auto?' <span style="font-size:10px;color:var(--text2)">(auto)</span>':'';
-              affiche = _ic+' Santé du lot : <strong>'+val.label+'</strong>'+_src+(val.obs?' — '+val.obs.slice(0,30):'');
+              const _src = val.auto?' (auto)':'';
+      affiche = _ic+' Santé du lot : '+val.label+_src+(val.obs?' — '+val.obs.slice(0,30):'');
             }
             else if(e.type==='stock_autres') {
                 if(Array.isArray(val) && val.length > 0) affiche = val.map(function(p){return esc(p.label)+' : '+p.quantite;}).join(', ');
