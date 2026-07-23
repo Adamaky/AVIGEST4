@@ -558,3 +558,92 @@
     width: 100%;
     margin-top: 14px;
 }
+/* ─── Saisie paiement ─── */
+
+.gestion-pay-tete {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--bg2);
+}
+
+.gestion-pay-client {
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.gestion-pay-reste {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--bg3);
+    font-size: 15px;
+    font-weight: 700;
+    color: #e8a33d;
+}
+
+.gestion-btn-solder {
+    margin-top: 8px;
+    padding: 7px 16px;
+    border: 1px solid var(--blue);
+    border-radius: 20px;
+    background: transparent;
+    color: var(--blue);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.gestion-btn-solder:active {
+    opacity: .6;
+}
+
+/* ─── Confirmation paiement ─── */
+
+.gestion-pay-conf {
+    padding: 16px 14px;
+    border: 1px solid var(--bg3);
+    border-radius: 10px;
+    background: var(--bg2);
+}
+
+.gestion-pay-conf-titre {
+    font-size: 17px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.gestion-pay-conf-ligne {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 0;
+    font-size: 15px;
+}
+
+.gestion-pay-conf-ligne > span:first-child {
+    opacity: .65;
+}
+
+.gestion-pay-conf-ligne > span:last-child {
+    font-weight: 600;
+    text-align: right;
+}
+
+.gestion-pay-conf-montant > span:last-child {
+    font-size: 19px;
+    font-weight: 700;
+}
+
+.gestion-pay-conf-apres {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--bg3);
+    font-size: 16px;
+    font-weight: 700;
+    color: #e8a33d;
+}

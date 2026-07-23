@@ -464,9 +464,239 @@ function _blocReglement(c, total) {
     return html;
 }
 
-// Provisoire — remplacé au morceau 3
-function _nouveauPaiement(id) {
-    toast('Écran de saisie à venir (morceau 3)', 'warning');
+/* ─── Saisie d'un paiement ─── */
+
+let _payCmd = null;   // commande en cours d'encaissement
+let _payReste = 0;    // reste à payer au moment de l'ouverture
+let _paySaisie = null; // valeurs saisies, gardées pour l'écran de confirmation
+
+async function _nouveauPaiement(id) {
+    const z = zone();
+    if (!z) return;
+    z.innerHTML = '<div class="section-title">Enregistrer un paiement</div>'
+                + '<div class="gestion-vide">Chargement…</div>';
+
+    const res = await db()
+        .from('commandes')
+        .select('id, statut, client_id, clients(nom), '
+              + 'commande_lignes(quantite, prix_prevu, prix_reel), '
+              + 'paiements(montant, annule)')
+        .eq('ferme_id', fermeId())
+        .eq('id', id)
+        .single();
+
+    if (res.error || !res.data) {
+        toast('Commande introuvable', 'error');
+        renderCommandes();
+        return;
+    }
+
+    const c = res.data;
+
+    if (c.statut !== 'PLANIFIEE' && c.statut !== 'LIVREE') {
+        toast('Encaissement impossible sur cette commande', 'warning');
+        _ouvrirCommande(id);
+        return;
+    }
+
+    let total = 0;
+    (c.commande_lignes || []).forEach(function (l) {
+        const p = (l.prix_reel === null || l.prix_reel === undefined)
+                ? l.prix_prevu : l.prix_reel;
+        total += Number(l.quantite) * Number(p);
+    });
+
+    const reste = total - _totalPaye(c.paiements);
+
+    if (reste <= 0) {
+        toast('Cette commande est déjà soldée', 'warning');
+        _ouvrirCommande(id);
+        return;
+    }
+
+    _payCmd = c;
+    _payReste = reste;
+    _dessinerPaiement();
+}
+
+function _dessinerPaiement() {
+    const z = zone();
+    const c = _payCmd;
+    const nom = c.clients ? c.clients.nom : '(client supprimé)';
+    const aujourdhui = new Date().toISOString().slice(0, 10);
+
+    let optMoyens = '';
+    ['CASH', 'MOBILE_MONEY', 'VIREMENT', 'CHEQUE', 'AUTRE'].forEach(function (m) {
+        optMoyens += '<option value="' + m + '">' + LIB_MOYEN[m] + '</option>';
+    });
+
+    z.innerHTML = ''
+        + '<div class="section-title">Enregistrer un paiement</div>'
+        + '<div class="gestion-pay-tete">'
+        +   '<div class="gestion-pay-client">' + esc(nom) + '</div>'
+        +   '<div class="gestion-pay-reste">'
+        +     '<span>Reste à payer</span><span>' + fcfa(_payReste) + '</span>'
+        +   '</div>'
+        + '</div>'
+        + '<div class="gestion-form-compact">'
+        +   '<div class="gestion-form-group">'
+        +     '<label class="gestion-form-label">Montant reçu</label>'
+        +     '<input class="gestion-input" id="pay-montant" type="number" '
+        +       'min="0" step="1" placeholder="0">'
+        +     '<button class="gestion-btn-solder" onclick="_solderPaiement()">Solder</button>'
+        +   '</div>'
+        +   '<div class="gestion-form-group">'
+        +     '<label class="gestion-form-label">Date du paiement</label>'
+        +     '<input class="gestion-input" id="pay-date" type="date" value="' + aujourdhui + '">'
+        +   '</div>'
+        +   '<div class="gestion-form-group">'
+        +     '<label class="gestion-form-label">Moyen de paiement</label>'
+        +     '<select class="gestion-select" id="pay-moyen">' + optMoyens + '</select>'
+        +   '</div>'
+        +   '<div class="gestion-form-group">'
+        +     '<label class="gestion-form-label">Note (facultatif)</label>'
+        +     '<input class="gestion-input" id="pay-note" type="text" maxlength="200">'
+        +   '</div>'
+        +   '<div class="gestion-actions-bas">'
+        +     '<button class="gestion-pastille gestion-pastille-contour" '
+        +       'onclick="_ouvrirCommande(\'' + c.id + '\')">← Retour</button>'
+        +     '<button class="gestion-pastille gestion-pastille-accent" '
+        +       'onclick="_verifierPaiement()">Vérifier →</button>'
+        +   '</div>'
+        + '</div>';
+}
+
+function _solderPaiement() {
+    const inp = document.getElementById('pay-montant');
+    if (inp) inp.value = _payReste;
+}
+
+function _verifierPaiement() {
+    const mIn = document.getElementById('pay-montant');
+    const dIn = document.getElementById('pay-date');
+    const moIn = document.getElementById('pay-moyen');
+    const nIn = document.getElementById('pay-note');
+
+    const montant = mIn ? parseFloat(mIn.value) : NaN;
+    const date = dIn ? dIn.value : '';
+    const moyen = moIn ? moIn.value : '';
+    const note = nIn ? nIn.value.trim() : '';
+
+    if (isNaN(montant) || montant <= 0) {
+        toast('Indiquez un montant supérieur à zéro', 'warning');
+        return;
+    }
+    if (montant > _payReste) {
+        toast('Le montant dépasse le reste à payer (' + fcfa(_payReste) + ')', 'warning');
+        return;
+    }
+    if (!date) {
+        toast('Indiquez la date du paiement', 'warning');
+        return;
+    }
+    if (!moyen) {
+        toast('Choisissez un moyen de paiement', 'warning');
+        return;
+    }
+
+    const type = (montant >= _payReste) ? 'SOLDE' : 'ACOMPTE';
+
+    _paySaisie = {
+        montant: Math.round(montant),
+        date: date,
+        moyen: moyen,
+        note: note,
+        type: type
+    };
+
+    _dessinerConfirmationPaiement();
+}
+
+function _dessinerConfirmationPaiement() {
+    const z = zone();
+    const c = _payCmd;
+    const s = _paySaisie;
+    const nom = c.clients ? c.clients.nom : '(client supprimé)';
+    const resteApres = _payReste - s.montant;
+
+    z.innerHTML = ''
+        + '<div class="section-title">Confirmer</div>'
+        + '<div class="gestion-pay-conf">'
+        +   '<div class="gestion-pay-conf-titre">Confirmer l\'encaissement ?</div>'
+        +   '<div class="gestion-pay-conf-ligne"><span>Client</span><span>' + esc(nom) + '</span></div>'
+        +   '<div class="gestion-pay-conf-ligne gestion-pay-conf-montant">'
+        +     '<span>Montant</span><span>' + fcfa(s.montant) + '</span></div>'
+        +   '<div class="gestion-pay-conf-ligne"><span>Date</span><span>' + dateFr(s.date) + '</span></div>'
+        +   '<div class="gestion-pay-conf-ligne"><span>Moyen</span><span>' + LIB_MOYEN[s.moyen] + '</span></div>'
+        +   '<div class="gestion-pay-conf-ligne"><span>Type</span><span>'
+        +     (s.type === 'SOLDE' ? 'Solde' : 'Acompte') + '</span></div>'
+        +   (s.note
+                ? '<div class="gestion-pay-conf-ligne"><span>Note</span><span>' + esc(s.note) + '</span></div>'
+                : '')
+        +   '<div class="gestion-pay-conf-apres">'
+        +     '<span>Reste à payer après</span>'
+        +     '<span>' + fcfa(resteApres) + (resteApres <= 0 ? ' ✅' : '') + '</span>'
+        +   '</div>'
+        + '</div>'
+        + '<div class="gestion-actions-bas" style="margin-top:18px">'
+        +   '<button class="gestion-pastille gestion-pastille-contour" '
+        +     'onclick="_dessinerPaiement()">← Retour</button>'
+        +   '<button class="gestion-pastille gestion-pastille-valider" '
+        +     'onclick="_confirmerPaiement()">✅ Encaisser</button>'
+        + '</div>';
+}
+
+async function _confirmerPaiement() {
+    const c = _payCmd;
+    const s = _paySaisie;
+    const fid = fermeId();
+    const annee = Number(s.date.slice(0, 4));
+
+    const rn = await db()
+        .from('paiements')
+        .select('numero_seq')
+        .eq('ferme_id', fid)
+        .eq('annee', annee)
+        .order('numero_seq', { ascending: false })
+        .limit(1);
+
+    if (rn.error) {
+        toast('Erreur numérotation : ' + rn.error.message, 'error');
+        return;
+    }
+
+    const dernier = (rn.data && rn.data.length > 0) ? Number(rn.data[0].numero_seq) : 0;
+    const numeroSeq = dernier + 1;
+
+    const ri = await db().from('paiements').insert({
+        ferme_id: fid,
+        commande_id: c.id,
+        client_id: c.client_id,
+        montant: s.montant,
+        date_paiement: s.date,
+        moyen: s.moyen,
+        type: s.type,
+        note: s.note || null,
+        annee: annee,
+        numero_seq: numeroSeq
+    });
+
+    if (ri.error) {
+        if (ri.error.code === '23505') {
+            toast('Numéro déjà pris, réessayez', 'error');
+        } else {
+            toast('Erreur enregistrement : ' + ri.error.message, 'error');
+        }
+        return;
+    }
+
+    const seq = String(numeroSeq);
+    const num = 'REC-' + annee + '-' + ('0000'.slice(0, 4 - seq.length) + seq);
+
+    toast('Paiement enregistré — ' + num, 'success');
+    _payCmd = null;
+    _paySaisie = null;
+    _ouvrirCommande(c.id);
 }
 
 
@@ -1058,3 +1288,7 @@ window._annulerCommande   = _annulerCommande;
 window._dessinerAnnulation = _dessinerAnnulation;
 window._confirmerAnnulation = _confirmerAnnulation;
 window._nouveauPaiement   = _nouveauPaiement;
+window._dessinerPaiement  = _dessinerPaiement;
+window._solderPaiement    = _solderPaiement;
+window._verifierPaiement  = _verifierPaiement;
+window._confirmerPaiement = _confirmerPaiement;
