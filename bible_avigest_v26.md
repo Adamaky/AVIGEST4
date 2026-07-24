@@ -43,7 +43,7 @@ AviGest est une Progressive Web App (PWA) de gestion avicole à Ouagadougou. Ell
 
   Fichier de travail      C:.html
 
-  **Version actuelle**    **APP_VERSION = 'v26.34' · CACHE_NAME = 'avigest-v26-34'**
+  **Version actuelle**    **APP_VERSION = 'v26.35' · CACHE_NAME = 'avigest-v26-35'**
   ------------------------------------------------------------------------------------
 
 ### 2.2 Terminologie --- Deux niveaux
@@ -971,7 +971,7 @@ Puis tester sur http://localhost:3000. Laisser le terminal ouvert (Ctrl+C pour a
 
 **Ajouter à la liste des points en suspens :**
 
-6.  **sw.js --- STATIC_URLS incomplet** (ouvert v26.22) : la liste ne contient que /AVIGEST4/ et /AVIGEST4/index.html. Aucun fichier de module n'y figure : css/gestion.css, js/shared/db.js, js/shared/helpers.js, js/gestion/gestion.js, js/clients/, js/commandes/commandes.js et js/parametres/parametres.js. ⚠️ Point AGGRAVÉ à chaque nouveau module (mis à jour v26.35). **Conséquence** : le module GESTION **ne fonctionnera pas hors ligne**. Fonctionne correctement en ligne (testé en production le 11/07/2026, fenêtre InPrivate). À corriger dans un commit dédié.
+6.  **sw.js --- STATIC_URLS incomplet --- ✅ RÉSOLU v26.35** (ouvert v26.22, fermé v26.35). La liste ne contenait que /AVIGEST4/ et /AVIGEST4/index.html --- elle compte désormais 9 entrées, tous les modules ES inclus. Voir §21 pour le détail du correctif.
 
 7.  **Warning Multiple GoTrueClient instances detected** (observé v26.22) : deux clients Supabase coexistent dans la page --- création ligne 549 puis réaffectation ligne 526 d\'index.html. Sans gravité constatée à ce jour, mais à surveiller. --- À ajouter également : la règle \~\$\* dans .gitignore, pour ignorer les fichiers temporaires Word (\~\$ble_avigest_v26.docx remonte à chaque commit).
 
@@ -1065,7 +1065,7 @@ L\'étape 2 du découpage CRM (« Livraison → vente → recette journal ») es
 
 **Mise à jour --- Section 2.1 (version) et 2.5 (migrations)**
 
-**Version actuelle : APP_VERSION = \'v26.34\' · CACHE_NAME = \'avigest-v26-34\'**.
+**Version actuelle : APP_VERSION = \'v26.35\' · CACHE_NAME = \'avigest-v26-35\'**.
 
 Migrations ajoutées depuis v26.22 (à jour au 23/07/2026) :
 
@@ -1281,6 +1281,58 @@ Test de contrôle : GESTION → ⚙️ Paramètres. Les trois champs doivent aff
 ### **20.6 Perspective**
 
 Cet écran est le point d'entrée naturel des futurs réglages de ferme. Deux colonnes déjà présentes en base l'attendent : plan (default 'FREE') et nb_batiments (default 6), toutes deux inexploitées à ce jour. Elles constituent le socle du modèle tarifaire SaaS (§13.5) --- à exposer ici le moment venu, en lecture seule pour le gérant.
+
+## **21. Service Worker et cache hors ligne (v26.35)**
+
+### **21.1 Ce qui a été corrigé**
+
+Le point en suspens n°6, ouvert depuis la v26.22 et aggravé à chaque nouveau module, est fermé. Quatre corrections dans sw.js, en un seul commit dédié :
+
+1\) CACHE_NAME porté à avigest-v26-35, en même temps qu'APP_VERSION dans index.html (règle §4.3). 2) STATIC_URLS passé de 2 à 9 entrées : css/gestion.css, js/shared/db.js, js/shared/helpers.js, js/gestion/gestion.js, js/clients/clients.js, js/commandes/commandes.js, js/parametres/parametres.js. 3) Installation rendue tolérante (voir §21.2). 4) Mise en cache conditionnée à resp.ok, et repli explicite si le cache est vide (voir §21.3).
+
+### **21.2 cache.addAll → Promise.allSettled --- le point important**
+
+**L'ancienne installation utilisait cache.addAll(STATIC_URLS). Cette méthode est tout-ou-rien : si UNE seule URL de la liste est introuvable, la promesse est rejetée et AUCUN fichier n'est mis en cache --- le service worker ne s'installe pas du tout. Avec une liste de 2 entrées le risque était faible ; avec 9, une faute de frappe suffisait à faire perdre tout le cache, y compris ce qui fonctionnait avant.**
+
+    caches.open(CACHE_NAME)
+      .then(cache => Promise.allSettled(STATIC_URLS.map(u => cache.add(u))))
+      .then(() => self.skipWaiting());
+
+Chaque fichier est désormais tenté séparément. Un chemin faux échoue seul, sans empêcher les autres d'être mis en cache. Conséquence pratique : ajouter un module à STATIC_URLS n'est plus une opération risquée.
+
+💡 En clair : avant, si un seul produit manquait à la livraison, le magasinier refusait de ranger toute la palette. Maintenant il range ce qu'il a et met de côté ce qui manque.
+
+### **21.3 Stratégie fetch --- ce qui était déjà bon, ce qui ne l'était pas**
+
+Découverte du diagnostic : la stratégie était déjà « réseau d'abord, puis mise en cache de la réponse ». Tous les modules étaient donc déjà cachés automatiquement dès la première visite en ligne. STATIC_URLS ne sert qu'au PRÉ-chargement à l'installation --- il couvre le cas où l'utilisateur perd le réseau avant d'avoir ouvert l'écran concerné.
+
+Deux défauts réels ont été corrigés au passage :
+
+• Toutes les réponses étaient mises en cache, y compris les 404 --- une erreur pouvait donc être resservie indéfiniment. Un test resp.ok a été ajouté. • En cas d'échec réseau ET de cache vide, caches.match() renvoyait undefined, et respondWith(undefined) provoquait une erreur brute. Une réponse 503 explicite est désormais renvoyée.
+
+### **21.4 ⚠️ Règle de test --- NE PAS tester le cache en InPrivate**
+
+**Leçon de la session v26.35, à retenir absolument. Le premier test hors ligne a échoué (ERR_INTERNET_DISCONNECTED, service worker sans réponse) et a fait croire à un correctif raté. La cause n'était pas le code : en navigation InPrivate, le stockage du service worker est éphémère et le cache ne persiste pas. C'est le principe même de la navigation privée.**
+
+Conséquence sur les protocoles de test de la Bible : InPrivate reste recommandé pour vérifier qu'une NOUVELLE VERSION est bien déployée (il contourne le cache). Mais il est inadapté pour tester le cache lui-même. Les deux usages sont opposés --- ne pas les confondre.
+
+**Protocole de test du cache (fenêtre NORMALE obligatoire) :**
+
+1\) Fenêtre Edge ordinaire, charger l'app et laisser le chargement se terminer. 2) F12 → Application → Service Workers : vérifier « activated and running ». 3) F12 → Application → Cache Storage → avigest-v26-XX : compter les entrées. 4) Network → Offline → F5 : l'app doit s'afficher.
+
+Contrôle rapide en console, plus fiable que la navigation dans les panneaux :
+
+    (await (await caches.open('avigest-v26-35')).keys()).length
+
+⚠️ Un nouveau service worker peut demander DEUX chargements avant de prendre le relais (le premier installe, le second active), même avec skipWaiting().
+
+### **21.5 Résultat mesuré en production (23/07/2026)**
+
+Cache avigest-v26-35 : 10 entrées. Les 9 de STATIC_URLS, plus une entrée ajoutée automatiquement par la stratégie fetch (ressource chargée au démarrage). Les 7 modules se chargent tous en statut 200, aucun 404. App testée hors ligne en fenêtre normale : l'écran d'accueil s'affiche.
+
+**⚠️ Ce qui NE fonctionne toujours pas hors ligne, et c'est normal : les DONNÉES. Tous les appels Supabase échouent sans réseau. Ce chantier rend l'INTERFACE disponible hors ligne, pas les données. Le vrai mode offline (file d'attente localStorage + synchronisation) reste à faire --- voir §13.2, ligne « Mode hors ligne + sync auto ».**
+
+💡 En clair : l'agent qui perd le réseau voit maintenant son écran au lieu d'une page blanche. Mais il ne voit pas ses chiffres --- ceux-là viennent du serveur. Rendre les chiffres disponibles hors ligne, c'est un autre chantier, plus gros.
 
 **Chantiers ouverts à la reprise (session v26.29)**
 
