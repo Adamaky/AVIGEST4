@@ -1,21 +1,33 @@
 /* ============================================================
-   AviGest v24 — Service Worker
+   AviGest v26 — Service Worker
    Gère : cache offline + notifications push OneSignal
    ============================================================ */
 
 /* Import SDK OneSignal — obligatoire pour les notifications push */
 importScripts('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js');
 
-const CACHE_NAME  = 'avigest-v26-34';
+const CACHE_NAME  = 'avigest-v26-35';
 const STATIC_URLS = [
   '/AVIGEST4/',
-  '/AVIGEST4/index.html'
+  '/AVIGEST4/index.html',
+  '/AVIGEST4/css/gestion.css',
+  '/AVIGEST4/js/shared/db.js',
+  '/AVIGEST4/js/shared/helpers.js',
+  '/AVIGEST4/js/gestion/gestion.js',
+  '/AVIGEST4/js/clients/clients.js',
+  '/AVIGEST4/js/commandes/commandes.js',
+  '/AVIGEST4/js/parametres/parametres.js'
 ];
 
-/* ── Installation : mise en cache des ressources statiques ── */
+/* ── Installation : mise en cache des ressources statiques ──
+   allSettled et non addAll : si un chemin est faux, seul ce
+   fichier est ignoré — le reste du cache est constitué.
+   Avec addAll, une seule erreur annulait TOUTE l'installation. */
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_URLS)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then(cache => Promise.allSettled(STATIC_URLS.map(u => cache.add(u))))
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -36,11 +48,25 @@ self.addEventListener('fetch', e => {
   e.respondWith(
     fetch(e.request)
       .then(resp => {
-        const clone = resp.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+        /* Ne mettre en cache que les réponses valides.
+           Sans ce test, un 404 était caché puis resservi indéfiniment. */
+        if (resp && resp.ok) {
+          const clone = resp.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+        }
         return resp;
       })
-      .catch(() => caches.match(e.request))
+      .catch(() =>
+        /* Repli cache. Si le cache est vide aussi, renvoyer une réponse
+           explicite plutôt qu'undefined (qui casse respondWith). */
+        caches.match(e.request).then(hit =>
+          hit || new Response('Hors ligne — ressource non disponible en cache.', {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+          })
+        )
+      )
   );
 });
 
