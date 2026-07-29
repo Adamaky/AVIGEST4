@@ -43,7 +43,7 @@ AviGest est une Progressive Web App (PWA) de gestion avicole à Ouagadougou. Ell
 
   Fichier de travail      C:.html
 
-  **Version actuelle**    **APP_VERSION = 'v26.35' · CACHE_NAME = 'avigest-v26-35'**
+  **Version actuelle**    **APP_VERSION = 'v26.36' · CACHE_NAME = 'avigest-v26-36'**
   ------------------------------------------------------------------------------------
 
 ### 2.2 Terminologie --- Deux niveaux
@@ -1013,7 +1013,7 @@ Le CRM Commandes est le **chemin de vente officiel** d\'AviGest depuis v26.26. I
 
 **18.3 Le RPC livrer_commande (Migration 039)**
 
-Signature : **livrer_commande(p_commande_id uuid, p_lignes jsonb)**.
+Signature : **livrer_commande(p_commande_id uuid, p_lignes jsonb, p_date_reglement date DEFAULT NULL)**. Le 3e paramètre, ajouté par la Migration 048 (v26.36), est optionnel : il porte l'échéance de règlement saisie à la livraison (voir §18.9).
 
 Opération **atomique** : elle lit get_ferme_id() (isolation multi-tenant), enregistre les prix réels ligne par ligne, décrémente l\'effectif de la bande pour les produits marqués decremente_effectif = true, écrit la recette au journal, et fait passer la commande au statut LIVREE. Tout réussit ensemble ou rien --- pas de demi-livraison possible.
 
@@ -1065,13 +1065,13 @@ L\'étape 2 du découpage CRM (« Livraison → vente → recette journal ») es
 
 **Mise à jour --- Section 2.1 (version) et 2.5 (migrations)**
 
-**Version actuelle : APP_VERSION = \'v26.35\' · CACHE_NAME = \'avigest-v26-35\'**.
+**Version actuelle : APP_VERSION = \'v26.36\' · CACHE_NAME = \'avigest-v26-36\'**.
 
 Migrations ajoutées depuis v26.22 (à jour au 23/07/2026) :
 
-  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   **Fichier**                        **Contenu**
-  ---------------------------------- -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  ---------------------------------- --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   039_livrer_commande.sql            RPC livrer_commande --- livraison atomique CRM (effectif + recette + statut LIVREE)
 
   040_date_livraison_commandes.sql   ALTER TABLE commandes ADD COLUMN date_livraison_prevue date
@@ -1089,9 +1089,49 @@ Migrations ajoutées depuis v26.22 (à jour au 23/07/2026) :
   046_paiements_numerotation.sql     Sur paiements : annee (int NOT NULL, default année courante), numero_seq (int NOT NULL, sans default --- calculé côté JS), annule (bool NOT NULL default false), contrainte UNIQUE (ferme_id, annee, numero_seq) « carnet à souches », CHECK (montant \> 0), index sur commande_id.
 
   047_fermes_nom_commercial.sql      Sur fermes : ajout de nom_commercial (text, nullable). Les colonnes nom, proprietaire, telephone, ville, pays, email existaient déjà. Policy fermes_update déjà présente --- aucun ajout RLS.
-  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-Dernière migration : **047**.
+  048_livrer_commande_echeance.sql   Ajoute le paramètre p_date_reglement date DEFAULT NULL au RPC livrer_commande, pour saisir l'échéance de règlement au moment de la livraison. ⚠️ Le DEFAULT NULL n'empêche PAS la surcharge : PostgreSQL a créé une 2e fonction (oid 19628) à côté de l'ancienne (19433). L'ancienne a dû être supprimée --- voir §18.3.
+  -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Dernière migration : **048**.
+
+**18.9 Saisie de l'échéance de règlement à la livraison (v26.36)**
+
+Diagnostic fondateur (24/07/2026) : sur 7 commandes en base, ZERO portait une date_reglement_prevue. La colonne existait depuis la Migration 036 mais aucun écran ne la remplissait. L'alerte échéance (§16.6) était donc impossible --- une sonnette sans personne pour poser la date. Ce chantier construit la saisie ; l'alerte viendra après.
+
+**Choix de conception (actés par Adama) :**
+
+• Échéance OPTIONNELLE --- un client qui paie comptant ne génère pas de créance, la date reste NULL. • Saisie À LA LIVRAISON --- c'est le moment où la créance naît réellement et où le gérant connaît le délai accordé. • Intégrée au RPC plutôt qu'un UPDATE séparé, pour préserver l'atomicité de livrer_commande (§18.3).
+
+**Interface (module js/commandes/commandes.js, écran de livraison) :**
+
+Un bloc « Échéance de règlement » ajouté avant le bouton Confirmer. Quatre pastilles de raccourci --- Comptant, +7 jours, +15 jours, +30 jours --- plus un champ date pour une saisie libre. Une ligne d'affichage confirme la date choisie (« Échéance : 11/08/2026 ») ou l'absence d'échéance (« Paiement comptant »). Design conforme au cadre §4.4 : les pastilles en contour gris, le bouton Confirmer en vert reste la seule action vive.
+
+**La variable de module \_livrEcheance porte trois états :**
+
+  ----------------------------------------------------------------------------------------------
+  **Valeur**           **Signification**
+  -------------------- -------------------------------------------------------------------------
+  undefined            Rien choisi --- transmis comme null au RPC (COALESCE garde l'existant).
+
+  null                 « Comptant » cliqué --- pas de créance.
+
+  'AAAA-MM-JJ'         Une date posée --- transmise telle quelle.
+  ----------------------------------------------------------------------------------------------
+
+⚠️ \_livrEcheance est réinitialisée à undefined au début de \_dessinerLivraison(), sinon l'échéance d'une commande resterait collée à la livraison suivante --- piege classique d'une variable de module.
+
+Fonctions ajoutées : \_setEcheance(jours), \_setEcheanceDate(val), \_majEcheanceUI() (les deux premières exposées sur window pour les onclick inline, §17.4). L'appel RPC reçoit p_date_reglement: \_livrEcheance ?? null.
+
+**⚠️ Leçon confirmée en conditions réelles --- surcharge malgré le DEFAULT**
+
+La Migration 048 utilisait CREATE OR REPLACE FUNCTION avec le nouveau paramètre p_date_reglement \... DEFAULT NULL. On croyait que le DEFAULT suffirait à remplacer l'ancienne fonction. FAUX : PostgreSQL a créé une SECONDE fonction (oid 19628) à côté de l'ancienne (oid 19433), car la signature diffère. Le DEFAULT ne sert qu'à rendre les appels à 2 arguments valides sur la nouvelle version ; il n'efface jamais l'ancienne. Conséquence : un appel à 2 arguments devenait ambigu. Corrigé par DROP FUNCTION public.livrer_commande(uuid, jsonb). C'est exactement le piège de surcharge déjà documenté en §6 pour imputer_stock --- reproduit puis corrigé. Toujours relancer le diagnostic pg_get_function_identity_arguments après un changement de signature.
+
+**Validation (v26.36) :**
+
+Test en base (transaction annulée) : livrer_commande avec +15 jours pose bien date_reglement_prevue, une seule fonction en base après le DROP. Test à l'écran : pastilles fonctionnelles, Comptant → null, +Nj → date calculée et affichée. Livraison réelle de bout en bout confirmée (chemin JS → RPC → journal → effectif). Données de test nettoyées (recette 22 000 F supprimée du journal).
+
+💡 En clair : jusqu'ici, quand tu livrais, tu ne notais nulle part quand le client devait payer. Maintenant, au moment de livrer, tu tapes « dans 15 jours » ou « comptant », et l'app retient la date. C'est la pièce qui manquait pour, plus tard, faire sonner un rappel « ce client doit payer demain ».
 
 ## **19. Module Paiements / Créances (CHANTIER CLOS --- v26.34)**
 
@@ -1288,7 +1328,7 @@ Cet écran est le point d'entrée naturel des futurs réglages de ferme. Deux co
 
 Le point en suspens n°6, ouvert depuis la v26.22 et aggravé à chaque nouveau module, est fermé. Quatre corrections dans sw.js, en un seul commit dédié :
 
-1\) CACHE_NAME porté à avigest-v26-35, en même temps qu'APP_VERSION dans index.html (règle §4.3). 2) STATIC_URLS passé de 2 à 9 entrées : css/gestion.css, js/shared/db.js, js/shared/helpers.js, js/gestion/gestion.js, js/clients/clients.js, js/commandes/commandes.js, js/parametres/parametres.js. 3) Installation rendue tolérante (voir §21.2). 4) Mise en cache conditionnée à resp.ok, et repli explicite si le cache est vide (voir §21.3).
+1\) CACHE_NAME porté à avigest-v26-36, en même temps qu'APP_VERSION dans index.html (règle §4.3). 2) STATIC_URLS passé de 2 à 9 entrées : css/gestion.css, js/shared/db.js, js/shared/helpers.js, js/gestion/gestion.js, js/clients/clients.js, js/commandes/commandes.js, js/parametres/parametres.js. 3) Installation rendue tolérante (voir §21.2). 4) Mise en cache conditionnée à resp.ok, et repli explicite si le cache est vide (voir §21.3).
 
 ### **21.2 cache.addAll → Promise.allSettled --- le point important**
 
@@ -1322,13 +1362,13 @@ Conséquence sur les protocoles de test de la Bible : InPrivate reste recommand�
 
 Contrôle rapide en console, plus fiable que la navigation dans les panneaux :
 
-    (await (await caches.open('avigest-v26-35')).keys()).length
+    (await (await caches.open('avigest-v26-36')).keys()).length
 
 ⚠️ Un nouveau service worker peut demander DEUX chargements avant de prendre le relais (le premier installe, le second active), même avec skipWaiting().
 
 ### **21.5 Résultat mesuré en production (23/07/2026)**
 
-Cache avigest-v26-35 : 10 entrées. Les 9 de STATIC_URLS, plus une entrée ajoutée automatiquement par la stratégie fetch (ressource chargée au démarrage). Les 7 modules se chargent tous en statut 200, aucun 404. App testée hors ligne en fenêtre normale : l'écran d'accueil s'affiche.
+Cache avigest-v26-36 : 10 entrées. Les 9 de STATIC_URLS, plus une entrée ajoutée automatiquement par la stratégie fetch (ressource chargée au démarrage). Les 7 modules se chargent tous en statut 200, aucun 404. App testée hors ligne en fenêtre normale : l'écran d'accueil s'affiche.
 
 **⚠️ Ce qui NE fonctionne toujours pas hors ligne, et c'est normal : les DONNÉES. Tous les appels Supabase échouent sans réseau. Ce chantier rend l'INTERFACE disponible hors ligne, pas les données. Le vrai mode offline (file d'attente localStorage + synchronisation) reste à faire --- voir §13.2, ligne « Mode hors ligne + sync auto ».**
 
