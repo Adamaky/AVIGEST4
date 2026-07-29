@@ -26,6 +26,7 @@ let _planifCmd = null;
 let _bandes = [];
 let _livrCmd = null;
 let _annulCmd = null;
+let _livrEcheance = undefined;
 
 
 /* ═══════════════════ LISTE ═══════════════════ */
@@ -292,7 +293,8 @@ async function _ouvrirCommande(id) {
               + 'commande_lignes(id, quantite, prix_prevu, prix_reel, nb_sujets, bande_id, '
               + 'produits_catalogue(nom, unite, decremente_effectif), '
               + 'bandes(id_bande)), '
-              + 'paiements(id, montant, date_paiement, moyen, type, annule, annee, numero_seq, note)')
+              + 'paiements(id, montant, date_paiement, moyen, type, annule, annee, numero_seq, note), '
+              + 'penalites(id, taux_pct, base_calcul, montant, date_penalite, paye, date_paiement, moyen, annule, annee, numero_seq, note)')
         .eq('ferme_id', fermeId())
         .eq('id', id)
         .single();
@@ -366,8 +368,19 @@ async function _ouvrirCommande(id) {
         html += _blocReglement(c, total);
     }
 
+    const _paye = _totalPaye(c.paiements);
+    const _reste = total - _paye;
+    const _penImpayees = (c.penalites || []).filter(function (p) {
+        return !p.annule && !p.paye;
+    });
+    const _peutFacturer = (c.statut === 'PLANIFIEE' || c.statut === 'LIVREE')
+                        && (_reste > 0 || _penImpayees.length > 0);
+
     html += '<div class="gestion-actions-bas">'
           + '<button class="gestion-pastille gestion-pastille-contour" onclick="renderCommandes()">← Retour</button>';
+    if (_peutFacturer) {
+        html += '<button class="gestion-pastille gestion-pastille-contour" onclick="_copierFacture(\'' + c.id + '\')">📄 Facture</button>';
+    }
     if (c.statut === 'PRECOMMANDE') {
         html += '<button class="gestion-pastille gestion-pastille-accent" onclick="_planifierCommande(\'' + c.id + '\')">Planifier →</button>';
     }
@@ -392,6 +405,19 @@ const LIB_MOYEN = {
     CHEQUE:       'Chèque',
     AUTRE:        'Autre'
 };
+
+/* ═══════════════════ PÉNALITÉS DE RETARD ═══════════════════ */
+
+let _penCmd = null;      // commande concernée par la pénalité en cours
+let _penReste = 0;       // reste à payer au moment de l'ouverture
+let _penSaisie = null;   // valeurs saisies, gardées pour la confirmation
+let _penEncaisse = null; // pénalité en cours d'encaissement
+
+function _numeroPenalite(p) {
+    const seq = String(p.numero_seq);
+    const pad = '0000'.slice(0, 4 - seq.length) + seq;
+    return 'PEN-' + p.annee + '-' + pad;
+}
 
 function _numeroRecu(p) {
     const seq = String(p.numero_seq);
@@ -462,10 +488,46 @@ function _blocReglement(c, total) {
         html += '</div>';
     }
 
+    // ── Pénalités de retard ──
+    const penalites = c.penalites || [];
+    if (penalites.length > 0) {
+        html += '<div class="gestion-regl-sous-titre">Pénalités de retard</div>';
+        html += '<div class="gestion-regl-liste">';
+        const triesP = penalites.slice().sort(function (a, b) {
+            return String(a.date_penalite).localeCompare(String(b.date_penalite));
+        });
+        triesP.forEach(function (p) {
+            const clsAnnule = p.annule ? ' gestion-regl-item-annule' : '';
+            let etat;
+            if (p.annule)      etat = 'ANNULÉE';
+            else if (p.paye)   etat = 'Payée le ' + dateFr(p.date_paiement);
+            else               etat = 'Impayée';
+            html += '<div class="gestion-regl-item' + clsAnnule + '">'
+                  +   '<div class="gestion-regl-item-gauche">'
+                  +     '<div class="gestion-regl-item-num">' + _numeroPenalite(p) + '</div>'
+                  +     '<div class="gestion-regl-item-meta">'
+                  +       dateFr(p.date_penalite) + ' · ' + esc(etat)
+                  +       ' · ' + Number(p.taux_pct) + '%'
+                  +     '</div>'
+                  +   '</div>'
+                  +   '<div class="gestion-regl-item-droite">'
+                  +     '<div class="gestion-regl-item-montant">' + fcfa(p.montant) + '</div>'
+                  +     ((p.annule || p.paye) ? ''
+                          : '<button class="gestion-regl-encaisser" title="Encaisser la pénalité" '
+                            + 'onclick="_encaisserPenalite(\'' + p.id + '\')">💵</button>')
+                  +   '</div>'
+                  + '</div>';
+        });
+        html += '</div>';
+    }
+
     if (!soldee) {
         html += '<button class="gestion-pastille gestion-pastille-accent gestion-regl-btn" '
               + 'onclick="_nouveauPaiement(\'' + c.id + '\')">'
               + '💰 Enregistrer un paiement</button>';
+        html += '<button class="gestion-pastille gestion-pastille-contour gestion-regl-btn" '
+              + 'onclick="_nouvellePenalite(\'' + c.id + '\')">'
+              + '⚠️ Signaler un retard</button>';
     }
 
     html += '</div>';
@@ -653,6 +715,465 @@ async function _confirmerAnnulPaiement() {
     toast('Paiement annulé', 'success');
     _annulPay = null;
     _ouvrirCommande(c.id);
+}
+
+/* ─── Saisie d'une pénalité ─── */
+
+async function _nouvellePenalite(id) {
+    const z = zone();
+    if (!z) return;
+    z.innerHTML = '<div class="section-title">Signaler un retard</div>'
+                + '<div class="gestion-vide">Chargement…</div>';
+
+    const res = await db()
+        .from('commandes')
+        .select('id, statut, client_id, clients(nom), '
+              + 'commande_lignes(quantite, prix_prevu, prix_reel), '
+              + 'paiements(montant, annule)')
+        .eq('ferme_id', fermeId())
+        .eq('id', id)
+        .single();
+
+    if (res.error || !res.data) {
+        toast('Commande introuvable', 'error');
+        renderCommandes();
+        return;
+    }
+
+    const c = res.data;
+
+    if (c.statut !== 'PLANIFIEE' && c.statut !== 'LIVREE') {
+        toast('Pénalité impossible sur cette commande', 'warning');
+        _ouvrirCommande(id);
+        return;
+    }
+
+    let total = 0;
+    (c.commande_lignes || []).forEach(function (l) {
+        const p = (l.prix_reel === null || l.prix_reel === undefined)
+                ? l.prix_prevu : l.prix_reel;
+        total += Number(l.quantite) * Number(p);
+    });
+
+    const reste = total - _totalPaye(c.paiements);
+
+    if (reste <= 0) {
+        toast('Cette commande est déjà soldée — aucune pénalité', 'warning');
+        _ouvrirCommande(id);
+        return;
+    }
+
+    _penCmd = c;
+    _penReste = reste;
+    _penSaisie = null;
+    _dessinerPenalite();
+}
+
+function _dessinerPenalite() {
+    const z = zone();
+    const c = _penCmd;
+    const nom = c.clients ? c.clients.nom : '(client supprimé)';
+
+    z.innerHTML = ''
+        + '<div class="section-title">Signaler un retard</div>'
+        + '<div class="gestion-pay-tete">'
+        +   '<div class="gestion-pay-client">' + esc(nom) + '</div>'
+        +   '<div class="gestion-pay-reste">'
+        +     '<span>Reste à payer</span><span>' + fcfa(_penReste) + '</span>'
+        +   '</div>'
+        + '</div>'
+        + '<div class="gestion-form-compact">'
+        +   '<div class="gestion-form-group">'
+        +     '<label class="gestion-form-label">Mode de calcul</label>'
+        +     '<div class="gestion-pen-modes">'
+        +       '<button type="button" class="gestion-pastille gestion-pastille-valider" '
+        +         'id="pen-mode-pct" onclick="_penMode(\'PCT\')">Pourcentage</button>'
+        +       '<button type="button" class="gestion-pastille gestion-pastille-contour" '
+        +         'id="pen-mode-fixe" onclick="_penMode(\'FIXE\')">Montant fixe</button>'
+        +     '</div>'
+        +   '</div>'
+        +   '<div class="gestion-form-group" id="pen-grp-pct">'
+        +     '<label class="gestion-form-label">Taux de pénalité (%)</label>'
+        +     '<input class="gestion-input" id="pen-taux" type="number" '
+        +       'min="0" step="0.5" placeholder="Ex : 5" oninput="_penApercu()">'
+        +   '</div>'
+        +   '<div class="gestion-form-group" id="pen-grp-fixe" style="display:none">'
+        +     '<label class="gestion-form-label">Montant de la pénalité (FCFA)</label>'
+        +     '<input class="gestion-input" id="pen-montant" type="number" '
+        +       'min="0" step="1" placeholder="0" oninput="_penApercu()">'
+        +   '</div>'
+        +   '<div class="gestion-pen-apercu" id="pen-apercu">Montant de la pénalité : —</div>'
+        +   '<div class="gestion-form-group">'
+        +     '<label class="gestion-form-label">Note (facultatif)</label>'
+        +     '<input class="gestion-input" id="pen-note" type="text" maxlength="200">'
+        +   '</div>'
+        +   '<div class="gestion-actions-bas">'
+        +     '<button class="gestion-pastille gestion-pastille-contour" '
+        +       'onclick="_ouvrirCommande(\'' + c.id + '\')">← Retour</button>'
+        +     '<button class="gestion-pastille gestion-pastille-accent" '
+        +       'onclick="_verifierPenalite()">Vérifier →</button>'
+        +   '</div>'
+        + '</div>';
+
+    _penModeCourant = 'PCT';
+}
+
+let _penModeCourant = 'PCT';
+
+function _penMode(mode) {
+    _penModeCourant = mode;
+    const bPct = document.getElementById('pen-mode-pct');
+    const bFixe = document.getElementById('pen-mode-fixe');
+    const gPct = document.getElementById('pen-grp-pct');
+    const gFixe = document.getElementById('pen-grp-fixe');
+
+    if (mode === 'PCT') {
+        bPct.classList.add('gestion-pastille-valider');
+        bPct.classList.remove('gestion-pastille-contour');
+        bFixe.classList.add('gestion-pastille-contour');
+        bFixe.classList.remove('gestion-pastille-valider');
+        gPct.style.display = '';
+        gFixe.style.display = 'none';
+    } else {
+        bFixe.classList.add('gestion-pastille-valider');
+        bFixe.classList.remove('gestion-pastille-contour');
+        bPct.classList.add('gestion-pastille-contour');
+        bPct.classList.remove('gestion-pastille-valider');
+        gFixe.style.display = '';
+        gPct.style.display = 'none';
+    }
+    _penApercu();
+}
+
+function _penCalcul() {
+    if (_penModeCourant === 'PCT') {
+        const tauxInput = document.getElementById('pen-taux');
+        const taux = tauxInput ? parseFloat(tauxInput.value) : NaN;
+        if (isNaN(taux) || taux <= 0) return null;
+        const montant = Math.round(_penReste * taux / 100);
+        return { montant: montant, taux: taux };
+    } else {
+        const mInput = document.getElementById('pen-montant');
+        const montant = mInput ? Math.round(parseFloat(mInput.value)) : NaN;
+        if (isNaN(montant) || montant <= 0) return null;
+        const taux = Number((montant / _penReste * 100).toFixed(2));
+        return { montant: montant, taux: taux };
+    }
+}
+
+function _penApercu() {
+    const aff = document.getElementById('pen-apercu');
+    if (!aff) return;
+    const calc = _penCalcul();
+    if (!calc) {
+        aff.textContent = 'Montant de la pénalité : —';
+        return;
+    }
+    if (_penModeCourant === 'PCT') {
+        aff.innerHTML = 'Montant de la pénalité : ' + fcfa(calc.montant)
+                      + ' <span class="gestion-pen-apercu-detail">('
+                      + calc.taux + '% de ' + fcfa(_penReste) + ')</span>';
+    } else {
+        aff.innerHTML = 'Montant de la pénalité : ' + fcfa(calc.montant)
+                      + ' <span class="gestion-pen-apercu-detail">(soit '
+                      + calc.taux + '% du reste)</span>';
+    }
+}
+
+function _verifierPenalite() {
+    const calc = _penCalcul();
+    if (!calc) {
+        toast('Indiquez un taux ou un montant supérieur à zéro', 'warning');
+        return;
+    }
+    if (calc.montant > _penReste) {
+        toast('La pénalité dépasse le reste à payer (' + fcfa(_penReste) + ')', 'warning');
+        return;
+    }
+
+    const nInput = document.getElementById('pen-note');
+    const note = nInput ? nInput.value.trim() : '';
+
+    _penSaisie = {
+        montant: calc.montant,
+        taux: calc.taux,
+        base: _penReste,
+        note: note
+    };
+
+    _dessinerConfirmationPenalite();
+}
+
+function _dessinerConfirmationPenalite() {
+    const z = zone();
+    const c = _penCmd;
+    const s = _penSaisie;
+    const nom = c.clients ? c.clients.nom : '(client supprimé)';
+
+    z.innerHTML = ''
+        + '<div class="section-title">Confirmer la pénalité</div>'
+        + '<div class="gestion-pay-conf">'
+        +   '<div class="gestion-pay-conf-titre">Signaler ce retard ?</div>'
+        +   '<div class="gestion-pay-conf-ligne"><span>Client</span><span>' + esc(nom) + '</span></div>'
+        +   '<div class="gestion-pay-conf-ligne"><span>Base (reste à payer)</span><span>' + fcfa(s.base) + '</span></div>'
+        +   '<div class="gestion-pay-conf-ligne"><span>Taux</span><span>' + s.taux + '%</span></div>'
+        +   '<div class="gestion-pay-conf-ligne gestion-pay-conf-montant">'
+        +     '<span>Montant pénalité</span><span>' + fcfa(s.montant) + '</span></div>'
+        +   (s.note
+                ? '<div class="gestion-pay-conf-ligne"><span>Note</span><span>' + esc(s.note) + '</span></div>'
+                : '')
+        +   '<div class="gestion-pen-conf-info">'
+        +     'Cette pénalité est enregistrée à part. Elle sera signalée au client sur la facture, '
+        +     'mais n\'entre en comptabilité que le jour où il la paie.'
+        +   '</div>'
+        + '</div>'
+        + '<div class="gestion-actions-bas" style="margin-top:18px">'
+        +   '<button class="gestion-pastille gestion-pastille-contour" '
+        +     'onclick="_dessinerPenalite()">← Retour</button>'
+        +   '<button class="gestion-pastille gestion-pastille-valider" '
+        +     'onclick="_confirmerPenalite()">✅ Enregistrer</button>'
+        + '</div>';
+}
+
+async function _confirmerPenalite() {
+    const c = _penCmd;
+    const s = _penSaisie;
+    const fid = fermeId();
+    const annee = new Date().getFullYear();
+
+    const rn = await db()
+        .from('penalites')
+        .select('numero_seq')
+        .eq('ferme_id', fid)
+        .eq('annee', annee)
+        .order('numero_seq', { ascending: false })
+        .limit(1);
+
+    if (rn.error) {
+        toast('Erreur numérotation : ' + rn.error.message, 'error');
+        return;
+    }
+
+    const dernier = (rn.data && rn.data.length > 0) ? Number(rn.data[0].numero_seq) : 0;
+    const numeroSeq = dernier + 1;
+
+    const ri = await db().from('penalites').insert({
+        ferme_id: fid,
+        commande_id: c.id,
+        client_id: c.client_id,
+        taux_pct: s.taux,
+        base_calcul: s.base,
+        montant: s.montant,
+        note: s.note || null,
+        annee: annee,
+        numero_seq: numeroSeq
+    });
+
+    if (ri.error) {
+        if (ri.error.code === '23505') {
+            toast('Numéro déjà pris, réessayez', 'error');
+        } else {
+            toast('Erreur enregistrement : ' + ri.error.message, 'error');
+        }
+        return;
+    }
+
+    const seq = String(numeroSeq);
+    const num = 'PEN-' + annee + '-' + ('0000'.slice(0, 4 - seq.length) + seq);
+
+    toast('Pénalité enregistrée — ' + num, 'success');
+    _penCmd = null;
+    _penSaisie = null;
+    _ouvrirCommande(c.id);
+}
+
+/* ─── Encaissement d'une pénalité (écran dédié) ─── */
+
+function _encaisserPenalite(penaliteId) {
+    const c = _detailCmd;
+    if (!c) { toast('Rechargez la commande', 'warning'); return; }
+
+    const p = (c.penalites || []).find(function (x) { return x.id === penaliteId; });
+    if (!p) { toast('Pénalité introuvable', 'error'); return; }
+    if (p.annule) { toast('Cette pénalité est annulée', 'warning'); return; }
+    if (p.paye) { toast('Cette pénalité est déjà payée', 'warning'); return; }
+
+    _penEncaisse = p;
+    _dessinerEncaissementPenalite();
+}
+
+function _dessinerEncaissementPenalite() {
+    const z = zone();
+    const c = _detailCmd;
+    const p = _penEncaisse;
+    const nom = c.clients ? c.clients.nom : '(client supprimé)';
+
+    let optMoyens = '';
+    ['CASH', 'MOBILE_MONEY', 'VIREMENT', 'CHEQUE', 'AUTRE'].forEach(function (m) {
+        optMoyens += '<option value="' + m + '">' + LIB_MOYEN[m] + '</option>';
+    });
+
+    z.innerHTML = ''
+        + '<div class="section-title">Encaisser une pénalité</div>'
+        + '<div class="gestion-pay-tete">'
+        +   '<div class="gestion-pay-client">' + esc(nom) + '</div>'
+        +   '<div class="gestion-payannul-num">' + _numeroPenalite(p) + '</div>'
+        +   '<div class="gestion-pay-reste">'
+        +     '<span>Montant</span><span>' + fcfa(p.montant) + '</span>'
+        +   '</div>'
+        + '</div>'
+        + '<div class="gestion-form-compact">'
+        +   '<div class="gestion-pen-conf-info">'
+        +     'En encaissant, cette pénalité entre en comptabilité comme une recette. '
+        +     'Cette action est définitive.'
+        +   '</div>'
+        +   '<div class="gestion-form-group">'
+        +     '<label class="gestion-form-label">Moyen de paiement</label>'
+        +     '<select class="gestion-select" id="pen-enc-moyen">' + optMoyens + '</select>'
+        +   '</div>'
+        +   '<div class="gestion-actions-bas">'
+        +     '<button class="gestion-pastille gestion-pastille-contour" '
+        +       'onclick="_ouvrirCommande(\'' + c.id + '\')">← Retour</button>'
+        +     '<button class="gestion-pastille gestion-pastille-valider" '
+        +       'onclick="_confirmerEncaissementPenalite()">💵 Encaisser</button>'
+        +   '</div>'
+        + '</div>';
+}
+
+async function _confirmerEncaissementPenalite() {
+    const c = _detailCmd;
+    const p = _penEncaisse;
+
+    const moIn = document.getElementById('pen-enc-moyen');
+    const moyen = moIn ? moIn.value : '';
+    if (!moyen) { toast('Choisissez un moyen de paiement', 'warning'); return; }
+
+    const r = await db().rpc('encaisser_penalite', {
+        p_penalite_id: p.id,
+        p_moyen: moyen
+    });
+
+    if (r.error) {
+        toast('Erreur encaissement : ' + r.error.message, 'error');
+        return;
+    }
+
+    const res = r.data || {};
+    if (res.ok === false) {
+        toast('Encaissement refusé : ' + (res.error || 'raison inconnue'), 'error');
+        return;
+    }
+
+    const ref = res.reference || _numeroPenalite(p);
+    toast('Pénalité encaissée — ' + ref, 'success');
+    if (res.repli_bande) {
+        toast('Note : rattachée à une bande active (commande sans bande)', 'info');
+    }
+    _penEncaisse = null;
+    _ouvrirCommande(c.id);
+}
+
+/* ─── Facture commande à copier (annonce le retard au client) ─── */
+
+function _texteFacture(c, total, ferme) {
+    const f = ferme || {};
+    const nomFerme = f.nom_commercial || f.nom || 'AviGest';
+    const nomClient = c.clients ? c.clients.nom : 'Client';
+
+    const paye = _totalPaye(c.paiements);
+    const reste = total - paye;
+
+    const penImpayees = (c.penalites || []).filter(function (p) {
+        return !p.annule && !p.paye;
+    });
+    let totalPen = 0;
+    penImpayees.forEach(function (p) { totalPen += Number(p.montant); });
+
+    let t = '';
+    t += '📄 FACTURE\n';
+    t += nomFerme + '\n';
+    if (f.ville)     t += f.ville + '\n';
+    if (f.telephone) t += 'Tél : ' + f.telephone + '\n';
+    t += '\n';
+    t += 'Client : ' + nomClient + '\n';
+    t += 'Commande du ' + dateFr(c.date_commande) + '\n';
+    if (c.date_livraison_prevue) {
+        t += 'Livraison prévue : ' + dateFr(c.date_livraison_prevue) + '\n';
+    }
+    if (c.date_reglement_prevue) {
+        t += 'Échéance de règlement : ' + dateFr(c.date_reglement_prevue) + '\n';
+    }
+    t += '\n';
+
+    t += '— MARCHANDISE —\n';
+    (c.commande_lignes || []).forEach(function (l) {
+        const prod = l.produits_catalogue;
+        const nomProd = prod ? prod.nom : '(produit)';
+        const unite = prod ? prod.unite : '';
+        const prix = (l.prix_reel === null || l.prix_reel === undefined)
+                   ? l.prix_prevu : l.prix_reel;
+        const sousTotal = Number(l.quantite) * Number(prix);
+        t += '· ' + nomProd + ' : ' + l.quantite + ' ' + unite
+           + ' × ' + fcfa(prix) + ' = ' + fcfa(sousTotal) + '\n';
+    });
+    t += 'Total marchandise : ' + fcfa(total) + '\n';
+    if (paye > 0) {
+        t += 'Déjà payé : ' + fcfa(paye) + '\n';
+        t += 'Reste à payer : ' + fcfa(reste <= 0 ? 0 : reste) + '\n';
+    }
+    t += '\n';
+
+    if (penImpayees.length > 0) {
+        t += '— PÉNALITÉS DE RETARD —\n';
+        penImpayees.forEach(function (p) {
+            const seq = String(p.numero_seq);
+            const num = 'PEN-' + p.annee + '-' + ('0000'.slice(0, 4 - seq.length) + seq);
+            t += '· ' + num + ' (' + dateFr(p.date_penalite) + ') : '
+               + fcfa(p.montant) + '\n';
+        });
+        t += 'Total pénalités : ' + fcfa(totalPen) + '\n';
+        t += '\n';
+    }
+
+    const totalDu = (reste <= 0 ? 0 : reste) + totalPen;
+    t += 'TOTAL À RÉGLER : ' + fcfa(totalDu) + '\n';
+    t += '\nMerci de votre confiance.';
+
+    return t;
+}
+
+async function _copierFacture(id) {
+    const c = _detailCmd;
+    if (!c || c.id !== id) { toast('Rechargez la commande', 'warning'); return; }
+
+    let total = 0;
+    (c.commande_lignes || []).forEach(function (l) {
+        const pr = (l.prix_reel === null || l.prix_reel === undefined)
+                 ? l.prix_prevu : l.prix_reel;
+        total += Number(l.quantite) * Number(pr);
+    });
+
+    const ferme = await _chargerIdentiteFerme();
+    const texte = _texteFacture(c, total, ferme);
+
+    try {
+        await navigator.clipboard.writeText(texte);
+        toast('Facture copiée — collez-la dans WhatsApp', 'success');
+    } catch (e) {
+        const ta = document.createElement('textarea');
+        ta.value = texte;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+            document.execCommand('copy');
+            toast('Facture copiée', 'success');
+        } catch (e2) {
+            toast('Copie impossible sur ce navigateur', 'error');
+        }
+        document.body.removeChild(ta);
+    }
 }
 
 /* ─── Saisie d'un paiement ─── */
@@ -1114,6 +1635,7 @@ function _dessinerLivraison() {
     const c = _livrCmd;
     const nom = c.clients ? c.clients.nom : '(client supprimé)';
     const lignes = c.commande_lignes || [];
+    _livrEcheance = undefined;
 
     let html = ''
         + '<div class="gestion-detail-tete">'
@@ -1196,6 +1718,19 @@ function _dessinerLivraison() {
     html += '<div class="gestion-livr-recap" id="livr-recap">'
           + 'Complétez les lignes pour voir le récapitulatif.'
           + '</div>';
+
+    html += '<div class="gestion-livr-echeance">'
+      + '<div class="gestion-livr-champ-titre">Échéance de règlement</div>'
+      + '<div class="gestion-livr-champ-aide">Optionnel — laissez « Comptant » si payé sur place.</div>'
+      + '<div class="gestion-livr-ech-pastilles">'
+      +   '<button type="button" class="gestion-pastille gestion-pastille-contour" id="ech-comptant" onclick="_setEcheance(null)">Comptant</button>'
+      +   '<button type="button" class="gestion-pastille gestion-pastille-contour" id="ech-7" onclick="_setEcheance(7)">+7 jours</button>'
+      +   '<button type="button" class="gestion-pastille gestion-pastille-contour" id="ech-15" onclick="_setEcheance(15)">+15 jours</button>'
+      +   '<button type="button" class="gestion-pastille gestion-pastille-contour" id="ech-30" onclick="_setEcheance(30)">+30 jours</button>'
+      + '</div>'
+      + '<input type="date" class="gestion-input" id="ech-date" style="margin-top:8px" onchange="_setEcheanceDate(this.value)">'
+      + '<div class="gestion-livr-ech-affichage" id="ech-affichage"></div>'
+      + '</div>';
 
     html += '<div class="gestion-actions-bas" style="margin-top:18px">'
           + '<button class="gestion-pastille gestion-pastille-contour" onclick="_ouvrirCommande(\'' + c.id + '\')">← Annuler</button>'
@@ -1304,6 +1839,44 @@ function _majRecapLivraison() {
     recapDiv.innerHTML = html;
 }
 
+/* ── Échéance de règlement (v26.36) ── */
+function _setEcheance(jours) {
+    if (jours === null) {
+        _livrEcheance = null;
+    } else {
+        const d = new Date();
+        d.setDate(d.getDate() + jours);
+        _livrEcheance = d.toISOString().slice(0, 10);
+    }
+    const dateInput = document.getElementById('ech-date');
+    if (dateInput) dateInput.value = (_livrEcheance || '');
+    _majEcheanceUI();
+}
+
+function _setEcheanceDate(val) {
+    _livrEcheance = val ? val : undefined;
+    _majEcheanceUI();
+}
+
+function _majEcheanceUI() {
+    ['comptant', '7', '15', '30'].forEach(function (s) {
+        const b = document.getElementById('ech-' + s);
+        if (b) b.classList.remove('gestion-pastille-valider');
+    });
+    const aff = document.getElementById('ech-affichage');
+    if (!aff) return;
+    if (_livrEcheance === null) {
+        const b = document.getElementById('ech-comptant');
+        if (b) b.classList.add('gestion-pastille-valider');
+        aff.textContent = 'Paiement comptant — aucune échéance.';
+    } else if (_livrEcheance) {
+        const p = _livrEcheance.split('-');
+        aff.textContent = 'Échéance : ' + p[2] + '/' + p[1] + '/' + p[0];
+    } else {
+        aff.textContent = '';
+    }
+}
+
 async function _validerLivraison() {
     const c = _livrCmd;
     const lignes = c.commande_lignes || [];
@@ -1361,7 +1934,8 @@ async function _validerLivraison() {
 
     const r = await db().rpc('livrer_commande', {
         p_commande_id: c.id,
-        p_lignes: payload
+        p_lignes: payload,
+        p_date_reglement: _livrEcheance ?? null
     });
 
     if (r.error) {
@@ -1476,6 +2050,8 @@ window._livrerCommande    = _livrerCommande;
 window._dessinerLivraison = _dessinerLivraison;
 window._recalcLivraison   = _recalcLivraison;
 window._validerLivraison  = _validerLivraison;
+window._setEcheance       = _setEcheance;
+window._setEcheanceDate   = _setEcheanceDate;
 window._annulerCommande   = _annulerCommande;
 window._dessinerAnnulation = _dessinerAnnulation;
 window._confirmerAnnulation = _confirmerAnnulation;
@@ -1487,3 +2063,11 @@ window._confirmerPaiement = _confirmerPaiement;
 window._copierRecu             = _copierRecu;
 window._annulerPaiement        = _annulerPaiement;
 window._confirmerAnnulPaiement = _confirmerAnnulPaiement;
+window._nouvellePenalite            = _nouvellePenalite;
+window._penMode                     = _penMode;
+window._penApercu                   = _penApercu;
+window._verifierPenalite            = _verifierPenalite;
+window._confirmerPenalite           = _confirmerPenalite;
+window._encaisserPenalite           = _encaisserPenalite;
+window._confirmerEncaissementPenalite = _confirmerEncaissementPenalite;
+window._copierFacture               = _copierFacture;
