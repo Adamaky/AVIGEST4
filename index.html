@@ -461,7 +461,7 @@ let FERME_ID = localStorage.getItem('avigest_ferme_id') || null;
 let NOM_FERME = localStorage.getItem('avigest_nom_ferme') || '';
 const SESSION_MS    = 12 * 3600 * 1000;
 const CACHE_TTL_MS  = 8 * 60 * 60 * 1000;
-const APP_VERSION   = 'v26.35';
+const APP_VERSION   = 'v26.37';
 
 document.title = 'AviGest ' + APP_VERSION;
 const elVersionAffichee = document.getElementById('version-affichee');
@@ -1865,6 +1865,51 @@ function _majTopbar() {
     if (n) n.textContent = App.nom  || '--';
 }
 
+/* ── Alerte échéance de règlement (§16.6) ── */
+async function _getAlertesEcheance() {
+    const { data, error } = await sb.rpc('get_alertes_echeance');
+    if (error) {
+        console.error('_getAlertesEcheance erreur:', error);
+        return [];
+    }
+    return data || [];
+}
+
+function _construireAlerteEcheance(alertes) {
+    if (!alertes || alertes.length === 0) return '';
+
+    let nbRouge = 0, nbJaune = 0, nbBlanc = 0;
+    alertes.forEach(function (a) {
+        if (a.couleur === 'ROUGE') nbRouge++;
+        else if (a.couleur === 'JAUNE') nbJaune++;
+        else nbBlanc++;
+    });
+
+    if (nbRouge === 0 && nbJaune === 0) return '';
+
+    const borderColor = nbRouge > 0 ? 'var(--red)' : 'var(--orange)';
+    const bgColor     = nbRouge > 0 ? 'rgba(255,68,68,0.12)' : 'rgba(255,165,0,0.12)';
+    const txtColor    = nbRouge > 0 ? 'var(--red)' : 'var(--orange)';
+
+    let lignes = [];
+    if (nbRouge > 0) lignes.push('🔴 ' + nbRouge + ' en retard');
+    if (nbJaune > 0) lignes.push('🟡 ' + nbJaune + ' à relancer demain');
+    if (nbBlanc > 0) lignes.push('⚪ ' + nbBlanc + ' à venir');
+
+    return '<div style="background:' + bgColor + ';border:1px solid ' + borderColor + ';'
+         + 'border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;'
+         + 'align-items:center;gap:10px;cursor:pointer" '
+         + 'onclick="Nav.push(\'renderCommandes\')">'
+         + '<span style="font-size:20px">💰</span>'
+         + '<div style="flex:1">'
+         + '<div style="font-weight:700;font-size:13px;color:' + txtColor + '">'
+         + 'Règlements clients : ' + lignes.join(' · ') + '</div>'
+         + '<div style="font-size:11px;color:var(--text2)">Appuyer pour voir les commandes</div>'
+         + '</div>'
+         + '<span style="color:' + txtColor + ';font-size:18px">›</span>'
+         + '</div>';
+}
+
 async function renderGerant() {
     _majTopbar();
     _setNavActive('accueil');
@@ -1889,6 +1934,9 @@ async function renderGerant() {
 
     /* Charger les dashboards en parallèle */
     const dashboards = await Promise.all(bandesEnCours.map(b => getDashboard(b.id)));
+    /* Charger les alertes d'échéance de règlement (§16.6) */
+    const alertesEcheance = await _getAlertesEcheance();
+    const alerteEcheanceHTML = _construireAlerteEcheance(alertesEcheance);
     /* Charger tâches TERMINEE de toutes les bandes en parallèle */
         const tachesParBande = await Promise.all(
             bandesEnCours.map(b =>
@@ -2019,6 +2067,7 @@ async function renderGerant() {
             <div style="font-size:12px;color:var(--text2);margin-top:2px">${bandesEnCours.length} bande${bandesEnCours.length>1?'s':''} en cours</div>
         </div>
         ${banniereHTML}
+        ${alerteEcheanceHTML}
         <div class="section-title">🐔 Bandes actives</div>
        ${bandesHTML}
         <div class="section-title" style="margin-top:16px">&#128230; Stock</div>
