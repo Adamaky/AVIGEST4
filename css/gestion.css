@@ -714,3 +714,107 @@
     color: var(--text2);
     opacity: .8;
 }
+
+/* ─── Échéance de règlement (v26.36) ─── */
+
+.gestion-livr-echeance {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--bg3);
+}
+
+.gestion-livr-champ-titre {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.gestion-livr-champ-aide {
+    font-size: 13px;
+    color: var(--text2);
+    margin-bottom: 12px;
+}
+
+.gestion-livr-ech-pastilles {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.gestion-livr-ech-affichage {
+    margin-top: 10px;
+    font-size: 14px;
+    color: var(--text);
+}
+/* ═══════════════════ PÉNALITÉS DE RETARD ═══════════════════ */
+
+/* Sous-titre à l'intérieur du bloc Règlement, pour séparer
+   visuellement les pénalités des paiements (jamais fondus). */
+.gestion-regl-sous-titre {
+    margin-top: 16px;
+    padding-top: 10px;
+    border-top: 1px solid var(--bg3);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: var(--orange);
+    opacity: .85;
+}
+
+/* Bouton encaisser une pénalité (💵) — calqué sur copier/annuler,
+   mais vert : c'est une confirmation d'argent réel (cadre §4.4). */
+.gestion-regl-encaisser {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+    border: 1px solid var(--green);
+    border-radius: 20px;
+    background: transparent;
+    color: var(--green);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.gestion-regl-encaisser:active {
+    opacity: .5;
+}
+
+/* ─── Écran de saisie pénalité ─── */
+
+/* Deux boutons de mode (Pourcentage / Montant fixe) côte à côte */
+.gestion-pen-modes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+/* Aperçu du montant calculé, sous les champs de saisie.
+   Encadré discret, comme .gestion-livr-calc. */
+.gestion-pen-apercu {
+    margin: 4px 0 14px;
+    padding: 10px 12px;
+    background: var(--bg3);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+/* La part « (5% de 12 000 F) » en gris, moins appuyée */
+.gestion-pen-apercu-detail {
+    font-weight: 400;
+    color: var(--text2);
+    font-size: 12px;
+}
+
+/* Encadré explicatif sur les écrans de confirmation/encaissement
+   pénalité — calqué sur .gestion-annul-texte. */
+.gestion-pen-conf-info {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.5;
+}
