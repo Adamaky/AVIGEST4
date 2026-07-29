@@ -818,3 +818,16 @@
     color: var(--text2);
     line-height: 1.5;
 }
+
+/* Badge « à relancer » sur la tuile Clients (compteur échéances) */
+.gestion-tuile-badge {
+    display: inline-block;
+    margin-left: auto;
+    align-self: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+}

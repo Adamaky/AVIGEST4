@@ -11,7 +11,7 @@
    window.renderGestion. Tout le reste du module reste privé.
    ═══════════════════════════════════════════════════════ */
 
-import { estGerant } from '../shared/db.js';
+import { db, estGerant } from '../shared/db.js';
 import { zone, toast } from '../shared/helpers.js';
 import '../clients/clients.js';
 import '../commandes/commandes.js';
@@ -100,6 +100,10 @@ function renderGestion() {
     });
 
     z.innerHTML = html;
+
+    // Badge « à relancer » sur la tuile Clients, chargé en arrière-plan
+    // (n'attend pas la RPC pour afficher les tuiles).
+    _chargerBadgeClients();
 }
 
 
@@ -121,6 +125,49 @@ function _gestionOuvrir(fn) {
 
 function _gestionBientot() {
     toast('Module bientôt disponible', 'warning');
+}
+
+
+/* ───────────────────────────────────────────────────────
+   Badge « créances à relancer » sur la tuile Clients.
+   Lit get_alertes_echeance() et compte rouge + jaune.
+   Chargé en arrière-plan : n'attend pas pour afficher l'écran.
+   ─────────────────────────────────────────────────────── */
+async function _chargerBadgeClients() {
+    let alertes;
+    try {
+        const { data, error } = await db().rpc('get_alertes_echeance');
+        if (error) { console.error('_chargerBadgeClients:', error); return; }
+        alertes = data || [];
+    } catch (e) {
+        console.error('_chargerBadgeClients:', e);
+        return;
+    }
+
+    let nbRouge = 0, nbJaune = 0;
+    alertes.forEach(function (a) {
+        if (a.couleur === 'ROUGE') nbRouge++;
+        else if (a.couleur === 'JAUNE') nbJaune++;
+    });
+    const nbRelancer = nbRouge + nbJaune;
+    if (nbRelancer === 0) return;
+
+    const tuiles = document.querySelectorAll('.gestion-tuile');
+    let cible = null;
+    tuiles.forEach(function (el) {
+        const oc = el.getAttribute('onclick') || '';
+        if (oc.indexOf('renderClients') !== -1) cible = el;
+    });
+    if (!cible) return;
+
+    if (cible.querySelector('.gestion-tuile-badge')) return;
+
+    const couleur = nbRouge > 0 ? 'var(--red)' : 'var(--orange)';
+    const badge = document.createElement('span');
+    badge.className = 'gestion-tuile-badge';
+    badge.style.background = couleur;
+    badge.textContent = nbRelancer + ' à relancer';
+    cible.appendChild(badge);
 }
 
 
