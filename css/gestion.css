@@ -831,3 +831,131 @@
     color: #fff;
     white-space: nowrap;
 }
+/* ═══════════════════ TRÉSORERIE / CAISSE (v26.38) ═══════════════════ */
+/* Vue caisse réelle : gros solde + détail + historique.
+   Réutilise les variables d'index.html (--bg2, --green, --red...). */
+
+/* ── Carte du solde principal ─────────────────────────────── */
+.gestion-treso-carte-solde {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 16px;
+    text-align: center;
+    margin-bottom: 14px;
+}
+.gestion-treso-solde-label {
+    font-size: 12px;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 6px;
+}
+.gestion-treso-solde-montant {
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1.1;
+}
+.gestion-treso-solde-pos { color: var(--green); }
+.gestion-treso-solde-neg { color: var(--red); }
+.gestion-treso-solde-sub {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text2);
+}
+
+/* ── Détail du calcul : 4 mini-cartes (2 x 2) ─────────────── */
+.gestion-treso-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.gestion-treso-mini {
+    background: var(--bg3);
+    border-radius: 10px;
+    padding: 12px;
+}
+.gestion-treso-mini-label {
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 4px;
+}
+.gestion-treso-mini-val {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+/* Couleurs des montants (entrée verte, sortie rouge) */
+.gestion-treso-pos { color: var(--green); }
+.gestion-treso-neg { color: var(--red); }
+
+/* ── Historique des mouvements ────────────────────────────── */
+.gestion-treso-hist-titre {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text2);
+    margin-bottom: 8px;
+}
+.gestion-treso-liste {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Une ligne de mouvement : pastille | libellé+date | montant */
+.gestion-treso-ligne {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 4px;
+    border-bottom: 1px solid var(--bg3);
+}
+.gestion-treso-ligne:last-child {
+    border-bottom: none;
+}
+
+/* Pastille ronde à gauche : flèche entrée/sortie */
+.gestion-treso-pastille {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.gestion-treso-pastille-in {
+    background: rgba(29, 158, 117, 0.15);
+    color: var(--green);
+}
+.gestion-treso-pastille-out {
+    background: rgba(226, 75, 74, 0.15);
+    color: var(--red);
+}
+
+/* Corps : libellé (gras, coupé si trop long) + méta (date + réf) */
+.gestion-treso-ligne-corps {
+    flex: 1;
+    min-width: 0;
+}
+.gestion-treso-ligne-lib {
+    font-size: 14px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.gestion-treso-ligne-meta {
+    font-size: 12px;
+    color: var(--text2);
+    margin-top: 2px;
+}
+
+/* Montant à droite, ne se coupe pas */
+.gestion-treso-ligne-montant {
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+}

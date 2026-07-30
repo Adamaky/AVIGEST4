@@ -16,7 +16,7 @@ import { zone, toast } from '../shared/helpers.js';
 import '../clients/clients.js';
 import '../commandes/commandes.js';
 import '../parametres/parametres.js';
-
+import '../tresorerie/tresorerie.js';
 
 /* ───────────────────────────────────────────────────────
    Définition des tuiles.
@@ -45,7 +45,7 @@ const TUILES = [
         label: 'Trésorerie',
         sub: 'Caisse de la ferme',
         fn: 'renderTresorerie',
-        dispo: false
+        dispo: true
     },
     {
         id: 'stock',

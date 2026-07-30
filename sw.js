@@ -6,7 +6,7 @@
 /* Import SDK OneSignal — obligatoire pour les notifications push */
 importScripts('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js');
 
-const CACHE_NAME  = 'avigest-v26-38';
+const CACHE_NAME  = 'avigest-v26-39';
 const STATIC_URLS = [
   '/AVIGEST4/',
   '/AVIGEST4/index.html',
@@ -16,7 +16,8 @@ const STATIC_URLS = [
   '/AVIGEST4/js/gestion/gestion.js',
   '/AVIGEST4/js/clients/clients.js',
   '/AVIGEST4/js/commandes/commandes.js',
-  '/AVIGEST4/js/parametres/parametres.js'
+  '/AVIGEST4/js/parametres/parametres.js',
+  '/AVIGEST4/js/tresorerie/tresorerie.js'
 ];
 
 /* ── Installation : mise en cache des ressources statiques ──
