@@ -959,3 +959,104 @@
     font-weight: 700;
     white-space: nowrap;
 }
+/* ═══════════════════════════════════════════════════════
+   Rentabilité par bande (js/rentabilite/rentabilite.js)
+   ═══════════════════════════════════════════════════════ */
+
+.gestion-renta-liste {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 6px;
+}
+
+.gestion-renta-carte {
+    background: var(--bg2);
+    border: 1px solid var(--bg3);
+    border-radius: 14px;
+    padding: 14px 16px;
+}
+
+/* En-tête : nom de bande + contexte (âge · effectif) */
+.gestion-renta-entete {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.gestion-renta-nom {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.gestion-renta-age {
+    font-size: 0.8rem;
+    color: var(--text2);
+    white-space: nowrap;
+}
+
+/* Bloc CRU — le chiffre principal, mis en avant, neutre */
+.gestion-renta-cru {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg3);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+}
+
+.gestion-renta-cru-label {
+    font-size: 0.85rem;
+    color: var(--text2);
+}
+
+.gestion-renta-cru-val {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+/* Détail dépenses / recettes */
+.gestion-renta-detail {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.85rem;
+    color: var(--text2);
+    margin-bottom: 10px;
+}
+
+/* Bloc marge */
+.gestion-renta-marge {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--bg3);
+    padding-top: 10px;
+}
+
+.gestion-renta-marge-label {
+    font-size: 0.9rem;
+    color: var(--text2);
+}
+
+.gestion-renta-marge-val {
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+/* Marge neutre : bande pas encore vendue */
+.gestion-renta-marge-neutre .gestion-renta-marge-val {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text2);
+    font-style: italic;
+}
+
+/* Couleurs marge réalisée */
+.gestion-renta-pos { color: var(--green); }
+.gestion-renta-neg { color: var(--red); }
