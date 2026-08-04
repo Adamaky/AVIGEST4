@@ -11,6 +11,7 @@
    window.renderGestion. Tout le reste du module reste privé.
    ═══════════════════════════════════════════════════════ */
 
+import '../rentabilite/rentabilite.js';
 import { db, estGerant } from '../shared/db.js';
 import { zone, toast } from '../shared/helpers.js';
 import '../clients/clients.js';
@@ -45,6 +46,14 @@ const TUILES = [
         label: 'Trésorerie',
         sub: 'Caisse de la ferme',
         fn: 'renderTresorerie',
+        dispo: true
+    },
+    {
+        id: 'rentabilite',
+        icon: '📈',
+        label: 'Rentabilité',
+        sub: 'Résultat par bande',
+        fn: 'renderRentabilite',
         dispo: true
     },
     {
