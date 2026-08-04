@@ -378,6 +378,11 @@ async function _ouvrirCommande(id) {
 
     html += '<div class="gestion-actions-bas">'
           + '<button class="gestion-pastille gestion-pastille-contour" onclick="renderCommandes()">← Retour</button>';
+
+    if (c.statut === 'PRECOMMANDE' || c.statut === 'PLANIFIEE') {
+        html += '<button class="gestion-pastille gestion-pastille-contour" onclick="_copierBonCommande(\'' + c.id + '\')">📋 Bon de commande</button>';
+    }
+
     if (_peutFacturer) {
         html += '<button class="gestion-pastille gestion-pastille-contour" onclick="_copierFacture(\'' + c.id + '\')">📄 Facture</button>';
     }
@@ -2071,3 +2076,78 @@ window._confirmerPenalite           = _confirmerPenalite;
 window._encaisserPenalite           = _encaisserPenalite;
 window._confirmerEncaissementPenalite = _confirmerEncaissementPenalite;
 window._copierFacture               = _copierFacture;
+window._copierBonCommande = _copierBonCommande;
+/* ─── Bon de commande à copier (CRM étape 4) ─── */
+
+function _texteBonCommande(c, total, ferme) {
+    const f = ferme || {};
+    const nomFerme = f.nom_commercial || f.nom || 'AviGest';
+    const nomClient = c.clients ? c.clients.nom : 'Client';
+
+    let t = '';
+    t += '📋 BON DE COMMANDE\n';
+    t += nomFerme + '\n';
+    if (f.ville)     t += f.ville + '\n';
+    if (f.telephone) t += 'Tél : ' + f.telephone + '\n';
+    t += '\n';
+    t += 'Client : ' + nomClient + '\n';
+    t += 'Commande du ' + dateFr(c.date_commande) + '\n';
+    if (c.date_livraison_prevue) {
+        t += 'Livraison prévue : ' + dateFr(c.date_livraison_prevue) + '\n';
+    }
+    t += '\n';
+
+    t += '— DÉTAIL —\n';
+    (c.commande_lignes || []).forEach(function (l) {
+        const prod = l.produits_catalogue;
+        const nomProd = prod ? prod.nom : '(produit)';
+        const unite = prod ? prod.unite : '';
+        const prix = l.prix_prevu;
+        const sousTotal = Number(l.quantite) * Number(prix);
+        t += '· ' + nomProd + ' : ' + l.quantite + ' ' + unite
+           + ' × ' + fcfa(prix) + ' = ' + fcfa(sousTotal) + '\n';
+    });
+    t += '\n';
+    t += 'TOTAL PRÉVU : ' + fcfa(total) + '\n';
+
+    if (c.date_reglement_prevue) {
+        t += '\nÉchéance de règlement : ' + dateFr(c.date_reglement_prevue) + '\n';
+    }
+
+    t += '\nCes prix sont ceux prévus à la commande.\n';
+    t += 'Merci de votre confiance.';
+
+    return t;
+}
+
+async function _copierBonCommande(id) {
+    const c = _detailCmd;
+    if (!c || c.id !== id) { toast('Rechargez la commande', 'warning'); return; }
+
+    let total = 0;
+    (c.commande_lignes || []).forEach(function (l) {
+        total += Number(l.quantite) * Number(l.prix_prevu);
+    });
+
+    const ferme = await _chargerIdentiteFerme();
+    const texte = _texteBonCommande(c, total, ferme);
+
+    try {
+        await navigator.clipboard.writeText(texte);
+        toast('Bon de commande copié — collez-le dans WhatsApp', 'success');
+    } catch (e) {
+        const ta = document.createElement('textarea');
+        ta.value = texte;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+            document.execCommand('copy');
+            toast('Bon de commande copié', 'success');
+        } catch (e2) {
+            toast('Copie impossible sur ce navigateur', 'error');
+        }
+        document.body.removeChild(ta);
+    }
+}
