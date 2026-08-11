@@ -103,6 +103,7 @@ Deno.serve(async (req) => {
           id: utilisateur.id,
           nom: utilisateur.nom,
           role: utilisateur.role,
+          id_partenaire: utilisateur.id_partenaire ?? null,
           ferme_id: ferme.ferme_id,
           ferme_nom: ferme.nom,
         },
