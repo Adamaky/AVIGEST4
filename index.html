@@ -462,7 +462,7 @@ let NOM_FERME = localStorage.getItem('avigest_nom_ferme') || '';
 let CODE_ACCES_FERME = localStorage.getItem('avigest_code_acces') || '';
 const SESSION_MS    = 12 * 3600 * 1000;
 const CACHE_TTL_MS  = 8 * 60 * 60 * 1000;
-const APP_VERSION   = 'v26.43';
+const APP_VERSION   = 'v26.44';
 
 document.title = 'AviGest ' + APP_VERSION;
 const elVersionAffichee = document.getElementById('version-affichee');
@@ -1820,6 +1820,20 @@ async function doLogin() {
         document.getElementById('screen-welcome').classList.add('hidden');
         document.getElementById('screen-pin').classList.add('hidden');
         document.getElementById('app-main').style.display = 'block';
+        // Brique 1.4 v2 : installer la session Auth avec le JWT récupéré au login.
+        // setSession propage le token aux canaux REST ET Realtime (méthode officielle SDK).
+        // x-ferme-id reste actif (posé à la création de sb) — on ne touche pas à initSupabaseClient.
+        // try/catch : si setSession échoue, l'app continue quand même (fail-safe).
+        if (window._authTokens && window._authTokens.access_token) {
+            try {
+                await sb.auth.setSession({
+                    access_token: window._authTokens.access_token,
+                    refresh_token: window._authTokens.refresh_token
+                });
+            } catch (e) {
+                console.warn('setSession (Brique 1.4):', e.message);
+            }
+        }
         startApp();
 
     } catch(e) {
