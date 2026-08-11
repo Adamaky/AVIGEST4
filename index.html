@@ -458,10 +458,11 @@ function _getDeviceId() {
 }
 const DEVICE_ID = _getDeviceId();
 let FERME_ID = localStorage.getItem('avigest_ferme_id') || null;
+let NOM_FERME = localStorage.getItem('avigest_nom_ferme') || '';
 let CODE_ACCES_FERME = localStorage.getItem('avigest_code_acces') || '';
 const SESSION_MS    = 12 * 3600 * 1000;
 const CACHE_TTL_MS  = 8 * 60 * 60 * 1000;
-const APP_VERSION   = 'v26.42';
+const APP_VERSION   = 'v26.43';
 
 document.title = 'AviGest ' + APP_VERSION;
 const elVersionAffichee = document.getElementById('version-affichee');
