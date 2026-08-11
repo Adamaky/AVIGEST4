@@ -462,7 +462,7 @@ let NOM_FERME = localStorage.getItem('avigest_nom_ferme') || '';
 let CODE_ACCES_FERME = localStorage.getItem('avigest_code_acces') || '';
 const SESSION_MS    = 12 * 3600 * 1000;
 const CACHE_TTL_MS  = 8 * 60 * 60 * 1000;
-const APP_VERSION   = 'v26.43';
+const APP_VERSION   = 'v26.44';
 
 document.title = 'AviGest ' + APP_VERSION;
 const elVersionAffichee = document.getElementById('version-affichee');
@@ -472,9 +472,13 @@ if (elVersionAffichee) elVersionAffichee.textContent = 'AviGest ' + APP_VERSION;
 // GESTION CODE FERME
 // ============================================
 
-function initSupabaseClient(fermeId) {
+function initSupabaseClient(fermeId, token) {
+  const headers = { 'x-ferme-id': fermeId };
+  // Brique 1.4 : si un JWT utilisateur est fourni, on l'accroche EN PLUS du x-ferme-id.
+  // Sans token (1er chargement), comportement identique à avant (clé anon seule).
+  if (token) headers['Authorization'] = 'Bearer ' + token;
   return supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-    global: { headers: { 'x-ferme-id': fermeId } },
+    global: { headers: headers },
     realtime: { params: { ferme_id: fermeId } }
   });
 }
@@ -1820,6 +1824,12 @@ async function doLogin() {
         document.getElementById('screen-welcome').classList.add('hidden');
         document.getElementById('screen-pin').classList.add('hidden');
         document.getElementById('app-main').style.display = 'block';
+        // Brique 1.4 : on recrée sb avec le JWT récupéré au login (x-ferme-id conservé).
+        // Placé APRÈS le verrou cross-device et last_login (faits avec l'ancien sb),
+        // et AVANT startApp() → le heartbeat et initRealtime se brancheront sur le nouveau sb.
+        if (window._authTokens && window._authTokens.access_token) {
+            sb = initSupabaseClient(FERME_ID, window._authTokens.access_token);
+        }
         startApp();
 
     } catch(e) {
