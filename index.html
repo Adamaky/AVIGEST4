@@ -462,7 +462,7 @@ let NOM_FERME = localStorage.getItem('avigest_nom_ferme') || '';
 let CODE_ACCES_FERME = localStorage.getItem('avigest_code_acces') || '';
 const SESSION_MS    = 12 * 3600 * 1000;
 const CACHE_TTL_MS  = 8 * 60 * 60 * 1000;
-const APP_VERSION   = 'v26.44';
+const APP_VERSION   = 'v26.45';
 
 document.title = 'AviGest ' + APP_VERSION;
 const elVersionAffichee = document.getElementById('version-affichee');
@@ -3652,6 +3652,15 @@ async function _renderTabPreparation(bande, container) {
 
         ${poussinsHTML}
 
+        <div class="section-title" style="margin-top:16px">🤝 Partenaires investisseurs</div>
+        <div class="card" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center"
+             onclick="Nav.push('renderPartenairesBande','${bande.id}')">
+            <div>
+                <div style="font-weight:800;font-size:14px">🤝 Assigner des partenaires</div>
+                <div style="font-size:11px;color:var(--text2);margin-top:2px">Investisseurs · Quotes-parts · Budget</div>
+            </div>
+            <div style="font-size:18px;color:var(--text2)">›</div>
+        </div>
         <div style="height:16px"></div>
         <button class="btn-action btn-green"
                 ${pct < 100 ? 'style="opacity:.5"' : ''}
@@ -3977,6 +3986,7 @@ async function _renderTabGestion(bande, container) {
         { icon:'📈', label:'Analyses',  sub:'Croissance · IC · Coûts',     color:'#0d1e2a', fn:`Nav.push('renderAnalyseBande','${bande.id}')` },
         { icon:'🛒', label:'Vente',  sub:'Planifier une vente',       color:'#0d2a1a', fn:`Nav.push('renderPlanAbattage','${bande.id}')` },
         { icon:'📦', label:'Stock',     sub:'Lots · Composants · Coûts',   color:'#1a2a0d', fn:`Nav.push('renderStockBande','${bande.id}')` },
+        { icon:'🤝', label:'Partenaires', sub:'Investisseurs · Quotes-parts', color:'#1a0d2a', fn:`Nav.push('renderPartenairesBande','${bande.id}')` },
         { icon:'📄', label:'Rapport',   sub:'Fin de bande · WhatsApp',     color:'#1a1a2a', fn:`Nav.push('renderRapportFinBande','${bande.id}')` },
         { icon:'🏁', label:'Clôturer',  sub:'Archiver · Libérer bâtiment', color:'#2a0d0d', fn:`Nav.push('renderClotureBande','${bande.id}')` },
     ];
@@ -5435,6 +5445,213 @@ async function _confirmerEtEnvoyer() {
     _navbarSetVisible(true);
     Nav.home();
 }
+/* ════════════════════════════════════════════
+   MODULE PARTENAIRES — Assignation gérant (Brique A2)
+   Écran d'assignation des quotes-parts par bande.
+   - Accès : GÉRANT, bande en PRÉPARATION uniquement (ajout/retrait).
+   - Stockage : montant investi (FCFA) dans quote_part ; % affiché calculé.
+   - Commission : commission_pct, par partenaire.
+   - Budget : bandes.budget_previsionnel, saisi/modifié ici.
+════════════════════════════════════════════ */
+
+/* Charge la liste des partenaires de la ferme (pour le menu déroulant) */
+async function _chargerPartenairesFerme() {
+    const { data, error } = await sb
+        .from('utilisateurs')
+        .select('id, nom')
+        .eq('ferme_id', FERME_ID)
+        .eq('role', 'PARTENAIRE')
+        .eq('actif', true)
+        .order('nom');
+    if (error) { console.error('_chargerPartenairesFerme:', error); return []; }
+    return data || [];
+}
+
+/* Charge les assignations existantes d'une bande, avec le nom du partenaire */
+async function _chargerAssignationsBande(bandeId) {
+    const { data, error } = await sb
+        .from('partenaires_bandes')
+        .select('id, utilisateur_id, quote_part, commission_pct, utilisateurs(nom)')
+        .eq('ferme_id', FERME_ID)
+        .eq('bande_id', bandeId)
+        .order('created_at');
+    if (error) { console.error('_chargerAssignationsBande:', error); return []; }
+    return data || [];
+}
+
+/* Écran principal — Partenaires d'une bande */
+async function renderPartenairesBande(bandeId) {
+    const z = zone(); if (!z) return;
+    if (!bandeId) { Nav.back(); return; }
+    z.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
+
+    /* Charger la bande (statut + budget), les partenaires dispo, les assignations */
+    const [bandeRes, partenaires, assignations] = await Promise.all([
+        sb.from('bandes').select('id_bande, statut, budget_previsionnel').eq('id', bandeId).eq('ferme_id', FERME_ID).single(),
+        _chargerPartenairesFerme(),
+        _chargerAssignationsBande(bandeId)
+    ]);
+
+    const bande = bandeRes.data;
+    if (!bande) { z.innerHTML = '<div style="text-align:center;padding:40px;color:var(--red)">Bande introuvable</div>'; return; }
+
+    const enPreparation = bande.statut === 'PREPARATION';
+    const budget = parseFloat(bande.budget_previsionnel) || 0;
+
+    /* Total des mises + calcul des % */
+    const totalMises = assignations.reduce((s, a) => s + (parseFloat(a.quote_part) || 0), 0);
+
+    /* Bloc budget */
+    const budgetHTML = enPreparation
+        ? '<div class="card" style="margin-bottom:12px">'
+        +   '<label class="f-label">💰 Budget prévisionnel de la bande (FCFA)</label>'
+        +   '<div style="display:flex;gap:8px">'
+        +     '<input class="f-input" style="margin:0;flex:1" type="number" id="pb-budget" inputmode="numeric" min="0" '
+        +       'placeholder="Ex: 2000000" value="' + (budget > 0 ? budget : '') + '">'
+        +     '<button class="btn-action btn-blue" style="width:auto;margin:0;padding:12px 16px" '
+        +       'onclick="_enregistrerBudget(\'' + bandeId + '\')">💾</button>'
+        +   '</div>'
+        +   '<div style="font-size:11px;color:var(--text2);margin-top:6px">Sert de référence à l\'alerte sur le total des mises.</div>'
+        + '</div>'
+        : '<div class="card" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">'
+        +   '<span style="font-size:13px;color:var(--text2)">💰 Budget prévisionnel</span>'
+        +   '<span style="font-weight:800">' + (budget > 0 ? fmt(budget) + ' FCFA' : '—') + '</span>'
+        + '</div>';
+
+    /* Bandeau récap total mises vs budget */
+    const depassement = budget > 0 && totalMises > budget;
+    const recapBorder = depassement ? 'var(--orange)' : 'var(--border)';
+    const recapHTML = '<div class="card" style="margin-bottom:12px;border:1px solid ' + recapBorder + '">'
+        + '<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--text2);font-size:13px">Total des mises</span>'
+        +   '<span style="font-weight:800">' + fmt(totalMises) + ' FCFA</span></div>'
+        + (budget > 0
+            ? '<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--text2);font-size:13px">Budget prévisionnel</span>'
+              + '<span style="font-weight:700">' + fmt(budget) + ' FCFA</span></div>'
+            : '')
+        + (depassement
+            ? '<div style="margin-top:8px;padding:10px;background:rgba(255,157,0,.12);border-radius:10px;font-size:12px;color:var(--orange);font-weight:700">'
+              + '⚠️ Le total des mises dépasse le budget prévisionnel.</div>'
+            : '')
+        + '</div>';
+
+    /* Liste des assignations */
+    let listeHTML;
+    if (assignations.length === 0) {
+        listeHTML = '<div style="color:var(--text2);font-size:13px;padding:16px;text-align:center">Aucun partenaire assigné à cette bande.</div>';
+    } else {
+        listeHTML = assignations.map(function(a) {
+            const nom = a.utilisateurs ? a.utilisateurs.nom : '(inconnu)';
+            const mise = parseFloat(a.quote_part) || 0;
+            const pct = totalMises > 0 ? Math.round((mise / totalMises) * 1000) / 10 : 0;
+            const comm = parseFloat(a.commission_pct) || 0;
+            const btnSuppr = enPreparation
+                ? '<button onclick="_retirerPartenaire(\'' + a.id + '\',\'' + bandeId + '\',\'' + esc(nom) + '\')" '
+                  + 'style="background:rgba(255,68,68,.15);border:1px solid rgba(255,68,68,.3);color:var(--red);'
+                  + 'border-radius:8px;padding:6px 10px;font-size:14px;cursor:pointer;flex-shrink:0">🗑️</button>'
+                : '';
+            return '<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:12px">'
+                + '<div style="flex:1">'
+                +   '<div style="font-weight:800;font-size:14px">🤝 ' + esc(nom) + '</div>'
+                +   '<div style="font-size:12px;color:var(--text2);margin-top:3px">'
+                +     fmt(mise) + ' FCFA · <span style="color:var(--purple);font-weight:700">' + pct + '%</span>'
+                +     ' · Commission ' + comm + '%'
+                +   '</div>'
+                + '</div>'
+                + btnSuppr
+                + '</div>';
+        }).join('');
+    }
+
+    /* Formulaire d'ajout (seulement en préparation) */
+    let ajoutHTML = '';
+    if (enPreparation) {
+        if (partenaires.length === 0) {
+            ajoutHTML = '<div class="card" style="margin-top:8px;background:rgba(255,157,0,.08);border:1px solid rgba(255,157,0,.3)">'
+                + '<div style="font-size:12px;color:var(--orange)">⚠️ Aucun compte partenaire dans cette ferme. Créez d\'abord un partenaire.</div>'
+                + '</div>';
+        } else {
+            /* Exclure les partenaires déjà assignés du menu */
+            const dejaAssignes = new Set(assignations.map(a => a.utilisateur_id));
+            const dispo = partenaires.filter(p => !dejaAssignes.has(p.id));
+            const options = dispo.map(p => '<option value="' + p.id + '">' + esc(p.nom) + '</option>').join('');
+            ajoutHTML = '<div class="section-title" style="margin-top:16px">➕ Ajouter un partenaire</div>'
+                + '<div class="card">'
+                + (dispo.length === 0
+                    ? '<div style="font-size:13px;color:var(--text2);text-align:center;padding:8px">Tous les partenaires de la ferme sont déjà assignés.</div>'
+                    : '<label class="f-label">Partenaire</label>'
+                      + '<select class="f-input" id="pb-partenaire"><option value="">-- Choisir --</option>' + options + '</select>'
+                      + '<label class="f-label">Montant investi (FCFA)</label>'
+                      + '<input class="f-input" type="number" id="pb-montant" inputmode="numeric" min="1" placeholder="Ex: 500000">'
+                      + '<label class="f-label">Commission gérant (%)</label>'
+                      + '<input class="f-input" type="number" id="pb-commission" inputmode="numeric" min="0" max="100" placeholder="Ex: 20" value="0">'
+                      + '<button class="btn-action btn-green" onclick="_ajouterPartenaire(\'' + bandeId + '\')">➕ Ajouter</button>')
+                + '</div>';
+        }
+    } else {
+        ajoutHTML = '<div class="card" style="margin-top:8px;background:rgba(0,153,255,.06);border:1px solid rgba(0,153,255,.2)">'
+            + '<div style="font-size:12px;color:var(--text2)">🔒 Les parts sont figées depuis le démarrage de la bande. '
+            + 'L\'assignation n\'est possible qu\'en phase Préparation.</div>'
+            + '</div>';
+    }
+
+    z.innerHTML = '<div class="bande-header"><div class="bande-name">🤝 Partenaires — ' + esc(bande.id_bande) + '</div>'
+        + '<div class="bande-meta">' + esc(bande.statut) + (enPreparation ? ' · assignation ouverte' : ' · lecture seule') + '</div></div>'
+        + budgetHTML
+        + recapHTML
+        + '<div class="section-title">Partenaires assignés</div>'
+        + listeHTML
+        + ajoutHTML
+        + '<button class="btn-action btn-ghost" style="margin-top:12px" onclick="Nav.back()">← Retour</button>';
+}
+
+/* Enregistrer / modifier le budget prévisionnel */
+async function _enregistrerBudget(bandeId) {
+    const val = parseFloat(document.getElementById('pb-budget')?.value);
+    if (isNaN(val) || val < 0) { showToast('Montant de budget invalide', 'warning'); return; }
+    if (!guardDouble('budget_' + bandeId)) return;
+    const { error } = await sb.from('bandes')
+        .update({ budget_previsionnel: val })
+        .eq('id', bandeId)
+        .eq('ferme_id', FERME_ID);
+    if (error) { showToast('Erreur enregistrement budget', 'error'); console.error(error); return; }
+    showToast('💾 Budget enregistré', 'success');
+    renderPartenairesBande(bandeId);
+}
+
+/* Ajouter un partenaire à la bande */
+async function _ajouterPartenaire(bandeId) {
+    const utilisateurId = document.getElementById('pb-partenaire')?.value;
+    const montant       = parseFloat(document.getElementById('pb-montant')?.value);
+    const commission    = parseFloat(document.getElementById('pb-commission')?.value);
+    if (!utilisateurId) { showToast('Choisissez un partenaire', 'warning'); return; }
+    if (isNaN(montant) || montant <= 0) { showToast('Montant investi invalide', 'warning'); return; }
+    const comm = isNaN(commission) ? 0 : commission;
+    if (comm < 0 || comm > 100) { showToast('Commission entre 0 et 100%', 'warning'); return; }
+    if (!guardDouble('ajout_part_' + bandeId)) return;
+    const { error } = await sb.from('partenaires_bandes').insert({
+        ferme_id:       FERME_ID,
+        bande_id:       bandeId,
+        utilisateur_id: utilisateurId,
+        quote_part:     montant,
+        commission_pct: comm
+    });
+    if (error) { showToast('Erreur ajout partenaire', 'error'); console.error(error); return; }
+    showToast('✅ Partenaire ajouté', 'success');
+    renderPartenairesBande(bandeId);
+}
+
+/* Retirer un partenaire (avec confirmation) */
+async function _retirerPartenaire(assignationId, bandeId, nom) {
+    if (!confirm('Retirer ' + nom + ' de cette bande ?')) return;
+    if (!guardDouble('retrait_part_' + assignationId)) return;
+    const { error } = await sb.from('partenaires_bandes')
+        .delete()
+        .eq('id', assignationId)
+        .eq('ferme_id', FERME_ID);
+    if (error) { showToast('Erreur retrait', 'error'); console.error(error); return; }
+    showToast('Partenaire retiré', 'success');
+    renderPartenairesBande(bandeId);
+}
 
 /* ════════════════════════════════════════════
    ÉTAGE 13 — INTERFACE PARTENAIRE
@@ -5474,7 +5691,7 @@ async function renderPartenaire() {
                 </div>
                 <div style="display:flex;gap:16px;font-size:13px;color:var(--text2)">
                     <span>🏠 Poulailler ${b?.batiments?.numero||'?'}</span>
-                    <span style="color:var(--purple);font-weight:600">🤝 ${p.quote_part}%</span>
+                   <span style="color:var(--purple);font-weight:600">🤝 ${fmt(p.quote_part)} FCFA</span>
                 </div>
             </div>`;
         }).join('')}`;
