@@ -462,7 +462,7 @@ let NOM_FERME = localStorage.getItem('avigest_nom_ferme') || '';
 let CODE_ACCES_FERME = localStorage.getItem('avigest_code_acces') || '';
 const SESSION_MS    = 12 * 3600 * 1000;
 const CACHE_TTL_MS  = 8 * 60 * 60 * 1000;
-const APP_VERSION   = 'v26.47';
+const APP_VERSION   = 'v26.48';
 
 document.title = 'AviGest ' + APP_VERSION;
 const elVersionAffichee = document.getElementById('version-affichee');
@@ -5836,9 +5836,127 @@ function _navPartenaireResultats() {
     if (bandes.length === 1) renderPartenaireResultats(bandes[0].bandes?.id);
     else renderPartenaire();
 }
+async function renderPartenaireCreances() {
+    const z = zone(); if (!z) return;
+    z.innerHTML = '<div style="text-align:center;padding:60px 20px"><div class="spinner" style="width:36px;height:36px"></div></div>';
+
+    const { data: pb, error } = await sb
+        .from('partenaires_bandes')
+        .select('id, quote_part, commission_pct, bandes(id, id_bande, statut, budget_previsionnel)')
+        .eq('utilisateur_id', App.userId);
+
+    if (error || !pb || !pb.length) {
+        z.innerHTML = '<div style="text-align:center;padding:60px 20px">'
+            + '<div style="font-size:48px;margin-bottom:16px">💳</div>'
+            + '<div style="font-weight:800;font-size:16px;margin-bottom:8px">Aucune bande assignée</div>'
+            + '<div style="color:var(--text2);font-size:13px">Le gérant n\'a pas encore associé votre compte.</div>'
+            + '</div>';
+        return;
+    }
+
+    const dashboards = await Promise.all(pb.map(function(p) {
+        return p.bandes ? getDashboard(p.bandes.id) : Promise.resolve(null);
+    }));
+
+    const miseTotale = pb.reduce(function(s, p) { return s + (parseFloat(p.quote_part) || 0); }, 0);
+
+    const terminees = pb.filter(function(p) { return p.bandes && p.bandes.statut === 'CLOTURE'; });
+    const enCours   = pb.filter(function(p) { return !(p.bandes && p.bandes.statut === 'CLOTURE'); });
+
+    const _infoLigne = function(p) {
+        const idx = pb.indexOf(p);
+        const b = p.bandes || {};
+        const d = dashboards[idx] || {};
+        const fi = d.finance || {};
+        const solde = fi.solde || fi.marge_nette || 0;
+        const mise = parseFloat(p.quote_part) || 0;
+        const budget = parseFloat(b.budget_previsionnel) || 0;
+        const commPct = parseFloat(p.commission_pct) || 0;
+        const statut = b.statut || '';
+        if (statut === 'PREPARATION') return { mise: mise, versement: null, raison: 'prep' };
+        if (budget <= 0)              return { mise: mise, versement: null, raison: 'nobudget' };
+        const part = mise / budget;
+        let versement;
+        if (solde >= 0) {
+            const partMarge = part * solde;
+            const comm = partMarge * (commPct / 100);
+            versement = mise + partMarge - comm;
+        } else {
+            versement = Math.max(0, mise - part * Math.abs(solde));
+        }
+        return { mise: mise, versement: versement, raison: 'ok' };
+    };
+
+    const _ligneHTML = function(p) {
+        const info = _infoLigne(p);
+        const b = p.bandes || {};
+        const bid = esc(b.id || '');
+        let versementHTML;
+        if (info.raison === 'prep') {
+            versementHTML = '<span style="font-size:11px;color:var(--text2)">Bande pas démarrée</span>';
+        } else if (info.raison === 'nobudget') {
+            versementHTML = '<span style="font-size:11px;color:var(--orange)">Non calculable</span>';
+        } else {
+            const vc = Math.round(info.versement) >= Math.round(info.mise) ? 'var(--green)' : 'var(--red)';
+            versementHTML = '<span style="font-size:14px;font-weight:800;color:' + vc + '">' + fmt(Math.round(info.versement)) + ' FCFA</span>';
+        }
+        return '<div class="card" style="margin-bottom:8px;cursor:pointer" onclick="Nav.push(\'renderPartenaireResultats\',\'' + bid + '\')">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+            +   '<div style="font-weight:800;font-size:14px">' + esc(b.id_bande || '—') + '</div>'
+            +   '<span style="font-size:10px;color:var(--text2)">' + esc(b.statut || '') + ' ›</span>'
+            + '</div>'
+            + '<div style="display:flex;justify-content:space-between;align-items:center">'
+            +   '<span style="font-size:12px;color:var(--text2)">Mise : <strong style="color:var(--text)">' + fmt(info.mise) + ' FCFA</strong></span>'
+            +   versementHTML
+            + '</div>'
+            + '</div>';
+    };
+
+    const sousTotalTerminees = terminees.reduce(function(s, p) {
+        const info = _infoLigne(p);
+        return s + (info.versement !== null ? Math.round(info.versement) : 0);
+    }, 0);
+
+    const sousTotalEnCours = enCours.reduce(function(s, p) {
+        const info = _infoLigne(p);
+        return s + (info.versement !== null ? Math.round(info.versement) : 0);
+    }, 0);
+
+    const termineesHTML = terminees.length
+        ? terminees.map(_ligneHTML).join('')
+        : '<div style="color:var(--text2);font-size:13px;padding:12px;text-align:center">Aucune bande clôturée</div>';
+
+    const enCoursHTML = enCours.length
+        ? enCours.map(_ligneHTML).join('')
+        : '<div style="color:var(--text2);font-size:13px;padding:12px;text-align:center">Aucune bande en cours</div>';
+
+    z.innerHTML = '<div class="bande-header"><div class="bande-name">💳 Mes Créances</div></div>'
+        + '<div class="card" style="margin-bottom:16px;text-align:center;border:2px solid var(--purple)">'
+        +   '<div style="font-size:11px;color:var(--text2);margin-bottom:4px">Mise totale engagée</div>'
+        +   '<div style="font-size:26px;font-weight:800;color:var(--purple)">' + fmt(Math.round(miseTotale)) + ' FCFA</div>'
+        +   '<div style="font-size:11px;color:var(--text2);margin-top:4px">' + pb.length + ' bande' + (pb.length > 1 ? 's' : '') + '</div>'
+        + '</div>'
+        + '<div class="section-title">✅ À recevoir — bandes terminées</div>'
+        + termineesHTML
+        + (terminees.length > 0
+            ? '<div style="background:rgba(0,200,150,.08);border:1px solid rgba(0,200,150,.2);border-radius:12px;padding:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">'
+              + '<span style="font-size:13px;font-weight:700">Sous-total à recevoir</span>'
+              + '<span style="font-size:16px;font-weight:800;color:var(--green)">' + fmt(sousTotalTerminees) + ' FCFA</span>'
+              + '</div>'
+            : '')
+        + '<div class="section-title">⏳ En cours — estimations</div>'
+        + enCoursHTML
+        + (enCours.length > 0
+            ? '<div style="background:rgba(255,157,0,.08);border:1px solid rgba(255,157,0,.2);border-radius:12px;padding:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">'
+              + '<span style="font-size:13px;font-weight:700">Sous-total estimé</span>'
+              + '<span style="font-size:16px;font-weight:800;color:var(--orange)">' + fmt(sousTotalEnCours) + ' FCFA</span>'
+              + '</div>'
+            : '')
+        + '<button class="btn-action btn-ghost" style="margin-top:8px" onclick="Nav.back()">← Retour</button>';
+}
 function _navPartenaireCreances() {
     _setNavActive('creances');
-    renderPartenaire();
+    renderPartenaireCreances();
 }
 
 /* ════════════════════════════════════════════
