@@ -462,7 +462,7 @@ let NOM_FERME = localStorage.getItem('avigest_nom_ferme') || '';
 let CODE_ACCES_FERME = localStorage.getItem('avigest_code_acces') || '';
 const SESSION_MS    = 12 * 3600 * 1000;
 const CACHE_TTL_MS  = 8 * 60 * 60 * 1000;
-const APP_VERSION   = 'v26.46';
+const APP_VERSION   = 'v26.47';
 
 document.title = 'AviGest ' + APP_VERSION;
 const elVersionAffichee = document.getElementById('version-affichee');
@@ -5542,7 +5542,7 @@ async function renderPartenairesBande(bandeId) {
         listeHTML = assignations.map(function(a) {
             const nom = a.utilisateurs ? a.utilisateurs.nom : '(inconnu)';
             const mise = parseFloat(a.quote_part) || 0;
-            const pct = totalMises > 0 ? Math.round((mise / totalMises) * 1000) / 10 : 0;
+            const pct = budget > 0 ? Math.round((mise / budget) * 1000) / 10 : 0;
             const comm = parseFloat(a.commission_pct) || 0;
             const btnSuppr = enPreparation
                 ? '<button onclick="_retirerPartenaire(\'' + a.id + '\',\'' + bandeId + '\',\'' + esc(nom) + '\')" '
@@ -5664,7 +5664,7 @@ async function renderPartenaire() {
     /* Récupérer les bandes du partenaire via partenaires_bandes */
     const { data: pb, error } = await sb
         .from('partenaires_bandes')
-        .select('*, bandes(id, id_bande, statut, date_arrivee, effectif_initial, race, batiments(numero))')
+        .select('*, bandes(id, id_bande, statut, date_arrivee, effectif_initial, race, budget_previsionnel, batiments(numero))')
         .eq('utilisateur_id', App.userId);
 
     if (error || !pb?.length) {
@@ -5691,7 +5691,7 @@ async function renderPartenaire() {
                 </div>
                 <div style="display:flex;gap:16px;font-size:13px;color:var(--text2)">
                     <span>🏠 Poulailler ${b?.batiments?.numero||'?'}</span>
-                   <span style="color:var(--purple);font-weight:600">🤝 ${fmt(p.quote_part)} FCFA</span>
+                   <span style="color:var(--purple);font-weight:600">🤝 ${fmt(p.quote_part)} FCFA${(()=>{const bud=parseFloat(p.bandes?.budget_previsionnel)||0;return bud>0?' · '+(Math.round((parseFloat(p.quote_part)||0)/bud*1000)/10)+'%':'';})()}</span>
                 </div>
             </div>`;
         }).join('')}`;
@@ -5722,64 +5722,77 @@ async function renderPartenaireResultats(bandeId) {
     const sc = (fi.solde||fi.marge_nette||0)>=0?'var(--green)':'var(--red)';
     const solde = fi.solde || fi.marge_nette || 0;
 
-    /* ── Ma part : charger la mise + commission du partenaire connecté ── */
+    /* ── Ma part : mise + commission du partenaire connecté, part figée sur le budget prévisionnel ── */
     const { data: pbRows } = await sb
         .from('partenaires_bandes')
-        .select('quote_part, commission_pct, bandes(statut)')
+        .select('quote_part, commission_pct, bandes(statut, budget_previsionnel)')
         .eq('utilisateur_id', App.userId)
         .eq('bande_id', bandeId);
     const pbr = (pbRows && pbRows[0]) || null;
 
     let maPartHTML = '';
     if (pbr) {
-        const mise       = parseFloat(pbr.quote_part) || 0;
-        const commPct    = parseFloat(pbr.commission_pct) || 0;
-        const coutTotal  = parseFloat(fi.totalDepenses) || 0;
-        const enCours    = pbr.bandes?.statut === 'EN COURS';
-        const part       = coutTotal > 0 ? mise / coutTotal : 0;
-        const partPct    = Math.round(part * 1000) / 10;
+        const mise      = parseFloat(pbr.quote_part) || 0;
+        const commPct   = parseFloat(pbr.commission_pct) || 0;
+        const budget    = parseFloat(pbr.bandes?.budget_previsionnel) || 0;
+        const enCours   = pbr.bandes?.statut === 'EN COURS';
 
-        let versement, comm = 0, partMarge = 0;
-        if (solde >= 0) {
-            partMarge  = part * solde;
-            comm       = partMarge * (commPct / 100);
-            versement  = mise + partMarge - comm;
+        if (budget <= 0) {
+            maPartHTML = `
+            <div style="font-weight:800;font-size:15px;margin:20px 0 12px">🤝 Ma part</div>
+            <div class="card" style="margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bg3)">
+                    <span style="color:var(--text2);font-size:13px">Ma mise</span>
+                    <span style="font-weight:700">${fmt(mise)} FCFA</span>
+                </div>
+                <div style="font-size:12px;color:var(--orange);margin-top:8px">⚠️ Part non calculable — le budget prévisionnel de la bande n'est pas encore défini.</div>
+            </div>`;
         } else {
-            const partPerte = part * Math.abs(solde);
-            versement  = Math.max(0, mise - partPerte);
-        }
-        const vc = versement >= mise ? 'var(--green)' : 'var(--red)';
+            const part    = mise / budget;
+            const partPct = Math.round(part * 1000) / 10;
 
-        maPartHTML = `
-        <div style="font-weight:800;font-size:15px;margin:20px 0 12px">🤝 Ma part</div>
-        <div class="card" style="border:2px solid ${vc};margin-bottom:12px">
-            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bg3)">
-                <span style="color:var(--text2);font-size:13px">Ma mise</span>
-                <span style="font-weight:700">${fmt(mise)} FCFA</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bg3)">
-                <span style="color:var(--text2);font-size:13px">Ma part de la bande${enCours?' <span style="color:var(--orange)">(estimation en cours)</span>':''}</span>
-                <span style="font-weight:700;color:var(--purple)">${partPct}%</span>
-            </div>
-            ${solde >= 0 ? `
-            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bg3)">
-                <span style="color:var(--text2);font-size:13px">Ma part de marge</span>
-                <span style="font-weight:700;color:var(--green)">+${fmt(Math.round(partMarge))} FCFA</span>
-            </div>
-            ${comm > 0 ? `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bg3)">
-                <span style="color:var(--text2);font-size:13px">Commission gérant (${commPct}%)</span>
-                <span style="font-weight:700;color:var(--red)">−${fmt(Math.round(comm))} FCFA</span>
-            </div>` : ''}` : `
-            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bg3)">
-                <span style="color:var(--text2);font-size:13px">Ma part de perte</span>
-                <span style="font-weight:700;color:var(--red)">−${fmt(Math.round(part * Math.abs(solde)))} FCFA</span>
-            </div>`}
-            <div style="display:flex;justify-content:space-between;padding:10px 0 4px;margin-top:4px">
-                <span style="font-weight:800">${solde >= 0 ? 'Versement estimé' : 'Récupération estimée'}</span>
-                <span style="font-weight:800;font-size:17px;color:${vc}">${fmt(Math.round(versement))} FCFA</span>
-            </div>
-            ${enCours?'<div style="font-size:11px;color:var(--text2);margin-top:6px">⏳ Chiffres provisoires — figés à la clôture de la bande.</div>':''}
-        </div>`;
+            let versement, comm = 0, partMarge = 0;
+            if (solde >= 0) {
+                partMarge = part * solde;
+                comm      = partMarge * (commPct / 100);
+                versement = mise + partMarge - comm;
+            } else {
+                const partPerte = part * Math.abs(solde);
+                versement = Math.max(0, mise - partPerte);
+            }
+            const vc = versement >= mise ? 'var(--green)' : 'var(--red)';
+
+            maPartHTML = `
+            <div style="font-weight:800;font-size:15px;margin:20px 0 12px">🤝 Ma part</div>
+            <div class="card" style="border:2px solid ${vc};margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bg3)">
+                    <span style="color:var(--text2);font-size:13px">Ma mise</span>
+                    <span style="font-weight:700">${fmt(mise)} FCFA</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bg3)">
+                    <span style="color:var(--text2);font-size:13px">Ma part de la bande</span>
+                    <span style="font-weight:700;color:var(--purple)">${partPct}%</span>
+                </div>
+                ${solde >= 0 ? `
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bg3)">
+                    <span style="color:var(--text2);font-size:13px">Ma part de marge</span>
+                    <span style="font-weight:700;color:var(--green)">+${fmt(Math.round(partMarge))} FCFA</span>
+                </div>
+                ${comm > 0 ? `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bg3)">
+                    <span style="color:var(--text2);font-size:13px">Commission gérant (${commPct}%)</span>
+                    <span style="font-weight:700;color:var(--red)">−${fmt(Math.round(comm))} FCFA</span>
+                </div>` : ''}` : `
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bg3)">
+                    <span style="color:var(--text2);font-size:13px">Ma part de perte</span>
+                    <span style="font-weight:700;color:var(--red)">−${fmt(Math.round(part * Math.abs(solde)))} FCFA</span>
+                </div>`}
+                <div style="display:flex;justify-content:space-between;padding:10px 0 4px;margin-top:4px">
+                    <span style="font-weight:800">${solde >= 0 ? 'Versement estimé' : 'Récupération estimée'}</span>
+                    <span style="font-weight:800;font-size:17px;color:${vc}">${fmt(Math.round(versement))} FCFA</span>
+                </div>
+                ${enCours?`<div style="font-size:11px;color:var(--text2);margin-top:6px">⏳ Ta part (${partPct}%) est figée sur le budget. Le montant dépend de la marge finale, à la clôture.</div>`:''}
+            </div>`;
+        }
     }
 
     z.innerHTML = `<div style="padding:16px">
