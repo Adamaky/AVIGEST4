@@ -5,8 +5,8 @@
 *Version 26 --- Adama Désiré --- Ouagadougou, Burkina Faso*
 
 > **Synchronisation** : cette version `.md` est générée à partir de
-> `bible_avigest_v26.docx` --- dernière synchronisation le **22/07/2026
-> (session v26.30).**. Le `.docx` reste la référence unique pour toute
+> `bible_avigest_v26.docx` --- dernière synchronisation le **11/08/2026
+> (session v26.45).**. Le `.docx` reste la référence unique pour toute
 > modification manuelle ; ce fichier `.md` est une copie dérivée
 > destinée à être lue par Claude Code depuis le repo GitHub, à côté de
 > `SCHEMA.md`. Ne jamais éditer ce `.md` comme source --- toujours
@@ -55,8 +55,8 @@ investisseurs.
 
   Fichier de travail    C:.html
 
-  **Version actuelle**  **APP_VERSION = 'v26.40' · CACHE_NAME =
-                        'avigest-v26-40'**
+  **Version actuelle**  **APP_VERSION = 'v26.45' · CACHE_NAME =
+                        'avigest-v26-45'**
   -----------------------------------------------------------------------
 
 ### 2.2 Terminologie --- Deux niveaux
@@ -84,8 +84,8 @@ Format : `Bande-YYYY-NNN` (ex : `Bande-2026-001`)
 
 -   Regex de validation : `/^Bande-\d{4}-\d{3}$/`
 -   Auto-génération avec possibilité de saisie manuelle
--   Soft-delete : toujours ajouter `.eq('is_deleted', false)` sur les
-    requêtes bandes
+-   Soft-delete : toujours ajouter `.eq('``is_deleted``', false)` sur
+    les requêtes bandes
 
 ### 2.4 Architecture Supabase --- Tables principales
 
@@ -270,7 +270,7 @@ SaaS, il reste à construire dessus.
                                    fail-closed. Dernière migration : 053.
   -------------------------------------------------------------------------------
 
-## Dernière migration : 051.
+## Dernière migration : 058.
 
 ## ⚠️ Dette de fichiers migrations --- ✅ SOLDÉE (v26.37). Quatre migrations avaient été jouées en base sans que leur fichier .sql soit committé : 047 (ALTER fermes ADD nom_commercial), 048 (paramètre p_date_reglement sur livrer_commande), 050 (encaisser_penalite) et 051 (get_alertes_echeance). Toutes recréées a posteriori en v26.37 depuis l\'état réel en base (pg_get_functiondef pour les fonctions, vérification information_schema pour l\'ALTER) --- jamais depuis la Bible seule, conformément à la règle absolue n°1. Le dossier migrations/ est désormais complet et continu jusqu\'à 051. Confirmé au passage : 045 (045_imputer_stock_type_b.sql) existe bien.
 
@@ -291,7 +291,7 @@ SaaS, il reste à construire dessus.
                                          créances
   ----------------------------------------------------------------------------
 
-> PIN stocké en bcrypt via RPC `verifier_pin()` (colonne PIN en clair
+> PIN stocké en bcrypt via RPC `verifier_pin``()` (colonne PIN en clair
 > supprimée --- Migration 028).
 
 ## 4. Règles Techniques Critiques
@@ -304,7 +304,7 @@ SaaS, il reste à construire dessus.
 -   RLS active sur toutes les tables, y compris `sessions_actives`
     (vérifié en base le 22/07/2026, session v26.30 --- la Bible
     indiquait à tort que sessions_actives était sans RLS)
--   `get_ferme_id()` avec SECURITY DEFINER --- retourne l'ID ferme
+-   `get_ferme_id``()` avec SECURITY DEFINER --- retourne l'ID ferme
     depuis le header
 -   Statelessness REST : `set_config` ne persiste pas entre requêtes ---
     utiliser le header global
@@ -315,10 +315,10 @@ SaaS, il reste à construire dessus.
 -   `lots_stock.produit` : noms complets (ex : 'Aliment de démarrage')
     --- chercher avec `LOWER(produit) LIKE`
 -   `mouvements_stock.type_mouvement` : uniquement 'ENTREE' ou 'SORTIE'
--   `SET LOCAL row_security = off` dans les RPCs SECURITY DEFINER qui
-    interrogent `utilisateurs`, pour bypasser RLS
--   Appeler `extensions.crypt()` et non `crypt()` --- pgcrypto est dans
-    le schéma extensions
+-   `SET LOCAL ``row_security`` = off` dans les RPCs SECURITY DEFINER
+    qui interrogent `utilisateurs`, pour bypasser RLS
+-   Appeler `extensions.crypt``()` et non `crypt``()` --- pgcrypto est
+    dans le schéma extensions
 -   **Toute opération DELETE/UPDATE sur une table sans RLS (ex:**
     `sessions_actives`**) doit systématiquement filtrer par** `ferme_id`
     **côté client --- leçon de l'audit sécurité v26.18 (voir section
@@ -344,10 +344,10 @@ SaaS, il reste à construire dessus.
 
 -   Apostrophes dans les chaînes JS : toujours échapper avec `\'` ou
     utiliser des guillemets doubles
--   Ne jamais imbriquer des template literals dans `.map()` --- utiliser
-    la concaténation
--   `&quot;` au lieu d'apostrophes dans les attributs onclick inline
--   `node --check` échoue sur les fichiers `.html` --- utiliser la
+-   Ne jamais imbriquer des template literals dans `.``map``()` ---
+    utiliser la concaténation
+-   `&``quot``;` au lieu d'apostrophes dans les attributs onclick inline
+-   `node`` --check` échoue sur les fichiers `.html` --- utiliser la
     commande PowerShell d'extraction JS
 -   jsDelivr CDN inaccessible depuis le Burkina Faso --- utiliser
     unpkg.com ou le fichier local
@@ -370,7 +370,7 @@ SaaS, il reste à construire dessus.
     modifications non liées dans un même commit (leçon B6/isolation
     stricte)
 -   **Séquence de vérification stricte (confirmée v26.18)** : édition →
-    `node --check` (confirmation explicite du résultat, ne jamais
+    `node`` --check` (confirmation explicite du résultat, ne jamais
     supposer que c'est fait) → diff GitHub Desktop complet → incrément
     version si dernier changement de la session → commit avec message
     combiné (version + description)
@@ -389,8 +389,8 @@ modifier)**
           / effectif_vivants
 
 Filtre par **exclusion**, pas par liste fermée. La litière (comme tout
-produit avec `impute_journal = true`) entre correctement dans le CRU via
-ce filtre --- ne jamais ajouter de catégorie spécifique au filtre,
+produit avec `impute_journal`` = ``true`) entre correctement dans le CRU
+via ce filtre --- ne jamais ajouter de catégorie spécifique au filtre,
 l'exclusion `!= 'Achat stock'` suffit et gère tout automatiquement.
 
 **RÈGLE JOURNAL --- Catégories prédéfinies (v2)**
@@ -439,11 +439,11 @@ note explicative
 
 > **Bug cosmétique (v26.17) --- ✅ FERMÉ v26.30** : écran de
 > confirmation agent affiche le score santé avec balises HTML brutes
-> (`<strong>BON</strong>` au lieu de **BON** en gras). Cause : la
-> fonction `esc()` échappe les balises `<strong>` volontairement
-> insérées dans `_renderSessionResume()`. Correctif appliqué en v26.30
-> (retrait de `<strong>`/`</strong>`, le CSS
-> `.rapport-ligne span:last-child` gère déjà le gras). ⚠️ Leçon : DEUX
+> (`<``strong``>BON</``strong``>` au lieu de **BON** en gras). Cause :
+> la fonction `esc()` échappe les balises `<``strong``>` volontairement
+> insérées dans `_``renderSessionResume``()`. Correctif appliqué en
+> v26.30 (retrait de `<``strong``>`/`</``strong``>`, le CSS
+> `.rapport-ligne ``span:last-child` gère déjà le gras). ⚠️ Leçon : DEUX
 > balises étaient en cause, pas une seule --- le premier correctif
 > partiel n'avait donc rien changé à l'écran. Toujours compter les
 > occurrences avant de conclure qu'un correctif est complet.
@@ -457,7 +457,7 @@ Médicament, Litière - → Décrémente stock + écriture journal auto - →
 Entre dans le CRU (sauf catégorie "Achat stock")
 
 **Type B --- Sans imputation journal** - → Produits créés par le gérant
-avec `impute_journal = false` - → Décrémente stock uniquement - →
+avec `impute_journal`` = false` - → Décrémente stock uniquement - →
 N'entre PAS dans le CRU
 
 **FLAG sur lots_stock (implémenté) :**
@@ -609,8 +609,8 @@ base est la seule vérité.
 v26.18) :** L'étape `stock_autres` (« Autres produits utilisés ») est
 présente dans les 4 sessions agent (Matin/Midi/PM/Nuit), pas seulement
 Matin. Elle liste tout lot dont le produit n'est pas l'aliment
-(`.not('produit', 'ilike', '%aliment%')`) et impute chaque quantité
-saisie via `imputer_stock()` --- mécanisme générique, non câblé
+(`.not('produit', '``ilike``', '%aliment%')`) et impute chaque quantité
+saisie via `imputer_stock``()` --- mécanisme générique, non câblé
 spécifiquement pour un produit donné. Testé en conditions réelles avec
 deux produits distincts, flux complet jusqu'à validation gérant
 (EN_ATTENTE → CONFIRME) confirmé pour les deux : - **Litière** --- B8,
@@ -643,12 +643,12 @@ exactement le même mécanisme générique que la litière et le médicament
   A, alignée aliment)             conditions réelles 01/07/2026
 
   Étape 7 --- Formulaire dépense  ✅ Validé --- confirmé session v26.18,
-  enrichi                         `renderNouvelleEcriture()` avec
-                                  `<optgroup>` Charges CRU / Mouvement
-                                  stock, mode Qté×PU
+  enrichi                         `renderNouvelleEcriture``()` avec
+                                  `<``optgroup``>` Charges CRU /
+                                  Mouvement stock, mode Qté×PU
 
   Étape 8 --- CRU filtré charges  ✅ Validé --- confirmé session v26.18,
-  consommées                      filtre `categorie !== 'Achat stock'`
+  consommées                      filtre `categorie`` !== 'Achat stock'`
                                   présent et cohérent à 3 endroits du
                                   code
 
@@ -712,7 +712,7 @@ réexpliquer.
   Système de navigation Nav    ✅ Validé  Bug pavé PIN corrigé
 
   **Correctif RLS ---          **✅       **v26.19 --- filtre**
-  sessions_actives DELETE      Validé**   `.eq('ferme_id', FERME_ID)`
+  sessions_actives DELETE      Validé**   `.eq('``ferme_id``', FERME_ID)`
   cross-tenant**                          **ajouté, voir section 14**
 
   Mode hors ligne + sync auto  ○ À faire  Queue localStorage à implémenter
@@ -744,15 +744,15 @@ réexpliquer.
   Score santé ---  ⏹️          Ex-B1 : "Score undefined" --- décision
   calcul auto      Abandonné   définitive d'Adama (session v26.18) de ne
                                pas traiter, non prioritaire. Distinct du
-                               bug cosmétique `<strong>` (voir section 5),
-                               toujours actif celui-là
+                               bug cosmétique `<``strong``>` (voir section
+                               5), toujours actif celui-là
 
   Score santé ---  ○ À faire   Prévu : bouton Bon/Passable/Mauvais + note
   surcharge                    agent
   manuelle                     
 
   Blocage sessions ✅ Validé   Ex-B3 --- confirmé implémenté dans
-  hors plage                   `renderSession()` : plages par session
+  hors plage                   `renderSession``()` : plages par session
   horaire                      (Matin 5h-10h, Midi 10h-14h, PM 14h-19h,
                                Nuit 19h-5h), double protection (bouton
                                désactivé + re-vérification fonction)
@@ -808,13 +808,13 @@ multi-produits, toutes ✅ Validé).
 
 **PARTENAIRE**
 
-  ------------------------------------------------------------------------
-  Fonctionnalité                     Statut      Note / Bug connu
-  ---------------------------------- ----------- -------------------------
-  Interface partenaire --- 3 tuiles  ○ À faire   Filtré par idPartenaire
+  -----------------------------------------------------------------------
+  Fonctionnalité            Statut           Note / Bug connu
+  ------------------------- ---------------- ----------------------------
+  \| Écran gérant           Affichage FCFA   Interface Résultats-Créances
 
-  Assignation quotes-parts           ○ À faire   Total ≤ 100%
-  ------------------------------------------------------------------------
+  Assignation quotes-parts  ○ À faire        Total ≤ 100%
+  -----------------------------------------------------------------------
 
 **PROCESSUS**
 
@@ -961,10 +961,10 @@ Supabase Studio/psql).
 
 **Point CRITIQUE confirmé et corrigé :** - `sessions_actives` --- RLS
 désactivée (choix documenté) + un DELETE cross-tenant sans filtre
-`ferme_id` trouvé ligne \~1739 (`doLogin()`, nettoyage sessions
-expirées). **Corrigé v26.19** : ajout de `.eq('ferme_id', FERME_ID)`.
-Commit :
-`"v26.19 - Fix RLS gap: DELETE sessions_actives sans filtre ferme_id (audit sécurité v26.18)"`. -
+`ferme_id` trouvé ligne \~1739 (`doLogin``()`, nettoyage sessions
+expirées). **Corrigé v26.19** : ajout de
+`.eq('``ferme_id``', FERME_ID)`. Commit :
+`"v26.19 - Fix RLS gap: DELETE ``sessions_actives`` sans filtre ``ferme_id`` (audit sécurité v26.18)"`. -
 Limite du correctif : protège contre l'erreur applicative côté code
 légitime, mais ne remplace pas une policy RLS réelle --- un accès direct
 via devtools/clé anon pourrait théoriquement encore contourner ce filtre
@@ -1120,7 +1120,7 @@ dernière migration appliquée avant la 042. Depuis, les migrations 042 à
     parfois cité en basse priorité ailleurs), **mais sans conséquence
     pratique** : le comportement fonctionnel est confirmé résolu par
     Adama (session v26.18). Point purement historique, non bloquant.
-3.  **Bug cosmétique score santé** (balises `<strong>` brutes) : ✅
+3.  **Bug cosmétique score santé** (balises `<``strong``>` brutes) : ✅
     RÉSOLU en v26.30 --- voir section 5. Deux balises étaient en cause,
     pas une seule, ce qui explique l'échec du premier correctif.
 4.  **Cohérence .md/.docx** : cette version .md (v26.18) doit être
@@ -1266,9 +1266,9 @@ comptable OHADA : **CRÉANCES** (qui me doit) distinctes de la **CAISSE**
 
   3           Suivi paiements / créances                    ✅ Validé (v26.34)
 
-  4           Export WhatsApp commande                      ○ À faire
+  4           Export WhatsApp commande                      ✅ Validé (v26.41)
 
-  5           Écran Trésorerie / Caisse                     ○ Validé v26.39
+  5           Écran Trésorerie / Caisse                     ✅ Validé (v26.39)
 
   6           Mouvements hors-bande + injections            ○ À faire
               partenaires                                   
@@ -2770,13 +2770,681 @@ CACHE_NAME avigest-v26-40.
 rentabilité dit, bande par bande, combien coûte un poulet à élever et où
 en est la marge. Deux questions, deux écrans.
 
-Écriture de test à supprimer : RECETTE \'Remboursement\' 102 583 000 F
-sur Bande-2026-002 (22/06/2026, sans bénéficiaire ni référence),
-confirmée donnée de test. À supprimer avec les 6 écritures du 22/06 lors
-d\'un nettoyage journal dédié. Tant qu\'elle est là, elle gonfle la
-marge de Bande-002 sur l\'écran Rentabilité.
+**Nettoyage journal du 22/06/2026 --- DELETE exceptionnel documenté
+(v26.40).** Les 6 écritures de test manuelles du 22/06/2026 (3 bandes,
+toutes sans référence, bénéficiaire NULL ou vide) ont été supprimées par
+DELETE direct en SQL Editor, dont la RECETTE \'Remboursement\' 102 583
+000 F qui gonflait la marge de Bande-2026-002 sur l\'écran Rentabilité.
+**Exception assumée au principe soft-delete** du projet : justifiée par
+la nature purement test des données, tracée ici plutôt que par
+contre-passation (qui aurait pollué le journal de 6 lignes inverses sans
+réalité économique). Vérifié après coup : journal du 22/06 vide,
+Bande-002 affiche 0 F partout. Leçon relevée : la colonne
+journal.beneficiaire mélange NULL et chaîne vide \'\' --- un filtre de
+nettoyage doit utiliser COALESCE(beneficiaire,\'\') = \'\', pas IS NULL
+seul.
+
+**25. Export Bon de commande (CHANTIER CLOS --- v26.41)**
+
+**25.1 Objectif et périmètre**
+
+Le Bon de commande est le document remis au client **avant** la
+livraison : il récapitule ce qui a été commandé, aux prix prévus, pour
+confirmation. Il met en œuvre l\'étape 4 du découpage CRM (§16.2).
+C\'est le pendant « amont » de la facture (§22.6) : le Bon de commande
+annonce ce qui est prévu, la facture constate ce qui a été livré et
+reste dû.
+
+Seul le GÉRANT y accède. Onglet GESTION, module
+js/commandes/commandes.js (détail commande).
+
+💡 En clair : le Bon de commande, c\'est le « devis confirmé » qu\'on
+envoie au client pour dire « voilà ce que tu as commandé, voilà le prix
+». La facture, elle, vient après la livraison pour dire « voilà ce que
+tu me dois ».
+
+**25.2 Où le bouton apparaît (décision de périmètre)**
+
+Le bouton « 📋 Bon de commande » n\'est visible que sur les statuts
+**PRECOMMANDE** et **PLANIFIEE**. Il disparaît sur LIVREE et ANNULEE ---
+une fois la commande livrée, c\'est la facture (§22.6) qui prend le
+relais, et une commande annulée n\'a pas de bon à émettre.
+
+Cette règle est le miroir de la facture, qui elle n\'apparaît qu\'à
+partir de la livraison. Les deux documents ne coexistent jamais sur le
+même écran : chacun couvre sa phase du cycle de vie de la commande.
+
+**25.3 Contenu du texte généré**
+
+Comme le reçu (§19.7) et la facture (§22.6), le Bon de commande est un
+**texte formaté copié dans le presse-papier** (pas de lien wa.me), à
+coller où le gérant veut. Il porte :
+
+-   l\'**en-tête ferme** (identité commerciale, §20 : nom_commercial,
+    téléphone, ville) ;
+
+-   les **lignes de commande aux PRIX PRÉVUS** (prix_prevu, pas
+    prix_reel --- le réel n\'existe qu\'après livraison, §18.4) ;
+
+-   le **total prévu** (calculé à la volée, jamais stocké --- §16.5
+    décision 1) ;
+
+-   la ligne « **Livraison prévue** » si la commande est planifiée
+    (date_livraison_prevue, §18.4) ;
+
+-   l\'« **Échéance de règlement** » en pied si elle est renseignée
+    (date_reglement_prevue, §18.9).
+
+**25.4 Fonctions et variables ajoutées à commandes.js**
+
+Fonctions : \_texteBonCommande (construit le texte), \_copierBonCommande
+(copie presse-papier + toast). Cette dernière est exposée sur window
+pour l\'onclick inline (§17.4).
+
+Rappel §17.3 : accès Supabase via avigestContext() au moment de s\'en
+servir, jamais une copie de sb en cache.
+
+**25.5 Point cosmétique en suspens --- icône 📋**
+
+⚠️ Le bouton utilise actuellement l\'icône 📋, **déjà employée par le
+bouton « copier le reçu »** (§19.7). Doublon visuel : sur un écran où
+les deux peuvent apparaître, l\'œil ne distingue pas d\'emblée « copier
+bon de commande » de « copier reçu ». Un passage en 📤 est envisagé (un
+seul caractère à changer dans commandes.js) --- **non tranché à la
+clôture v26.41**, laissé tel quel volontairement. À arbitrer lors d\'une
+passe cosmétique.
+
+💡 En clair : deux boutons différents portent aujourd\'hui le même petit
+dessin de presse-papier. Ça marche, mais ça peut prêter à confusion. On
+changera peut-être l\'un des deux plus tard --- ce n\'est pas urgent.
+
+**25.6 État final**
+
+Codé, testé en local et en production, poussé (v26.44). L\'étape 4 du
+découpage CRM (§16.2) passe à ✅ Validé. Restent ○ À faire sur le CRM :
+uniquement l\'étape 6 (mouvements hors-bande + injections partenaires).
+
+26\. Chantier Authentification --- \"Piste C en escalier\" (MARCHE 1
+CLOSE --- v26.44)
+
+Version actuelle : APP_VERSION = \'v26.44\' · CACHE_NAME =
+\'avigest-v26-44\'. Dernière migration : 054. MARCHE 1 auth CLOSE.
+
+26.1 Objectif et contexte
+
+Faille de fond : le header x-ferme-id est posé côté navigateur
+(localStorage)
+
+sur la clé anon publique. Un utilisateur peut modifier son header et se
+faire
+
+passer pour une autre ferme (§14.4). Prérequis SaaS (janvier 2027).
+
+Solution : Supabase Auth natif adossé au login PIN existant, en 2
+marches.
+
+MARCHE 1 = installer toute la tuyauterie JWT SANS l\'activer côté RLS.
+
+L\'app marche exactement comme avant. ← FAITE (v26.44).
+
+MARCHE 2 = basculer get_ferme_id() vers auth.jwt() → ferme la faille. ←
+À FAIRE.
+
+26.2 Les 4 briques de la Marche 1 (toutes faites)
+
+1.1 ✅ Migration 054 : colonne auth_user_id sur utilisateurs, 5 comptes
+Auth
+
+miroir créés, app_metadata (ferme_id + role), liaison vérifiée.
+
+1.2 ✅ Edge Function login_avec_pin déployée
+(supabase/functions/login_avec_pin/).
+
+Chaîne : code_ferme → ferme_id (RPC valider_code_ferme) → PIN (RPC
+verifier_pin)
+
+→ auth_user_id → email → signInWithPassword → renvoie access_token +
+refresh_token
+
+\+ bloc utilisateur (dont id_partenaire, préparé pour le futur login
+Partenaire).
+
+1.3 ✅ (v26.42) doLogin() transite par l\'Edge Function au lieu de
+sb.rpc(\'verifier_pin\').
+
+Le token est récupéré dans window.\_authTokens. Comportement inchangé
+pour l\'utilisateur.
+
+L\'app appelle l\'Edge Function avec la clé anon existante (apikey), pas
+besoin de clé
+
+publishable côté front.
+
+1.4 ✅ (v26.44) Le token est installé dans sb via
+sb.auth.setSession({access_token,
+
+refresh_token}), juste avant startApp(). setSession propage le token aux
+canaux
+
+REST ET Realtime. x-ferme-id conservé. initSupabaseClient NON modifiée.
+
+26.3 ⚠️ LEÇON MAJEURE --- v1 de la Brique 1.4 ratée (à ne jamais
+refaire)
+
+Première tentative (commit v26.44 annulé) : injecter le JWT dans les
+en-têtes HTTP
+
+de sb (Authorization: Bearer, dans initSupabaseClient).
+
+RÉSULTAT : cassé le Realtime (WebSocket closed before connection
+established) et le
+
+heartbeat (PATCH 401). Cause : le canal Realtime (WebSocket) ne lit PAS
+les en-têtes
+
+HTTP --- il a son propre système de token. Coller le token dans les
+headers ne l\'atteint
+
+jamais.
+
+CORRECTIF : ne JAMAIS donner un token à Supabase via les en-têtes.
+Utiliser la méthode
+
+officielle du SDK : sb.auth.setSession() (propage REST + Realtime
+automatiquement).
+
+Vérifié en console avant de coder : sb.auth.setSession,
+sb.realtime.setAuth,
+
+sb.auth.getSession = tous \'function\' (SDK complet).
+
+Retour arrière : le commit v26.44 v1 a été annulé (via reverts emmêlés
+puis retour
+
+propre au contenu v26.43 par Claude Code). Preuve d\'état sain :
+initSupabaseClient à
+
+1 paramètre, 0 occurrence de headers\[\'Authorization\'\] hors du fetch
+Edge Function.
+
+💡 En clair : on a d\'abord accroché le badge (le token) au mauvais
+endroit sur la veste
+
+de l\'employé --- les notifications instantanées sont tombées en panne.
+On l\'a remis au bon
+
+endroit (setSession), et tout remarche. La leçon : un token Supabase ne
+se colle pas
+
+dans les en-têtes, il s\'installe par la porte officielle du SDK.
+
+26.4 ⚠️ EFFET DE BORD IDENTIFIÉ --- rapports_hebdo / taches sous JWT (À
+TRAITER en Marche 2)
+
+Depuis la Brique 1.4, sb porte un JWT authenticated au lieu de la clé
+anon.
+
+CONSÉQUENCE observée en prod : au chargement de l\'accueil gérant, le
+module
+
+\"Rapports hebdomadaires\" (§13.2, ⏳ En cours) génère des erreurs EN
+BOUCLE :
+
+GET /rest/v1/taches?select=titre\... → 400 (Bad Request)
+
+POST /rest/v1/rapports_hebdo → 403 (Forbidden)
+
+Cause probable : les policies RLS de taches et rapports_hebdo sont
+écrites pour le rôle
+
+anon (cf. §14.4 : \"on garde la policy du rôle anon, celui réellement
+utilisé par l\'app\").
+
+Or l\'app n\'utilise plus SEULEMENT anon depuis la 1.4 --- le JWT
+bascule le rôle en
+
+authenticated, que ces policies ne laissent pas passer.
+
+IMPACT AUJOURD\'HUI : nul sur l\'essentiel --- bandes, journal,
+analyses, rentabilité,
+
+Realtime : tout fonctionne. Seul le module rapports_hebdo (non fini, pas
+en service)
+
+échoue. Erreurs figées au chargement, pas de fuite.
+
+⚠️ POINT DE VIGILANCE MARCHE 2 : avant de basculer get_ferme_id() sur
+auth.jwt(),
+
+AUDITER toutes les policies RLS réservées au rôle anon --- elles devront
+accepter le rôle
+
+authenticated, sinon d\'autres requêtes échoueront comme rapports_hebdo.
+Le module
+
+rapports_hebdo est le canari : il signale ce qui cassera à grande
+échelle en Marche 2.
+
+À diagnostiquer aussi : pourquoi ce module génère 7 rapports (S1..S7)
+automatiquement
+
+à chaque login --- comportement à revoir indépendamment de l\'auth.
+
+**26.4 bis --- ✅ AUDIT RLS anon→authenticated FAIT (v26.45, premier pas
+Marche 2)**
+
+Le \"canari\" rapports_hebdo (§26.4) a chanté à grande échelle pendant
+le chantier
+
+Partenaire : la création de bande, l\'achat de poussins (journal), etc.
+échouaient tous
+
+en erreur 42501 (new row violates row-level security policy) sous JWT
+authenticated.
+
+Diagnostic (requête d\'audit §14.3) : 8 policies étaient réservées au
+rôle {anon} seul ---
+
+caisse_ajustements, journal, lots_stock, mouvements_stock, penalites,
+rapports_hebdo,
+
+saisies_techniques, taches. Plus bandes (traitée en premier).
+
+Correctif (migrations 056 + 057) : chaque policy DROP puis CREATE en
+ajoutant le rôle
+
+authenticated, règle métier STRICTEMENT identique (ferme_id =
+get_ferme_id()), avec
+
+WITH CHECK explicite. Aucun élargissement de droits --- seuls les badges
+acceptés changent.
+
+État vérifié en base : 9 tables (les 8 + bandes) + fermes (déjà OK) sont
+désormais en
+
+{anon,authenticated}. L\'app est PLEINEMENT FONCTIONNELLE sous JWT.
+
+💡 En clair : depuis la Marche 1, l\'app présentait un nouveau badge
+(JWT) que toutes les
+
+portes ignoraient --- l\'app était à moitié cassée sous JWT sans qu\'on
+l\'ait remarqué (seul
+
+le canari rapports_hebdo signalait). On a reprogrammé toutes les
+serrures pour accepter
+
+l\'ancien ET le nouveau badge, sans rien ouvrir de plus. C\'est le vrai
+premier pas de la
+
+Marche 2 : la tuyauterie authenticated fonctionne partout. Il RESTE
+(Marche 2 finale) à
+
+basculer get_ferme_id() sur auth.jwt() pour FERMER la faille ---
+chantier séparé, §26.6.
+
+**ET** : § 26 titre, remplacer \"(MARCHE 1 CLOSE --- v26.44)\" par
+
+\"(MARCHE 1 CLOSE --- v26.44 · Audit RLS Marche 2 fait --- v26.45)\".
+
+26.5 Dettes soldées au passage (v26.42/43)
+
+\- NOM_FERME : variable globale sans déclaration let/const/var (dette
+pré-existante).
+
+Réveillée en mode strict par une modif adjacente (crash \"NOM_FERME is
+not defined\"
+
+au login). Corrigée v26.43 : ajout de let NOM_FERME. Leçon : rouvrir un
+bloc en mode
+
+strict expose les variables implicites --- toujours vérifier leurs
+déclarations.
+
+\- CODE_ACCES_FERME : nouvelle variable globale (+ localStorage
+\'avigest_code_acces\'),
+
+stockée dans validerCodeFerme, requise par login_avec_pin (attend le
+code d\'accès brut
+
+type REVAGRO, PAS le nom commercial). Point clé : NOM_FERME contient le
+nom commercial
+
+(Smartfarm), pas le code d\'accès --- d\'où la nécessité de stocker le
+code séparément.
+
+\- Edge Function login_avec_pin : le fichier index.ts (ajout
+id_partenaire du 10/08) était
+
+déployé mais pas commité. Commité en v26.42. Dette \"déployé mais pas
+commité\" soldée.
+
+26.6 Reste pour finir l\'auth
+
+MARCHE 2 (chantier futur, ferme la faille) : basculer get_ferme_id() de
+la lecture du
+
+header x-ferme-id vers auth.jwt() (le ferme_id est déjà dans
+app_metadata, Brique 1.1).
+
+Prérequis : audit RLS anon→authenticated (§26.4). NE PAS entamer sans
+session dédiée.
+
+**27. Module Partenaire --- Assignation + calcul des parts (BRIQUES A +
+B + C LIVRÉES --- v26.47)**
+
+**27.1 Objectif et contexte**
+
+Un partenaire est un investisseur qui met de l\'argent sur une ou
+plusieurs bandes.
+
+Le module lui donne une fenêtre pour suivre ses bandes, et donne au
+gérant un écran
+
+pour enregistrer qui investit combien. Chantier découpé en 3 briques :
+
+\- **Brique A** --- Écran gérant d\'assignation (✅ livrée v26.45)
+
+\- **Brique B** --- Affichage partenaire corrigé FCFA (✅ livrée v26.45)
+
+\- Brique C --- Calcul de la part (mise ÷ budget) + versement estimé + %
+harmonisé 3 écrans (✅ livrée v26.47). Reste : tuile Créances.
+
+💡 En clair : on a construit le guichet où le gérant enregistre les
+investisseurs (A),
+
+et réparé la vitre à travers laquelle l\'investisseur lit sa mise (B).
+Reste à installer
+
+la caisse qui calcule ce qu\'on lui doit à la fin (C).
+
+**27.2 RÈGLE DE PARTAGE PARTENAIRE --- actée (ne pas rouvrir sans
+demande explicite d\'Adama)**
+
+Le partenaire est un **associé** (pas un prêteur) : il partage gains ET
+pertes au prorata
+
+de sa mise. Les 6 règles :
+
+1\. **Stockage** : la mise de chaque investisseur est enregistrée en
+**FCFA** dans
+
+   \`partenaires_bandes.quote_part\` (une ligne par investisseur). Le
+gérant peut lui aussi
+
+   avoir une ligne de mise (gère le cas \"ça dépend des bandes\").
+
+2\. Calcul du % (affiché, FIGÉ dès l\'assignation --- plus jamais «
+total des mises ») :
+
+  % = mise de l\'investisseur ÷ budget prévisionnel de la bande
+(bandes.budget_previsionnel). ⚠️ Correction v26.47 : la version initiale
+disait « ÷ total des mises » --- c\'était une erreur. La base est le
+budget prévisionnel, fixé d\'avance. Si le budget est absent ou 0 → part
+« non calculable ».
+
+3\. Budget pour la PART, réel pour le MONTANT : le % vient du budget
+prévisionnel (figé) ; la marge sur laquelle il s\'applique vient du RÉEL
+à la clôture (recettes réelles − dépenses réelles). Le budget fixe la
+part, le réel fixe le montant.
+
+4\. **À la clôture si BÉNÉFICE** : le partenaire reçoit son capital + sa
+part de marge
+
+   (son % × marge nette), MOINS la commission gérant (% défini bande par
+bande via
+
+   \`commission_pct\`, prélevé uniquement sur sa part de marge).
+
+5\. **À la clôture si PERTE** : le partenaire assume sa part de la perte
+au prorata,
+
+   **plafonnée à sa mise** (il perd au maximum ce qu\'il a investi,
+jamais plus).
+
+   Aucune commission dans ce cas.
+
+6\. **Versement en fin de bande uniquement** (pas d\'avances). Se greffe
+sur le module
+
+   Clôture (§15).
+
+**Exemples de référence :**
+
+\- Bénéfice : budget prévisionnel 2 000 000 F, partenaire 1 000 000 F →
+part figée 50%.
+
+  À la clôture, marge réelle +800 000 F, commission 20% → versement = 1
+000 000 (mise)
+
+  + (50% × 800 000 = 400 000 marge) − (20% × 400 000 = 80 000
+commission) = 1 320 000 F.
+
+\- Perte : budget prévisionnel 2 000 000 F, partenaire 1 000 000 F →
+part figée 50%.
+
+  À la clôture, marge réelle −750 000 F → il assume 50% × 750 000 = 375
+000 F, récupère 625 000 F. Commission 0.
+
+💡 En clair : chacun monte dans la même barque. Si elle avance, on
+partage la course
+
+selon sa part de rame ; si elle prend l\'eau, chacun écope selon la même
+part --- mais
+
+jamais plus que sa mise de départ.
+
+**27.3 Décisions de conception de l\'écran d\'assignation (Brique A)**
+
+\- **Accès** : depuis l\'écran Préparation d\'une bande
+(\`\_renderTabPreparation\`, section
+
+  \"🤝 Partenaires investisseurs\") ET depuis l\'onglet Gestion de la
+bande
+
+  (\`\_renderTabGestion\`, tuile 🤝 Partenaires). Le même écran
+\`renderPartenairesBande\`
+
+  s\'adapte : édition en PRÉPARATION, lecture seule sinon.
+
+\- **Piège de conception évité** : l\'onglet Gestion d\'une bande est
+\`disabled\` tant que
+
+  la bande est en PRÉPARATION. Comme l\'assignation n\'est autorisée
+QU\'en préparation,
+
+  mettre la tuile UNIQUEMENT dans Gestion créait un cercle vicieux (clé
+enfermée dans le
+
+  garage). D\'où le double point d\'entrée : Préparation (édition) +
+Gestion (consultation).
+
+\- **Assignation autorisée en PRÉPARATION seulement** (Décision 1).
+Après démarrage, les
+
+  parts sont figées, écran en lecture seule.
+
+\- **Commission par partenaire** (Décision 2) : chaque ligne porte son
+propre \`commission_pct\`.
+
+\- **Budget prévisionnel** (Décision 3) : saisi/modifiable dans l\'écran
+d\'assignation
+
+  (\`bandes.budget_previsionnel\`). Sert de référence à une alerte NON
+bloquante si le total
+
+  des mises le dépasse.
+
+\- **Menu partenaires** : lecture directe de \`utilisateurs\` (role =
+\'PARTENAIRE\', ferme_id,
+
+  actif), autorisée par la policy \`ferme_isolation\` (rôle public).
+Partenaires déjà
+
+  assignés exclus du menu.
+
+**27.4 Fonctions ajoutées à index.html (Brique A)**
+
+Bloc inséré juste avant l\'ÉTAGE 13 (interface partenaire) :
+
+\- \`\_chargerPartenairesFerme()\` --- liste les partenaires de la ferme
+
+\- \`\_chargerAssignationsBande(bandeId)\` --- assignations existantes +
+nom partenaire
+
+\- \`renderPartenairesBande(bandeId)\` --- écran principal (budget,
+récap, liste, formulaire)
+
+\- \`\_enregistrerBudget(bandeId)\` --- update budget_previsionnel
+
+\- \`\_ajouterPartenaire(bandeId)\` --- insert dans partenaires_bandes
+
+\- \`\_retirerPartenaire(assignationId, bandeId, nom)\` --- delete (avec
+confirmation)
+
+Toutes filtrées par ferme_id, protégées par guardDouble, % calculé à
+l\'affichage.
+
+**27.5 Correctif d\'affichage partenaire (Brique B)**
+
+Dans \`renderPartenaire()\` (page \"Mes Bandes\" du partenaire) : la
+ligne affichait
+
+\`\${p.quote_part}%\`, hérité de l\'ancien modèle \"pourcentage\". Comme
+quote_part contient
+
+désormais un MONTANT, cela affichait \"100000%\". Corrigé en
+\`\${fmt(p.quote_part)} FCFA\`.
+
+Le % réel (mise ÷ budget) EST désormais affiché dans la liste ET la vue
+Résultats depuis la
+
+Brique C (v26.47), sur la même base (budget prévisionnel) que l\'écran
+gérant --- voir §27.8.
+
+**27.6 Migrations du module**
+
+\- **055** \`055_partenaires_colonnes.sql\` : ADD
+\`partenaires_bandes.commission_pct\`
+
+  (numeric NOT NULL DEFAULT 0) + \`bandes.budget_previsionnel\`
+(numeric, nullable).
+
+\- **058** \`058_partenaires_quote_part_check.sql\` : la contrainte
+
+  \`partenaires_bandes_quote_part_check\` imposait 0 \< quote_part \<=
+100 (ancien modèle %).
+
+  Remplacée par CHECK (quote_part \> 0) --- cohérent avec le stockage en
+FCFA.
+
+**27.7 Reste à faire (module Partenaire)**
+
+\- Tuile Créances (\_navPartenaireCreances, aujourd\'hui coquille vide
+qui rappelle renderPartenaire).
+
+  Seul morceau de code non fait du module Partenaire. Sens métier à
+cadrer avant de coder.
+
+\- (Fait v26.47) Calcul de la part + versement estimé dans
+renderPartenaireResultats.
+
+\- (Fait v26.47) % réel affiché dans renderPartenaire (liste), sur base
+budget prévisionnel.
+
+27.8 Brique C --- calcul de la part + harmonisation du % (CHANTIER CLOS
+--- v26.47)
+
+Objectif : afficher au partenaire sa part réelle et son versement
+estimé, et garantir que
+
+le MÊME pourcentage apparaît sur les 3 écrans qui le montrent. Règle
+appliquée : §27.2
+
+(part = mise ÷ budget prévisionnel, figée ; marge réelle à la clôture).
+
+Trois écrans, une seule base de calcul (le budget prévisionnel) :
+
+1\. Liste « Mes Bandes » du partenaire (renderPartenaire) : affiche «
+mise FCFA · X% ».
+
+2\. Vue Résultats du partenaire (renderPartenaireResultats) : bloc « Ma
+part » --- mise, %,
+
+  part de marge ou de perte, commission (si profit et \> 0),
+versement/récupération estimé.
+
+3\. Écran gérant d\'assignation (renderPartenairesBande) : % par
+partenaire.
+
+⚠️ Bug de cohérence corrigé en v26.47 : l\'écran gérant calculait le %
+sur « total des
+
+mises » (mise ÷ somme des mises), tandis que la règle §27.2 impose « ÷
+budget prévisionnel ».
+
+Un partenaire seul à 1 000 000 F sur un budget de 2 000 000 F
+s\'affichait à 100% côté gérant
+
+alors qu\'il vaut 50%. Les 3 écrans sont désormais alignés sur le
+budget. La variable totalMises
+
+reste utilisée pour l\'alerte de dépassement du budget, mais plus pour
+le calcul du %.
+
+Cas « budget non défini » : si bandes.budget_previsionnel vaut 0 ou
+NULL, aucune part n\'est
+
+calculée --- affichage « Part non calculable --- budget non défini »,
+jamais un faux 0%.
+
+Lecture des données : renderPartenaireResultats charge la ligne du
+partenaire connecté dans
+
+partenaires_bandes filtrée par utilisateur_id = App.userId ET bande_id,
+puis lit
+
+bandes.budget_previsionnel via la jointure. La marge réelle vient de
+get_dashboard (finance.solde).
+
+⚠️ Point de vigilance RLS (à traiter, non bloquant) : la policy de
+partenaires_bandes
+
+(ferme_isolation, rôle public) filtre par ferme_id, PAS par
+utilisateur_id. Un partenaire
+
+peut donc techniquement lire les mises des AUTRES partenaires de sa
+ferme via l\'API directe.
+
+La confidentialité repose aujourd\'hui sur le filtrage JS
+(.eq(\'utilisateur_id\', App.userId)).
+
+Chantier futur : ajouter un filtre utilisateur_id dans la policy pour
+une isolation serveur réelle.
+
+💡 En clair : le partenaire voit sa part (« j\'ai 50% de cette bande »),
+fixée d\'avance sur le
+
+budget annoncé. À la fin, ces 50% s\'appliquent à ce que la bande a
+vraiment gagné ou perdu.
+
+Le budget fixe la part, le réel fixe le montant. Et les trois écrans qui
+affichent ce % disent
+
+enfin tous le même chiffre.
+
+\- À câbler dans le module Clôture (§15) pour le versement en fin de
+bande.
+
+\- Point ouvert non tranché : le mode double %/FCFA de saisie
+(aujourd\'hui on saisit un
+
+  montant ; l\'idée d\'une saisie en % convertie a été écartée pour la
+v1).
+
+**\-\--**
 
 --- Fin de la mise à jour Bible session v26.40 ---
 
-*--- Fin de la Bible AviGest v26 --- Version .md générée le 04/07/2026
-(session v26.40), à répercuter manuellement dans le .docx ---*
+--- Fin de la Bible AviGest v26 --- Version .md à régénérer le
+12/08/2026 (session v26.45 --- Marche 1 auth close), à répercuter
+manuellement dans le .docx ---

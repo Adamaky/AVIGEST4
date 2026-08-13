@@ -2,3 +2,5 @@
 *.log
 # Fichiers temporaires Word
 ~$*
+_check.js
+  ~$*
