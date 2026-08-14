@@ -462,7 +462,7 @@ let NOM_FERME = localStorage.getItem('avigest_nom_ferme') || '';
 let CODE_ACCES_FERME = localStorage.getItem('avigest_code_acces') || '';
 const SESSION_MS    = 12 * 3600 * 1000;
 const CACHE_TTL_MS  = 8 * 60 * 60 * 1000;
-const APP_VERSION   = 'v26.48';
+const APP_VERSION   = 'v26.49';
 
 document.title = 'AviGest ' + APP_VERSION;
 const elVersionAffichee = document.getElementById('version-affichee');
@@ -2656,13 +2656,15 @@ async function renderClotureBande(bandeId) {
     if (!bandeId) { Nav.back(); return; }
     z.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
 
-    const [d, bandeRow, journalLignes, reliquatRes] = await Promise.all([
+    const [d, bandeRow, journalLignes, reliquatRes, partenairesRes] = await Promise.all([
         getDashboard(bandeId),
-        sb.from('bandes').select('id_bande, effectif_initial, effectif_vendu, date_arrivee, race, batiment_id, statut, abattage_demarre, effectif_final_corrige, effectif_final_note').eq('id', bandeId).eq('ferme_id', FERME_ID).single().then(r => r.data),
+        sb.from('bandes').select('id_bande, effectif_initial, effectif_vendu, date_arrivee, race, batiment_id, statut, abattage_demarre, effectif_final_corrige, effectif_final_note, budget_previsionnel').eq('id', bandeId).eq('ferme_id', FERME_ID).single().then(r => r.data),
         getJournal(bandeId),
-        sb.rpc('calculer_reliquat_stock', { p_bande_id: bandeId, p_ferme_id: FERME_ID })
+        sb.rpc('calculer_reliquat_stock', { p_bande_id: bandeId, p_ferme_id: FERME_ID }),
+        sb.from('partenaires_bandes').select('quote_part, commission_pct, utilisateurs(nom)').eq('ferme_id', FERME_ID).eq('bande_id', bandeId)
     ]);
     const reliquatStock = parseFloat(reliquatRes?.data) || 0;
+    const partenairesBande = partenairesRes.data || [];
 
     if (!d || !bandeRow) { z.innerHTML = '<div style="text-align:center;padding:40px;color:var(--red)">Erreur chargement</div>'; return; }
 
@@ -2773,6 +2775,7 @@ async function renderClotureBande(bandeId) {
         +   '<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;border-top:1px solid var(--border);margin-top:4px"><span style="font-weight:800">Marge nette</span><span style="font-weight:800;color:' + soldeColor + '">' + fmt(soldeDash) + ' FCFA</span></div>'
         +   '<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:var(--text2)"><span>📦 Reliquat stock estimé</span><span>' + fmt(reliquatStock) + ' FCFA</span></div>'
         + '</div>'
+        + _blocVersementsPartenaires(partenairesBande, soldeDash, parseFloat(bandeRow.budget_previsionnel) || 0)
         + '<button class="btn-action btn-ghost" onclick="_copierRapportPartenaire()">📋 Copier rapport partenaires</button>'
         + '<div class="card" style="margin-bottom:12px;padding:16px">'
         + '<div style="font-size:13px;font-weight:800;color:var(--red);margin-bottom:4px">🔒 Validation gérant requise</div>'
@@ -2999,6 +3002,56 @@ async function _copierRapportPartenaire() {
         catch(e2) { showToast('Erreur copie', 'error'); }
         document.body.removeChild(ta);
     }
+}
+
+function _blocVersementsPartenaires(partenaires, solde, budgetBande) {
+    if (!partenaires || partenaires.length === 0) return '';
+    let totalAVerser = 0;
+    let nbNonCalculables = 0;
+    const budget = parseFloat(budgetBande) || 0;
+    const lignes = partenaires.map(function(p) {
+        const nom     = p.utilisateurs ? p.utilisateurs.nom : '(inconnu)';
+        const mise    = parseFloat(p.quote_part) || 0;
+        const commPct = parseFloat(p.commission_pct) || 0;
+        if (budget <= 0) {
+            nbNonCalculables++;
+            return '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--bg3)">'
+                + '<div style="flex:1"><div style="font-weight:700;font-size:13px">🤝 ' + esc(nom) + '</div>'
+                + '<div style="font-size:11px;color:var(--text2);margin-top:2px">Mise : ' + fmt(mise) + ' FCFA</div></div>'
+                + '<span style="font-size:11px;color:var(--orange);text-align:right;max-width:130px">⚠️ Non calculable — budget non défini</span>'
+                + '</div>';
+        }
+        const part = mise / budget;
+        const partPct = Math.round(part * 1000) / 10;
+        let versement;
+        if (solde >= 0) {
+            const partMarge = part * solde;
+            const comm      = partMarge * (commPct / 100);
+            versement = mise + partMarge - comm;
+        } else {
+            versement = Math.max(0, mise - part * Math.abs(solde));
+        }
+        versement = Math.round(versement);
+        totalAVerser += versement;
+        const vc = versement >= mise ? 'var(--green)' : 'var(--red)';
+        return '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--bg3)">'
+            + '<div style="flex:1"><div style="font-weight:700;font-size:13px">🤝 ' + esc(nom) + '</div>'
+            + '<div style="font-size:11px;color:var(--text2);margin-top:2px">Mise ' + fmt(mise) + ' FCFA · <span style="color:var(--purple);font-weight:700">' + partPct + '%</span></div></div>'
+            + '<span style="font-size:14px;font-weight:800;color:' + vc + '">' + fmt(versement) + ' FCFA</span>'
+            + '</div>';
+    }).join('');
+    const mentionNC = nbNonCalculables > 0
+        ? '<div style="font-size:10px;color:var(--orange);margin-top:4px;text-align:right">hors ' + nbNonCalculables + ' partenaire(s) non calculable(s)</div>'
+        : '';
+    return '<div class="card" style="margin-bottom:12px">'
+        + '<div style="font-weight:800;font-size:13px;margin-bottom:6px">🤝 Versements aux partenaires</div>'
+        + lignes
+        + '<div style="display:flex;justify-content:space-between;padding:10px 0 4px;margin-top:4px;border-top:1px solid var(--border)">'
+        +   '<span style="font-weight:800">Total à verser</span>'
+        +   '<span style="font-weight:800;color:var(--purple)">' + fmt(totalAVerser) + ' FCFA</span>'
+        + '</div>'
+        + mentionNC
+        + '</div>';
 }
 
 async function renderRapportFinBande(bandeId) {
