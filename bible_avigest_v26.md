@@ -4,9 +4,7 @@
 
 *Version 26 --- Adama Désiré --- Ouagadougou, Burkina Faso*
 
-> **Synchronisation** : cette version `.md` est générée à partir de `bible_avigest_v26.docx` --- dernière synchronisation le **11/08/2026 (session v26.45).**. Le `.docx` reste la référence unique pour toute modification manuelle ; ce fichier `.md` est une copie dérivée destinée à être lue par Claude Code depuis le repo GitHub, à côté de `SCHEMA.md`. Ne jamais éditer ce `.md` comme source --- toujours régénérer depuis le `.docx` à jour.
-
-------------------------------------------------------------------------
+> **Synchronisation** : cette version `.md` est générée à partir de `bible_avigest_v26.docx` --- dernière synchronisation le **15/08/2026 (session Migration 059 \-\-- Marche 2 bascule douce)**. Le `.docx` reste la référence unique pour toute modification manuelle ; ce fichier `.md` est une copie dérivée destinée à être lue par Claude Code depuis le repo GitHub, à côté de `SCHEMA.md`. Ne jamais éditer ce `.md` comme source --- toujours régénérer depuis le `.docx` à jour.
 
 ## 1. Contexte et Objectif
 
@@ -14,11 +12,9 @@ AviGest est une Progressive Web App (PWA) de gestion avicole à Ouagadougou. Ell
 
 **Contraintes clés :**
 
-- Connexion variable --- mode hors ligne prévu (non encore implémenté)
-- Agent peu familier avec le numérique --- interface pavé numérique, un champ à la fois
-- Backend : Supabase PostgreSQL + Realtime · Frontend : GitHub Pages · SDK local supabase.js
-
-------------------------------------------------------------------------
+-   Connexion variable --- mode hors ligne prévu (non encore implémenté)
+-   Agent peu familier avec le numérique --- interface pavé numérique, un champ à la fois
+-   Backend : Supabase PostgreSQL + Realtime · Frontend : GitHub Pages · SDK local supabase.js
 
 ## 2. Architecture Technique
 
@@ -70,9 +66,9 @@ AviGest est une Progressive Web App (PWA) de gestion avicole à Ouagadougou. Ell
 
 Format : `Bande-YYYY-NNN` (ex : `Bande-2026-001`)
 
-- Regex de validation : `/^Bande-\d{4}-\d{3}$/`
-- Auto-génération avec possibilité de saisie manuelle
-- Soft-delete : toujours ajouter `.eq('is_deleted', false)` sur les requêtes bandes
+-   Regex de validation : `/^Bande-\d{4}-\d{3}$/`
+-   Auto-génération avec possibilité de saisie manuelle
+-   Soft-delete : toujours ajouter `.eq('is_deleted', false)` sur les requêtes bandes
 
 ### 2.4 Architecture Supabase --- Tables principales
 
@@ -134,71 +130,73 @@ Format : `Bande-YYYY-NNN` (ex : `Bande-2026-001`)
 
 Vérifié en base le 23/07/2026 (session v26.35) via information_schema.columns. 14 colonnes. Cette table n'avait jamais été documentée au-delà de son rôle --- or elle porte trois colonnes structurantes que la Bible ignorait : plan, nb_batiments et code_acces.
 
-  ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  **Colonne**        **Type**          **Rôle / remarque**
-  ------------------ ----------------- ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  id                 uuid NOT NULL     Clé primaire, default uuid_generate_v4(). C'est la valeur portée par le header x-ferme-id.
+  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  **Colonne**         **Type**           **Rôle / remarque**
+  ------------------- ------------------ ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  id                  uuid NOT NULL      Clé primaire, default uuid_generate_v4(). C'est la valeur portée par le header x-ferme-id.
 
-  nom                text NOT NULL     Nom technique du tenant (REVAGRO, ALIRAH2026).
+  nom                 text NOT NULL      Nom technique du tenant (REVAGRO, ALIRAH2026).
 
-  proprietaire       text NOT NULL     Nom du propriétaire de la ferme.
+  proprietaire        text NOT NULL      Nom du propriétaire de la ferme.
 
-  ville              text              Default 'Ouagadougou'.
+  ville               text               Default 'Ouagadougou'.
 
-  pays               text              Default 'Burkina Faso'.
+  pays                text               Default 'Burkina Faso'.
 
-  telephone          text              Utilisé sur les reçus de paiement (§19).
+  telephone           text               Utilisé sur les reçus de paiement (§19).
 
-  email              text              Nullable, non utilisé à ce jour.
+  email               text               Nullable, non utilisé à ce jour.
 
-  plan               text              Default 'FREE'. ⚠️ Socle du modèle tarifaire SaaS --- la colonne existe mais n'est exploitée par aucun écran.
+  plan                text               Default 'FREE'. ⚠️ Socle du modèle tarifaire SaaS --- la colonne existe mais n'est exploitée par aucun écran.
 
-  nb_batiments       integer           Default 6. Nombre de poulaillers alloués au tenant. Même remarque que plan.
+  nb_batiments        integer            Default 6. Nombre de poulaillers alloués au tenant. Même remarque que plan.
 
-  actif              boolean           Default true.
+  actif               boolean            Default true.
 
-  created_at         timestamptz       Default now().
+  created_at          timestamptz        Default now().
 
-  updated_at         timestamptz       Default now().
+  updated_at          timestamptz        Default now().
 
-  code_acces         text              ⚠️ Colonne du login par code ferme (écran-code-ferme). C'est elle que protège la policy lecture_publique_code_acces (SELECT, qual=true, rôles anon+authenticated) documentée en §14.4 --- policy volontaire, à conserver.
+  code_acces          text               ⚠️ Colonne du login par code ferme (écran-code-ferme). C'est elle que protège la policy lecture_publique_code_acces (SELECT, qual=true, rôles anon+authenticated) documentée en §14.4 --- policy volontaire, à conserver.
 
-  nom_commercial     text              Ajoutée par la Migration 047 (v26.34). Nom affiché en tête des reçus de paiement, distinct du nom technique. Ex. REVAGRO → « Kalycoq ». Saisi via l'écran Paramètres (§20).
-  ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  nom_commercial      text               Ajoutée par la Migration 047 (v26.34). Nom affiché en tête des reçus de paiement, distinct du nom technique. Ex. REVAGRO → « Kalycoq ». Saisi via l'écran Paramètres (§20).
+  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 💡 En clair : cette table, c'est le registre des clients d'AviGest --- une ligne par ferme. On y a découvert deux cases déjà prévues pour la vente d'abonnements (plan et nombre de poulaillers autorisés) qui ne servent encore à rien : le terrain est déjà préparé pour le passage en SaaS, il reste à construire dessus.
 
 ### 2.5 Migrations SQL --- GitHub
 
-  ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  Fichier                            Contenu
-  ---------------------------------- ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  001_schema_initial.sql             Tables de base : bandes, saisies_techniques, taches, journal
+  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  Fichier                               Contenu
+  ------------------------------------- ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  001_schema_initial.sql                Tables de base : bandes, saisies_techniques, taches, journal
 
-  002_stock_tables.sql               Tables lots_stock et mouvements_stock
+  002_stock_tables.sql                  Tables lots_stock et mouvements_stock
 
-  003_rls_policies.sql               Politiques RLS sur les 14 tables
+  003_rls_policies.sql                  Politiques RLS sur les 14 tables
 
-  004_get_ferme_id_fix.sql           Correction SECURITY DEFINER + cast JSON sur get_ferme_id()
+  004_get_ferme_id_fix.sql              Correction SECURITY DEFINER + cast JSON sur get_ferme_id()
 
-  005_imputer_aliment_rpc.sql        RPC imputer_aliment() --- imputation atomique stock depuis sessions agent
+  005_imputer_aliment_rpc.sql           RPC imputer_aliment() --- imputation atomique stock depuis sessions agent
 
-  006_stock_dashboard_rpc.sql        RPC pour vue stock dashboard gérant
+  006_stock_dashboard_rpc.sql           RPC pour vue stock dashboard gérant
 
-  ...                                (migrations suivantes numérotées jusqu'à 030 --- voir dossier migrations/ du repo)
+  ...                                   (migrations suivantes numérotées jusqu'à 030 --- voir dossier migrations/ du repo)
 
-  049_penalites.sql                  Table penalites (16 colonnes) --- pénalités de retard : carnet à souches PEN-{annee}-{seq}, RLS penalites_isolation, CHECK montant\>0 et taux_pct\>0
+  049_penalites.sql                     Table penalites (16 colonnes) --- pénalités de retard : carnet à souches PEN-{annee}-{seq}, RLS penalites_isolation, CHECK montant\>0 et taux_pct\>0
 
-  050_encaisser_penalite.sql         RPC encaisser_penalite(p_penalite_id, p_moyen) --- encaissement atomique : RECETTE au journal + bascule paye=true, avec repli tracé sur bande active
+  050_encaisser_penalite.sql            RPC encaisser_penalite(p_penalite_id, p_moyen) --- encaissement atomique : RECETTE au journal + bascule paye=true, avec repli tracé sur bande active
 
-  051_get_alertes_echeance.sql       RPC get_alertes_echeance() --- lecture des commandes livrées non soldées avec échéance, catégorie couleur (ROUGE/JAUNE/BLANC), source unique de l\'alerte §23
+  051_get_alertes_echeance.sql          RPC get_alertes_echeance() --- lecture des commandes livrées non soldées avec échéance, catégorie couleur (ROUGE/JAUNE/BLANC), source unique de l\'alerte §23
 
-  053_get_rentabilite_bandes.sql :   RPC get_rentabilite_bandes() --- lit vue_dashboard_bande, renvoie une ligne par bande EN COURS (CRU unitaire calculé côté serveur via total_depenses_cru / effectif, protégé par NULLIF). Filtrée get_ferme_id(), fail-closed. Dernière migration : 053.
-  ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  053_get_rentabilite_bandes.sql :      RPC get_rentabilite_bandes() --- lit vue_dashboard_bande, renvoie une ligne par bande EN COURS (CRU unitaire calculé côté serveur via total_depenses_cru / effectif, protégé par NULLIF). Filtrée get_ferme_id(), fail-closed. Dernière migration : 053.
 
-------------------------------------------------------------------------
+  059_get_ferme_id_jwt_softswitch.sql   get_ferme_id() bascule douce \-\-- lit le JWT (app_metadata.ferme_id) en priorité, repli header x-ferme-id. Signature inchangée (pas de surcharge). Faille de fond encore ouverte (repli conservé). Voir §26.6.
+                                        
+                                        **Dernière migration : 059.**
+  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-## Dernière migration : 058.
+## Dernière migration : 059.
 
 ## ⚠️ Dette de fichiers migrations --- ✅ SOLDÉE (v26.37). Quatre migrations avaient été jouées en base sans que leur fichier .sql soit committé : 047 (ALTER fermes ADD nom_commercial), 048 (paramètre p_date_reglement sur livrer_commande), 050 (encaisser_penalite) et 051 (get_alertes_echeance). Toutes recréées a posteriori en v26.37 depuis l\'état réel en base (pg_get_functiondef pour les fonctions, vérification information_schema pour l\'ALTER) --- jamais depuis la Bible seule, conformément à la règle absolue n°1. Le dossier migrations/ est désormais complet et continu jusqu\'à 051. Confirmé au passage : 045 (045_imputer_stock_type_b.sql) existe bien.
 
@@ -218,24 +216,22 @@ Vérifié en base le 23/07/2026 (session v26.35) via information_schema.columns.
 
 > PIN stocké en bcrypt via RPC `verifier_pin()` (colonne PIN en clair supprimée --- Migration 028).
 
-------------------------------------------------------------------------
-
 ## 4. Règles Techniques Critiques
 
 ### 4.1 Règles Supabase
 
-- Client toujours nommé `sb` --- jamais `supabase`
-- Header `x-ferme-id` injecté globalement à la création du client (ligne 427)
-- RLS active sur toutes les tables, y compris `sessions_actives` (vérifié en base le 22/07/2026, session v26.30 --- la Bible indiquait à tort que sessions_actives était sans RLS)
-- `get_ferme_id()` avec SECURITY DEFINER --- retourne l'ID ferme depuis le header
-- Statelessness REST : `set_config` ne persiste pas entre requêtes --- utiliser le header global
-- Avant tout INSERT : vérifier colonnes NOT NULL, defaults, et colonnes générées
-- `cout_unitaire` dans `lots_stock` est une colonne GÉNÉRÉE --- ne jamais l'inclure dans un INSERT
-- `lots_stock.produit` : noms complets (ex : 'Aliment de démarrage') --- chercher avec `LOWER(produit) LIKE`
-- `mouvements_stock.type_mouvement` : uniquement 'ENTREE' ou 'SORTIE'
-- `SET LOCAL row_security = off` dans les RPCs SECURITY DEFINER qui interrogent `utilisateurs`, pour bypasser RLS
-- Appeler `extensions.crypt()` et non `crypt()` --- pgcrypto est dans le schéma extensions
-- **Toute opération DELETE/UPDATE sur une table sans RLS (ex:** `sessions_actives`**) doit systématiquement filtrer par** `ferme_id` **côté client --- leçon de l'audit sécurité v26.18 (voir section 14)**
+-   Client toujours nommé `sb` --- jamais `supabase`
+-   Header `x-ferme-id` injecté globalement à la création du client (ligne 427)
+-   RLS active sur toutes les tables, y compris `sessions_actives` (vérifié en base le 22/07/2026, session v26.30 --- la Bible indiquait à tort que sessions_actives était sans RLS)
+-   `get_ferme_id()` avec SECURITY DEFINER --- retourne l'ID ferme depuis le header
+-   Statelessness REST : `set_config` ne persiste pas entre requêtes --- utiliser le header global
+-   Avant tout INSERT : vérifier colonnes NOT NULL, defaults, et colonnes générées
+-   `cout_unitaire` dans `lots_stock` est une colonne GÉNÉRÉE --- ne jamais l'inclure dans un INSERT
+-   `lots_stock.produit` : noms complets (ex : 'Aliment de démarrage') --- chercher avec `LOWER(produit) LIKE`
+-   `mouvements_stock.type_mouvement` : uniquement 'ENTREE' ou 'SORTIE'
+-   `SET LOCAL row_security = off` dans les RPCs SECURITY DEFINER qui interrogent `utilisateurs`, pour bypasser RLS
+-   Appeler `extensions.crypt()` et non `crypt()` --- pgcrypto est dans le schéma extensions
+-   **Toute opération DELETE/UPDATE sur une table sans RLS (ex:** `sessions_actives`**) doit systématiquement filtrer par** `ferme_id` **côté client --- leçon de l'audit sécurité v26.18 (voir section 14)**
 
 > Avant toute création de table : vérifier qu\'elle n\'existe pas déjà en base.
 >
@@ -243,26 +239,26 @@ Vérifié en base le 23/07/2026 (session v26.35) via information_schema.columns.
 >
 > Leçon session v26.22 : les tables ventes et paiements existaient en base sans figurer dans la Bible. La Migration 036 a échoué sur relation \"paiements\" already exists. La documentation ne suffit pas --- **la base est la seule vérité**. Corollaire du principe « diagnostic avant de coder ».
 
-- **Une migration SQL est transactionnelle** : si une instruction échoue, TOUT est annulé, y compris les instructions déjà passées. Aucun état intermédiaire n\'est possible.
+-   **Une migration SQL est transactionnelle** : si une instruction échoue, TOUT est annulé, y compris les instructions déjà passées. Aucun état intermédiaire n\'est possible.
 
 ### 4.2 Règles JavaScript
 
-- Apostrophes dans les chaînes JS : toujours échapper avec `\'` ou utiliser des guillemets doubles
-- Ne jamais imbriquer des template literals dans `.map()` --- utiliser la concaténation
-- `&quot;` au lieu d'apostrophes dans les attributs onclick inline
-- `node --check` échoue sur les fichiers `.html` --- utiliser la commande PowerShell d'extraction JS
-- jsDelivr CDN inaccessible depuis le Burkina Faso --- utiliser unpkg.com ou le fichier local
+-   Apostrophes dans les chaînes JS : toujours échapper avec `\'` ou utiliser des guillemets doubles
+-   Ne jamais imbriquer des template literals dans `.map()` --- utiliser la concaténation
+-   `&quot;` au lieu d'apostrophes dans les attributs onclick inline
+-   `node --check` échoue sur les fichiers `.html` --- utiliser la commande PowerShell d'extraction JS
+-   jsDelivr CDN inaccessible depuis le Burkina Faso --- utiliser unpkg.com ou le fichier local
 
 ### 4.3 Règles de travail
 
-- Fichier unique : `C:\Users\kyada\Documents\GitHub\AVIGEST4\index.html`
-- Workflow : VS Code → Claude Code → vérification syntaxe PowerShell → GitHub Desktop → Push
-- Chaque modification SQL = un nouveau fichier de migration numéroté dans `migrations/`
-- `APP_VERSION` (ligne \~463 index.html) mis à jour EN MÊME TEMPS que `CACHE_NAME` (ligne 9 sw.js) à chaque session --- format `'v26.XX'`
-- Sélectionner 'Yes, allow all edits this session' dans Claude Code pour les sessions multi-patches
-- Vérification après patch : commandes `Ctrl+Shift+F` avec nombre d'occurrences attendu
-- **Un seul changement par patch** --- ne jamais mixer des modifications non liées dans un même commit (leçon B6/isolation stricte)
-- **Séquence de vérification stricte (confirmée v26.18)** : édition → `node --check` (confirmation explicite du résultat, ne jamais supposer que c'est fait) → diff GitHub Desktop complet → incrément version si dernier changement de la session → commit avec message combiné (version + description)
+-   Fichier unique : `C:\Users\kyada\Documents\GitHub\AVIGEST4\index.html`
+-   Workflow : VS Code → Claude Code → vérification syntaxe PowerShell → GitHub Desktop → Push
+-   Chaque modification SQL = un nouveau fichier de migration numéroté dans `migrations/`
+-   `APP_VERSION` (ligne \~463 index.html) mis à jour EN MÊME TEMPS que `CACHE_NAME` (ligne 9 sw.js) à chaque session --- format `'v26.XX'`
+-   Sélectionner 'Yes, allow all edits this session' dans Claude Code pour les sessions multi-patches
+-   Vérification après patch : commandes `Ctrl+Shift+F` avec nombre d'occurrences attendu
+-   **Un seul changement par patch** --- ne jamais mixer des modifications non liées dans un même commit (leçon B6/isolation stricte)
+-   **Séquence de vérification stricte (confirmée v26.18)** : édition → `node --check` (confirmation explicite du résultat, ne jamais supposer que c'est fait) → diff GitHub Desktop complet → incrément version si dernier changement de la session → commit avec message combiné (version + description)
 
 **RÈGLE STOCK --- Deux types de lots**
 
@@ -292,23 +288,21 @@ Cadre de design boutons (figé v26.25) : couleur = sens, jamais décoration. Ble
 
 Validé session 18 juin 2026 --- Cobb 500, Ouagadougou, J14+
 
-  --------------------------------------------------------------
-  Paramètre          Bon 🟢       Passable 🟡   Mauvais 🔴
-  ------------------ ------------ ------------- ----------------
-  Température (°C)   26--32°C     33--35°C      \<26 ou \>35°C
+  ------------------------------------------------------------------------
+  Paramètre              Bon 🟢         Passable 🟡      Mauvais 🔴
+  ---------------------- -------------- ---------------- -----------------
+  Température (°C)       26--32°C       33--35°C         \<26 ou \>35°C
 
-  Hygrométrie (%)    50--70%      71--80%       \<50 ou \>80%
+  Hygrométrie (%)        50--70%        71--80%          \<50 ou \>80%
 
-  Mortalité/jour     0--2 morts   3--5 morts    \>5 morts
-  --------------------------------------------------------------
+  Mortalité/jour         0--2 morts     3--5 morts       \>5 morts
+  ------------------------------------------------------------------------
 
 **Règle de calcul : Score final = le PIRE des 3 scores individuels**
 
 Surcharge manuelle : l'agent peut modifier le score calculé + saisir une note explicative
 
 > **Bug cosmétique (v26.17) --- ✅ FERMÉ v26.30** : écran de confirmation agent affiche le score santé avec balises HTML brutes (`<strong>BON</strong>` au lieu de **BON** en gras). Cause : la fonction `esc()` échappe les balises `<strong>` volontairement insérées dans `_renderSessionResume()`. Correctif appliqué en v26.30 (retrait de `<strong>`/`</strong>`, le CSS `.rapport-ligne span:last-child` gère déjà le gras). ⚠️ Leçon : DEUX balises étaient en cause, pas une seule --- le premier correctif partiel n'avait donc rien changé à l'écran. Toujours compter les occurrences avant de conclure qu'un correctif est complet.
-
-------------------------------------------------------------------------
 
 ## 6. Module Stock --- Architecture complète (CHANTIER CLOS --- v26.18)
 
@@ -342,19 +336,19 @@ Documentée en v26.35. Cette RPC existait en base depuis plusieurs sessions sans
 
 **Paramètres :**
 
-  -----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  **Paramètre**           **Rôle**
-  ----------------------- -----------------------------------------------------------------------------------------------------------------------------------------------
-  p_bande_id uuid         Bande concernée par la sortie de stock.
+  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  **Paramètre**            **Rôle**
+  ------------------------ -----------------------------------------------------------------------------------------------------------------------------------------------
+  p_bande_id uuid          Bande concernée par la sortie de stock.
 
-  p_type_produit text     ⚠️ Ce n'est PAS un identifiant de lot. C'est un fragment du nom du produit. La RPC cherche elle-même le lot avec LOWER(produit) LIKE '%...%'.
+  p_type_produit text      ⚠️ Ce n'est PAS un identifiant de lot. C'est un fragment du nom du produit. La RPC cherche elle-même le lot avec LOWER(produit) LIKE '%...%'.
 
-  p_quantite              Quantité sortie. La valeur 0 est autorisée (aucune décrémentation, mais le mouvement est tout de même tracé).
+  p_quantite               Quantité sortie. La valeur 0 est autorisée (aucune décrémentation, mais le mouvement est tout de même tracé).
 
-  p_session               Session agent à l'origine du mouvement (Matin / Midi / PM / Nuit).
+  p_session                Session agent à l'origine du mouvement (Matin / Midi / PM / Nuit).
 
-  p_note                  Note libre. Si NULL, générée automatiquement : « {type_produit} utilisé --- Session {session} ».
-  -----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  p_note                   Note libre. Si NULL, générée automatiquement : « {type_produit} utilisé --- Session {session} ».
+  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 **Sélection du lot :**
 
@@ -374,15 +368,15 @@ La RPC lit ferme_id depuis current_setting('request.headers')::json-\>\>'x-ferme
 
 PostgreSQL autorise plusieurs fonctions de même nom si leurs signatures diffèrent. Trois fonctions d'imputation coexistent aujourd'hui. Relevé via pg_get_function_identity_arguments :
 
-  -----------------------------------------------------------------------------------------------------------------------------------
+  ------------------------------------------------------------------------------------------------------------------------------------
   **oid**   **Signature**                                                                                  **Retour**
-  --------- ---------------------------------------------------------------------------------------------- --------------------------
+  --------- ---------------------------------------------------------------------------------------------- ---------------------------
   18919     imputer_stock(p_bande_id uuid, p_produit_like text, p_quantite numeric, p_session...)          jsonb
 
   18918     imputer_stock(p_lot_id uuid, p_bande_id uuid, p_quantite numeric, p_libelle text...)           json
 
   18741     imputer_stock_type_b(p_bande_id uuid, p_type_produit text, p_quantite numeric, p_session...)   jsonb
-  -----------------------------------------------------------------------------------------------------------------------------------
+  ------------------------------------------------------------------------------------------------------------------------------------
 
 Conséquence : imputer_stock existe en DEUX versions (18918 et 18919), l'une prenant un p_lot_id, l'autre un p_produit_like. Le choix de la version appelée dépend entièrement des paramètres transmis par le JS. Avant toute modification d'un appel à imputer_stock, vérifier laquelle des deux est réellement visée. À nettoyer dans une future migration.
 
@@ -425,8 +419,6 @@ Le vaccin n'a pas fait l'objet d'un test terrain distinct, mais utilise exacteme
   --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 **Le module Stock est désormais entièrement clos --- zéro item ouvert.**
-
-------------------------------------------------------------------------
 
 ## 13. Tableau de Suivi --- Outil Permanent du Non-Codeur
 
@@ -530,19 +522,21 @@ Voir section 6 --- module entièrement clos (8 étapes + imputation multi-produi
 
 **PARTENAIRE**
 
-  --------------------------------------------------------------------------------
-  Fonctionnalité                Statut      Note / Bug connu
-  ----------------------------- ----------- --------------------------------------
-  \| Écran gérant assignation   ✅ Validé   v26.45 --- renderPartenairesBande \|
+  ----------------------------------------------------------------------------------------------------------------------------
+  Fonctionnalité                        Statut      Note / Bug connu
+  ------------------------------------- ----------- --------------------------------------------------------------------------
+  \| Écran gérant assignation           ✅ Validé   v26.45 --- renderPartenairesBande \|
 
-  Affichage FCFA partenaire     ✅ Validé   v26.45
+  Affichage FCFA partenaire             ✅ Validé   v26.45
 
-  Calcul part + % harmonisé     ✅ Validé   v26.47
+  Calcul part + % harmonisé             ✅ Validé   v26.47
 
-  Tuile Créance                 ✅ Validé   v26.48--- renderPartenairesCreances
+  Tuile Créance                         ✅ Validé   v26.48--- renderPartenairesCreances
 
-  Assignation quotes-parts      ✅ Validé   Total contrôlé par alerte budget
-  --------------------------------------------------------------------------------
+  Assignation quotes-parts              ✅ Validé   Total contrôlé par alerte budget
+
+  Versements partenaires à la clôture   ✅ Validé   v26.49 \-\-- \_blocVersementsPartenaires, lecture seule (Piste A), §15.7
+  ----------------------------------------------------------------------------------------------------------------------------
 
 **PROCESSUS**
 
@@ -605,8 +599,8 @@ Avant chaque session avec Claude, Adama colle ce bloc en début de message :
 
 AviGest gère aujourd'hui 2 fermes actives sur une architecture multi-tenant déjà fonctionnelle : un seul frontend GitHub Pages, sélection de ferme via code d'accès au login (écran-code-ferme), isolation des données par `ferme_id` + header `x-ferme-id` + RLS Supabase.
 
-- → REVAGRO (ferme_id : e56574a9-54c1-430d-b480-b9bdd1090dd7)
-- → ALIRAH2026 (ferme_id : 40ee764e-d073-463e-b07b-bf95a9d7a675)
+-   → REVAGRO (ferme_id : e56574a9-54c1-430d-b480-b9bdd1090dd7)
+-   → ALIRAH2026 (ferme_id : 40ee764e-d073-463e-b07b-bf95a9d7a675)
 
 **EN COURS D'ENGAGEMENT :**
 
@@ -631,8 +625,6 @@ La vision SaaS plus large (accueil de clients externes non encore identifiés, a
 
   Client(s) au-delà des 3 déjà engagés   Cible : début janvier 2027
   -------------------------------------------------------------------------------------------------------------------------------------------------------
-
-------------------------------------------------------------------------
 
 ## 14. Sécurité --- État et Audit (nouvelle section, session v26.18)
 
@@ -701,8 +693,6 @@ Les trois requêtes de diagnostic du §14.3 ont été exécutées en base (SQL E
 
 **À clarifier --- numérotation des migrations :** le dossier migrations/ présente des numéros intermédiaires manquants (017, 020--025, 029, 033--034 --- vraisemblablement des migrations fusionnées, renommées ou jamais créées ; le 041 est volontairement vacant, migration abandonnée). La 040 (040_date_livraison_commandes.sql) existe bien et était la dernière migration appliquée avant la 042. Depuis, les migrations 042 à 047 ont été appliquées (voir §2.5) --- dernière migration à ce jour : 047. Trou de numérotation sans conséquence, à documenter au besoin.
 
-------------------------------------------------------------------------
-
 ## Points en suspens (à clarifier avec Adama)
 
 1.  **~~Collision de numérotation B1~~** --- **Refermé session v26.18.** B1 "score santé" passé au statut ⏹️ Abandonné, décision définitive d'Adama.
@@ -710,8 +700,6 @@ Les trois requêtes de diagnostic du §14.3 ont été exécutées en base (SQL E
 3.  **Bug cosmétique score santé** (balises `<strong>` brutes) : ✅ RÉSOLU en v26.30 --- voir section 5. Deux balises étaient en cause, pas une seule, ce qui explique l'échec du premier correctif.
 4.  **Cohérence .md/.docx** : cette version .md (v26.18) doit être répercutée manuellement par Adama dans le `.docx`, qui reste l'unique source. Après édition du `.docx`, il faudra confirmer avec Adama s'il souhaite une régénération .md à committer dans le repo GitHub, à côté de SCHEMA.md.
 5.  **Prochaine priorité de développement** (mis à jour v26.34) : le bug cosmétique score santé est fermé (v26.30) et la session RLS dédiée est réalisée (§14.4). Restent en attente, par ordre : alerte échéance (§16.6, dernier morceau de l'étape 3 CRM), étapes 4 à 6 du §16.2 (export WhatsApp, écran Trésorerie/Caisse, mouvements hors-bande), authentification JWT (LA faille de fond, prérequis SaaS --- voir §14.4), bouton « Forcer la déconnexion » qui ne libère pas le verrou, sw.js STATIC_URLS incomplet, mode offline et dashboard SaaS (vision long terme).
-
-------------------------------------------------------------------------
 
 **15. Module Clôture de Bande (CHANTIER CLOS --- v26.21)**
 
@@ -773,6 +761,20 @@ L\'enchaînement archivage bande → libération bâtiment se fait en deux écri
 
 💡 *En clair : dans un cas très rare (coupure au mauvais moment), le poulailler pourrait rester marqué « occupé » alors que la bande est finie. Facile à corriger à la main. On blindera seulement si ça arrive vraiment.*
 
+**15.7 Bloc « Versements aux partenaires » à la clôture (v26.49)**
+
+Depuis v26.49, l\'écran de clôture (renderClotureBande) affiche un bloc récapitulatif « 🤝 Versements aux partenaires », inséré entre le bilan financier (§15.1 phase 4) et le bouton copier. **Lecture seule \-\-- Piste A : aucune écriture comptable.** Le versement réel en fin de bande reste un chantier ultérieur ; ce bloc ne fait qu\'afficher l\'estimation.
+
+Une seule fonction ajoutée : \_blocVersementsPartenaires(partenaires, solde, budgetBande). La lecture de partenaires_bandes (filtrée ferme_id + bande_id \-\-- vue gérant complète, toutes les mises de la bande) est ajoutée au Promise.all de renderClotureBande.
+
+Calcul par partenaire, strictement conforme à §27.2 : part = mise ÷ budget_previsionnel (figée) ; si bénéfice, versement = mise + part × solde − commission (commission sur la part de marge uniquement) ; si perte, versement = max(0, mise − part × \|solde\|), plafonné à la mise ; commission nulle sur perte.
+
+Comportements d\'affichage : ligne « Total à verser » excluant les partenaires non calculables, avec mention explicite « hors N partenaire(s) non calculable(s) » ; cas budget NULL ou 0 → « ⚠️ Non calculable » (mise affichée, partenaire exclu du total) ; bloc entièrement masqué si aucun partenaire n\'est assigné.
+
+Validé v26.49 : cas bénéfice testé au franc près sur Bande-2026-999 (versement 1 320 000 F, cohérent avec l\'exemple de référence §27.2). Données de test purgées après validation.
+
+💡 En clair : à la clôture, le gérant voit maintenant, pour chaque investisseur, ce que la ferme devra lui verser \-\-- capital plus part du bénéfice moins commission, ou capital diminué de sa part de perte. C\'est un affichage, pas encore un paiement : la caisse qui verse réellement viendra plus tard.
+
 **NOUVELLE SECTION 16 --- Module CRM Clients**
 
 **16. Module CRM Clients (chantier en cours --- démarré v26.21/v26.22)**
@@ -803,11 +805,11 @@ Permettre au gérant de gérer ses clients, leurs commandes (précommandes puis 
 
 **16.3 Migration 035 --- Socle (exécutée)**
 
-- produits_catalogue : nom, unite, prix_reference, **decremente_effectif**, actif
+-   produits_catalogue : nom, unite, prix_reference, **decremente_effectif**, actif
 
-- clients : nom, telephone, adresse, type_client, note, actif
+-   clients : nom, telephone, adresse, type_client, note, actif
 
-- 5 produits pré-remplis × 2 fermes : Sujet vivant (decremente=true), Poulet entier abattu (true), Foies & gésiers (kg, false), Cous têtes+pattes (kg, false), Sac de fientes (sac, false)
+-   5 produits pré-remplis × 2 fermes : Sujet vivant (decremente=true), Poulet entier abattu (true), Foies & gésiers (kg, false), Cous têtes+pattes (kg, false), Sac de fientes (sac, false)
 
 **16.4 Migration 036 --- Cœur CRM (exécutée v26.22)**
 
@@ -815,31 +817,31 @@ Trois tables, toutes avec ferme_id NOT NULL + RLS (ferme_id = get_ferme_id()) :
 
 **commandes** --- en-tête du bon de commande
 
-- client_id, date_commande, statut, date_reglement_prevue, note
+-   client_id, date_commande, statut, date_reglement_prevue, note
 
-- statut ∈ PRECOMMANDE / PLANIFIEE / LIVREE / ANNULEE
+-   statut ∈ PRECOMMANDE / PLANIFIEE / LIVREE / ANNULEE
 
-- **Pas de colonne total** --- calculé à la volée depuis les lignes
+-   **Pas de colonne total** --- calculé à la volée depuis les lignes
 
 **commande_lignes** --- 1 ligne = 1 produit + 1 bande
 
-- commande_id (CASCADE), produit_id, bande_id, quantite, prix_prevu, prix_reel
+-   commande_id (CASCADE), produit_id, bande_id, quantite, prix_prevu, prix_reel
 
-- **bande_id OPTIONNEL en base** (fientes, abats hors bande)
+-   **bande_id OPTIONNEL en base** (fientes, abats hors bande)
 
-- **Mais OBLIGATOIRE à l\'écran** pour les produits avec decremente_effectif = true
+-   **Mais OBLIGATOIRE à l\'écran** pour les produits avec decremente_effectif = true
 
-- Prix **prévu** (à la commande) et **réel** (à la livraison) : les deux conservés
+-   Prix **prévu** (à la commande) et **réel** (à la livraison) : les deux conservés
 
 **paiements** --- encaissements
 
-- commande_id **NOT NULL** (chaque paiement = 1 commande précise), client_id, montant, date_paiement, moyen, type, note
+-   commande_id **NOT NULL** (chaque paiement = 1 commande précise), client_id, montant, date_paiement, moyen, type, note
 
-- moyen ∈ CASH / MOBILE_MONEY / VIREMENT / CHEQUE / AUTRE
+-   moyen ∈ CASH / MOBILE_MONEY / VIREMENT / CHEQUE / AUTRE
 
-- type ∈ ACOMPTE / SOLDE
+-   type ∈ ACOMPTE / SOLDE
 
-- client_id est une **redondance contrôlée** (accessible via commande, mais évite une jointure sur chaque calcul de créance client)
+-   client_id est une **redondance contrôlée** (accessible via commande, mais évite une jointure sur chaque calcul de créance client)
 
 **16.5 Décisions métier actées (ne pas rouvrir sans demande explicite)**
 
@@ -865,11 +867,11 @@ Le prérequis qui bloquait ce chantier est levé : la saisie de date_reglement_p
 
 **16.7 État actuel (fin v26.22)**
 
-- ✅ Tables en base (035 + 036)
+-   ✅ Tables en base (035 + 036)
 
-- ✅ Onglet GESTION + page tuiles (Clients active, Trésorerie/Stock grisées)
+-   ✅ Onglet GESTION + page tuiles (Clients active, Trésorerie/Stock grisées)
 
-- ○ Écran Clients (liste, ajout, modification) --- **prochain chantier**
+-   ○ Écran Clients (liste, ajout, modification) --- **prochain chantier**
 
 **④ NOUVELLE SECTION 17 --- Architecture modules séparés**
 
@@ -923,15 +925,15 @@ Arborescence à jour au 23/07/2026 (v26.35). Chaque nouveau module suit la même
 
 **Problème découvert en v26.22** (vérifié en console) :
 
-  ---------------------------------------------------------------------------
+  -----------------------------------------------------------------------------
   **Variable**   **Déclarée avec**   **Visible depuis un module ?**
-  -------------- ------------------- ----------------------------------------
+  -------------- ------------------- ------------------------------------------
   sb             var (ligne \~549)   ✅ Oui --- var global va sur window
 
   App            const/let           ❌ Non --- window.App = undefined
 
   FERME_ID       const/let           ❌ Non --- window.FERME_ID = undefined
-  ---------------------------------------------------------------------------
+  -----------------------------------------------------------------------------
 
 Sans FERME_ID, aucun module ne peut filtrer ses requêtes par ferme → CRM impossible.
 
@@ -1133,15 +1135,15 @@ Un bloc « Échéance de règlement » ajouté avant le bouton Confirmer. Quatre
 
 **La variable de module \_livrEcheance porte trois états :**
 
-  --------------------------------------------------------------------------------------------
-  **Valeur**         **Signification**
-  ------------------ -------------------------------------------------------------------------
-  undefined          Rien choisi --- transmis comme null au RPC (COALESCE garde l'existant).
+  ----------------------------------------------------------------------------------------------
+  **Valeur**           **Signification**
+  -------------------- -------------------------------------------------------------------------
+  undefined            Rien choisi --- transmis comme null au RPC (COALESCE garde l'existant).
 
-  null               « Comptant » cliqué --- pas de créance.
+  null                 « Comptant » cliqué --- pas de créance.
 
-  'AAAA-MM-JJ'       Une date posée --- transmise telle quelle.
-  --------------------------------------------------------------------------------------------
+  'AAAA-MM-JJ'         Une date posée --- transmise telle quelle.
+  ----------------------------------------------------------------------------------------------
 
 ⚠️ \_livrEcheance est réinitialisée à undefined au début de \_dessinerLivraison(), sinon l'échéance d'une commande resterait collée à la livraison suivante --- piege classique d'une variable de module.
 
@@ -1171,9 +1173,9 @@ Il applique la séparation comptable OHADA posée en §16.1 : une commande livr�
 
 ### 19.2 Les 6 morceaux (tous validés)
 
-  --------------------------------------------------------------------------------------------------------------
+  ---------------------------------------------------------------------------------------------------------------
   **Morceau**   **Contenu**                                                                      **Version**
-  ------------- -------------------------------------------------------------------------------- ---------------
+  ------------- -------------------------------------------------------------------------------- ----------------
   1             Migration 046 --- numérotation et annulation des paiements                       ✅ v26.30
 
   2             Bloc Règlement dans l'écran détail commande                                      ✅ v26.31
@@ -1185,7 +1187,7 @@ Il applique la séparation comptable OHADA posée en §16.1 : une commande livr�
   5             Annulation d'un paiement avec motif obligatoire                                  ✅ v26.34
 
   6             Migration 047 + écran Paramètres + branchement de l'identité ferme sur le reçu   ✅ v26.34
-  --------------------------------------------------------------------------------------------------------------
+  ---------------------------------------------------------------------------------------------------------------
 
 ### 19.3 Migration 046 --- numérotation et annulation
 
@@ -1478,9 +1480,9 @@ Contrainte carnet à souches : **UNIQUE (ferme_id, annee, numero_seq)** → num�
 
 Le gérant choisit entre deux modes de saisie :
 
-- **Pourcentage** : il saisit un taux, l\'app calcule montant = round(reste × taux / 100).
+-   **Pourcentage** : il saisit un taux, l\'app calcule montant = round(reste × taux / 100).
 
-- **Montant fixe** : il saisit directement un montant en FCFA. Comme taux_pct est NOT NULL avec CHECK \> 0 en base, **le taux réel est reconstitué** : taux = round(montant / reste × 100, 2). La souche reste ainsi cohérente : on sait toujours quel pourcentage le montant représentait sur le reste à payer de l\'instant.
+-   **Montant fixe** : il saisit directement un montant en FCFA. Comme taux_pct est NOT NULL avec CHECK \> 0 en base, **le taux réel est reconstitué** : taux = round(montant / reste × 100, 2). La souche reste ainsi cohérente : on sait toujours quel pourcentage le montant représentait sur le reste à payer de l\'instant.
 
 Dans les deux cas, le montant est **gelé** à l\'INSERT (décision 5). Le reste à payer est lu au moment de la saisie, comme dans le module Paiements (\_penReste).
 
@@ -1490,17 +1492,17 @@ Dans les deux cas, le montant est **gelé** à l\'INSERT (décision 5). Le reste
 
 Signature : **encaisser_penalite(p_penalite_id uuid, p_moyen text)** --- vérifiée en base (oid 19735, une seule fonction, pas de surcharge). SECURITY DEFINER, atomique. Elle enchaîne, dans l\'ordre :
 
-- fail-closed si get_ferme_id() est NULL ;
+-   fail-closed si get_ferme_id() est NULL ;
 
-- charge la pénalité, refuse si annulée / déjà payée / mauvaise ferme ;
+-   charge la pénalité, refuse si annulée / déjà payée / mauvaise ferme ;
 
-- trouve la bande à imputer : 1re bande des commande_lignes (ORDER BY created_at), avec **repli sur la bande active la plus récente** (statut \'EN COURS\', is_deleted false) si la commande n\'a pas de bande. Ce repli est **tracé** dans le libellé (« \[rattachement bande active, commande sans bande\] »), jamais silencieux ;
+-   trouve la bande à imputer : 1re bande des commande_lignes (ORDER BY created_at), avec **repli sur la bande active la plus récente** (statut \'EN COURS\', is_deleted false) si la commande n\'a pas de bande. Ce repli est **tracé** dans le libellé (« \[rattachement bande active, commande sans bande\] »), jamais silencieux ;
 
-- écrit une RECETTE au journal, format calqué sur livrer_commande : categorie = \'Penalite de retard\', reference = PEN-{annee}-{seq}, beneficiaire = nom client, statut = \'CONFIRME\' ;
+-   écrit une RECETTE au journal, format calqué sur livrer_commande : categorie = \'Penalite de retard\', reference = PEN-{annee}-{seq}, beneficiaire = nom client, statut = \'CONFIRME\' ;
 
-- bascule paye = true + date_paiement + moyen ;
+-   bascule paye = true + date_paiement + moyen ;
 
-- retourne jsonb { ok, reference, montant, bande_id, repli_bande }.
+-   retourne jsonb { ok, reference, montant, bande_id, repli_bande }.
 
 **Règle journal confirmée** : bande_id est NOT NULL dans journal → toute écriture DOIT porter une bande, d\'où le repli. Une pénalité étant une RECETTE, elle est **automatiquement hors CRU** (le CRU ne compte que les DEPENSE hors \'Achat stock\', §4.4). Rien à filtrer.
 
@@ -1594,7 +1596,7 @@ Dernière migration : 052.
 
 L\'étape 5 du découpage CRM (« Écran Trésorerie / Caisse ») est désormais ✅ Validé (v26.39) --- voir §24. Restent ○ À faire : étape 4 (export WhatsApp commande) et étape 6 (mouvements hors-bande
 
-- injections partenaires).
+-   injections partenaires).
 
 ┌═════════════════════════════════════════════════════════════════┐ │ BLOC 7 --- NOUVELLE SECTION 24 (à insérer après la §23) │ └═════════════════════════════════════════════════════════════════┘
 
@@ -1620,13 +1622,13 @@ Une caisse est un tiroir physique : un seul par ferme. L\'argent y est fongible 
 
 Diagnostic fondateur (base réelle, session du jour) :
 
-- La table paiements = encaissements de commandes uniquement. Elle n\'écrit JAMAIS dans journal (vérifié : 59 000 F de paiements ≠ 181 500 F de ventes au journal).
+-   La table paiements = encaissements de commandes uniquement. Elle n\'écrit JAMAIS dans journal (vérifié : 59 000 F de paiements ≠ 181 500 F de ventes au journal).
 
-- Les catégories \'Vente \...\' du journal = la vente enregistrée à la LIVRAISON = une créance, PAS un encaissement → exclues de la caisse.
+-   Les catégories \'Vente \...\' du journal = la vente enregistrée à la LIVRAISON = une créance, PAS un encaissement → exclues de la caisse.
 
-- La catégorie \'Penalite de retard\' du journal = écrite au moment de l\'encaissement réel (§22.5) = vrai mouvement de caisse → incluse (vérifié : 0 paiement ne référence une pénalité, pas de doublon).
+-   La catégorie \'Penalite de retard\' du journal = écrite au moment de l\'encaissement réel (§22.5) = vrai mouvement de caisse → incluse (vérifié : 0 paiement ne référence une pénalité, pas de doublon).
 
-- Toutes les DEPENSE du journal = sorties de caisse réelles.
+-   Toutes les DEPENSE du journal = sorties de caisse réelles.
 
 Formule : Solde = solde_caisse_initial + SUM(paiements non annulés) + SUM(journal RECETTE catégorie \'Penalite de retard\') − SUM(journal DEPENSE) ... en ne comptant que les mouvements dont la date \>= date_debut_caisse.
 
@@ -1634,9 +1636,9 @@ Formule : Solde = solde_caisse_initial + SUM(paiements non annulés) + SUM(journ
 
 Point de vigilance comptable à retenir absolument :
 
-- Le CRU EXCLUT la catégorie \'Achat stock\' (ce n\'est pas une charge consommée, l\'argent est transformé en stock --- §4.1).
+-   Le CRU EXCLUT la catégorie \'Achat stock\' (ce n\'est pas une charge consommée, l\'argent est transformé en stock --- §4.1).
 
-- La CAISSE INCLUT \'Achat stock\' : quand on achète un sac d\'aliment, l\'argent quitte physiquement le tiroir, même si on reçoit du stock en échange. C\'est un décaissement réel.
+-   La CAISSE INCLUT \'Achat stock\' : quand on achète un sac d\'aliment, l\'argent quitte physiquement le tiroir, même si on reçoit du stock en échange. C\'est un décaissement réel.
 
 Ces deux règles coexistent volontairement --- elles répondent à deux questions différentes (coût de revient du poulet vs argent en tiroir). NE JAMAIS « aligner » la caisse sur le CRU en croyant corriger une incohérence : ce n\'en est pas une.
 
@@ -1702,15 +1704,15 @@ Cette règle est le miroir de la facture, qui elle n\'apparaît qu\'à partir de
 
 Comme le reçu (§19.7) et la facture (§22.6), le Bon de commande est un **texte formaté copié dans le presse-papier** (pas de lien wa.me), à coller où le gérant veut. Il porte :
 
-- l\'**en-tête ferme** (identité commerciale, §20 : nom_commercial, téléphone, ville) ;
+-   l\'**en-tête ferme** (identité commerciale, §20 : nom_commercial, téléphone, ville) ;
 
-- les **lignes de commande aux PRIX PRÉVUS** (prix_prevu, pas prix_reel --- le réel n\'existe qu\'après livraison, §18.4) ;
+-   les **lignes de commande aux PRIX PRÉVUS** (prix_prevu, pas prix_reel --- le réel n\'existe qu\'après livraison, §18.4) ;
 
-- le **total prévu** (calculé à la volée, jamais stocké --- §16.5 décision 1) ;
+-   le **total prévu** (calculé à la volée, jamais stocké --- §16.5 décision 1) ;
 
-- la ligne « **Livraison prévue** » si la commande est planifiée (date_livraison_prevue, §18.4) ;
+-   la ligne « **Livraison prévue** » si la commande est planifiée (date_livraison_prevue, §18.4) ;
 
-- l\'« **Échéance de règlement** » en pied si elle est renseignée (date_reglement_prevue, §18.9).
+-   l\'« **Échéance de règlement** » en pied si elle est renseignée (date_reglement_prevue, §18.9).
 
 **25.4 Fonctions et variables ajoutées à commandes.js**
 
@@ -1728,9 +1730,7 @@ Rappel §17.3 : accès Supabase via avigestContext() au moment de s\'en servir, 
 
 Codé, testé en local et en production, poussé (v26.44). L\'étape 4 du découpage CRM (§16.2) passe à ✅ Validé. Restent ○ À faire sur le CRM : uniquement l\'étape 6 (mouvements hors-bande + injections partenaires).
 
-26\. Chantier Authentification --- \"Piste C en escalier\" (MARCHE 1 CLOSE --- v26.44)
-
-Version actuelle : APP_VERSION = \'v26.44\' · CACHE_NAME = \'avigest-v26-44\'. Dernière migration : 054. MARCHE 1 auth CLOSE.
+26\. Chantier Authentification \-\-- \"Piste C en escalier\" (MARCHE 1 CLOSE \-\-- v26.44 · Audit RLS Marche 2 fait \-\-- v26.45 · get_ferme_id() bascule douce JWT \-\-- Migration 059, 15/08/2026)
 
 26.1 Objectif et contexte
 
@@ -1874,6 +1874,8 @@ WITH CHECK explicite. Aucun élargissement de droits --- seuls les badges accept
 
 {anon,authenticated}. L\'app est PLEINEMENT FONCTIONNELLE sous JWT.
 
+**Confirmé le 15/08/2026 (session Migration 059) :** requête pg_policies WHERE roles = \'{anon}\' → **0 ligne**. L\'audit anon→authenticated est bien complet : 10 policies en {anon,authenticated}, 21 en {public} (qui couvre tous les rôles, donc safe), aucune en {anon} seul. Aucun résidu de type rapports_hebdo ne subsiste côté policies.
+
 💡 En clair : depuis la Marche 1, l\'app présentait un nouveau badge (JWT) que toutes les
 
 portes ignoraient --- l\'app était à moitié cassée sous JWT sans qu\'on l\'ait remarqué (seul
@@ -1912,13 +1914,27 @@ type REVAGRO, PAS le nom commercial). Point clé : NOM_FERME contient le nom com
 
 déployé mais pas commité. Commité en v26.42. Dette \"déployé mais pas commité\" soldée.
 
-26.6 Reste pour finir l\'auth
+**26.6 Marche 2 \-\-- get_ferme_id() bascule douce (PAS STRUCTUREL FAIT \-\-- Migration 059, 15/08/2026)**
 
-MARCHE 2 (chantier futur, ferme la faille) : basculer get_ferme_id() de la lecture du
+Le cœur de la Marche 2 est fait : get_ferme_id() lit désormais le ferme_id depuis le **JWT** (auth.jwt() -\> app_metadata -\>\> ferme_id) **en priorité**, avec **repli sur le header** x-ferme-id si aucun JWT n\'est présent. Bascule dite « douce » : réversible, sans rupture.
 
-header x-ferme-id vers auth.jwt() (le ferme_id est déjà dans app_metadata, Brique 1.1).
+**Chaîne de preuve (règle absolue n°1 \-\-- tout vérifié en base et en conditions réelles avant d\'écrire) :**
 
-Prérequis : audit RLS anon→authenticated (§26.4). NE PAS entamer sans session dédiée.
+-   Le JWT porte bien ferme_id dans app_metadata pour les 5 comptes miroir (relevé auth.users).
+
+-   **Aucune** policy RLS n\'est en rôle {anon} seul (requête pg_policies WHERE roles = \'{anon}\' → 0 ligne) : rien ne casse sous JWT. Confirme et complète §26.4bis.
+
+-   auth.jwt() est lisible **dans un SECURITY DEFINER** appelé via l\'API avec un vrai token (sonde jetable testée depuis le front réel, localhost, gérant connecté). C\'était LE point bloquant : prouvé vert.
+
+-   Header et JWT renvoient le **même** ferme_id → la bascule douce est démontrée **équivalente** au comportement d\'avant. Zéro régression.
+
+-   Test fonctionnel réel post-059 : accueil, dashboard, rentabilité s\'affichent normalement ; Realtime SUBSCRIBED. Toute la chaîne métier (toutes les RPC dérivent get_ferme_id()) tient.
+
+**⚠️ LA FAILLE DE FOND N\'EST PAS ENCORE FERMÉE.** Tant que le repli header existe, un appel API sans JWT + header forgé passe encore (état = identique à avant 059, donc pas de régression, mais pas la fermeture). **Fermer la faille = retirer le repli header** dans une migration ultérieure. **Prérequis à cette fermeture (non fait) :** auditer que le login et l\'écran code-ferme ne dépendent PAS de get_ferme_id() \-\-- ces chemins tournent AVANT setSession (donc sans JWT) et se verrouilleraient si le repli header disparaissait. NE PAS retirer le repli sans cet audit.
+
+**Lien §27.8 :** la faille de confidentialité partenaire (§27.8) se fermera dans la foulée \-\-- elle attend auth.uid() comme source d\'identité serveur fiable, ce que la fermeture du repli rendra exploitable.
+
+💡 En clair : la fonction qui dit « de quelle ferme viens-tu ? » sait maintenant lire le nouveau badge (JWT) au lieu de croire l\'étiquette collée par le navigateur (header). Pour l\'instant elle accepte encore les deux, le temps de vérifier que la porte d\'entrée (le login) ne dépend pas d\'elle. Quand ce sera vérifié, on retirera l\'ancienne étiquette \-\-- et là seulement la faille sera close.
 
 **27. Module Partenaire --- Assignation + calcul des parts (CHANTIER CLOS --- v26.48)**
 
@@ -1930,21 +1946,19 @@ Le module lui donne une fenêtre pour suivre ses bandes, et donne au gérant un 
 
 pour enregistrer qui investit combien. Chantier découpé en 3 briques :
 
-- Brique A --- Écran gérant d\'assignation (✅ v26.45)
+-   Brique A --- Écran gérant d\'assignation (✅ v26.45)
 
-- Brique B --- Affichage partenaire corrigé FCFA (✅ v26.45)
+-   Brique B --- Affichage partenaire corrigé FCFA (✅ v26.45)
 
-- Brique C --- Calcul de la part + versement estimé + % harmonisé 3 écrans (✅ v26.47)
+-   Brique C --- Calcul de la part + versement estimé + % harmonisé 3 écrans (✅ v26.47)
 
-- Tuile Créances --- renderPartenaireCreances (✅ v26.48)
+-   Tuile Créances --- renderPartenaireCreances (✅ v26.48)
 
-Le module Partenaire n\'a plus aucun code en attente. Seul reste le câblage du versement dans le module Clôture (§15) --- chantier séparé.
+Le module Partenaire n\'a plus aucun code en attenteLe module Partenaire n\'a plus aucun code en attente. Le câblage du versement partenaire dans l\'écran de Clôture (§15.7) est **fait en v26.49** (bloc lecture seule, Piste A). Reste seulement, hors module Partenaire proprement dit, le versement comptable réel en fin de bande (écriture) et la faille RLS partenaires_bandes (couplée à la fermeture du repli header de la Marche 2, §26.6). --- chantier séparé.
 
 💡 En clair : on a construit le guichet où le gérant enregistre les investisseurs (A),
 
-et réparé la vitre à travers laquelle l\'investisseur lit sa mise (B). Reste à installer
-
-la caisse qui calcule ce qu\'on lui doit à la fin (C).
+et réparé la vitre à travers laquelle l\'investisseur lit sa mise (B). En clair : le guichet d\'enregistrement (A), la vitre de lecture (B) et le calcul de ce qu\'on doit à chacun (C) sont tous en place. À la clôture, le gérant voit même le récapitulatif des versements estimés (§15.7). Il ne manque que la caisse qui verse *réellement* l\'argent \-\-- un chantier à part.
 
 **27.2 RÈGLE DE PARTAGE PARTENAIRE --- actée (ne pas rouvrir sans demande explicite d\'Adama)**
 
@@ -2082,11 +2096,11 @@ Plus aucun code en attente dans le module Partenaire. La tuile Créances, dernie
 
 Restent des chantiers **séparés**, hors module Partenaire proprement dit :
 
-- Câbler le calcul de part dans le module Clôture (§15) pour le versement réel en fin de bande.
+-   Versement comptable réel en fin de bande : le récapitulatif d\'affichage est câblé (§15.7, v26.49) ; l\'écriture comptable effective du versement reste à faire.
 
-- Faille RLS partenaires_bandes (§27.8) : filtre utilisateur_id à ajouter côté policy --- isolation serveur.
+-   Faille RLS partenaires_bandes (§27.8) : filtre utilisateur_id à ajouter côté policy --- isolation serveur.
 
-- Point ouvert non tranché : le mode double %/FCFA de saisie (aujourd\'hui on saisit un montant ; l\'idée d\'une saisie en % convertie a été écartée pour la v1)
+-   Point ouvert non tranché : le mode double %/FCFA de saisie (aujourd\'hui on saisit un montant ; l\'idée d\'une saisie en % convertie a été écartée pour la v1)
 
 27.8 Brique C --- calcul de la part + harmonisation du % (CHANTIER CLOS --- v26.47)
 
@@ -2156,11 +2170,11 @@ Donne au partenaire une vue de ce que la ferme lui doit ou lui devra, bande par 
 
 **Structure de l\'écran :**
 
-- En-tête : mise engagée totale du partenaire (somme de ses quotes-parts, toutes bandes confondues).
+-   En-tête : mise engagée totale du partenaire (somme de ses quotes-parts, toutes bandes confondues).
 
-- Section « ✅ À recevoir --- bandes terminées » : bandes en statut CLOTURE. Montants **fermes** (la marge réelle est connue). C\'est le versement que la ferme doit effectivement au partenaire.
+-   Section « ✅ À recevoir --- bandes terminées » : bandes en statut CLOTURE. Montants **fermes** (la marge réelle est connue). C\'est le versement que la ferme doit effectivement au partenaire.
 
-- Section « ⏳ En cours --- estimations » : bandes EN COURS + PREPARATION. Montants **estimés** (marge non définitive). Une bande PREPARATION affiche la mise engagée + la mention « Bande pas démarrée » (aucune marge encore).
+-   Section « ⏳ En cours --- estimations » : bandes EN COURS + PREPARATION. Montants **estimés** (marge non définitive). Une bande PREPARATION affiche la mise engagée + la mention « Bande pas démarrée » (aucune marge encore).
 
 **Calcul :** factorisé depuis la règle §27.2 --- part = mise ÷ budget_previsionnel (figée), profit = mise + part×solde − commission, perte = max(0, mise − part×\|solde\|) plafonnée à la mise. Commission sur profit seulement.
 
@@ -2172,4 +2186,4 @@ Donne au partenaire une vue de ce que la ferme lui doit ou lui devra, bande par 
 
 --- Fin de la mise à jour Bible session v26.40 ---
 
---- Fin de la Bible AviGest v26 --- Version .md à régénérer le 12/08/2026 (session v26.45 --- Marche 1 auth close), à répercuter manuellement dans le .docx ---
+\-\-- Fin de la Bible AviGest v26 \-\-- Version .md régénérée le 15/08/2026 (session Migration 059 \-\-- Marche 2 bascule douce, repli header conservé), à répercuter manuellement dans le .docx \-\--
