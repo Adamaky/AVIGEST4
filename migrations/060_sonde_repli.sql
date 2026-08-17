@@ -1,21 +1,18 @@
 -- 060_sonde_repli.sql
--- Marche 2, étape 2 — sonde de repli (session 2026-08-16).
+-- Marche 2, étape 2 — sonde de repli (session 2026-08-17).
 --
 -- Objectif : observer en production quelle source retourne get_ferme_id()
 -- (JWT vs header x-ferme-id) et si les deux valeurs convergent.
 --
--- La fonction bascule en plpgsql VOLATILE pour pouvoir écrire dans sonde_repli.
--- La sonde est entièrement silencieuse : tout échec est absorbé par
--- EXCEPTION WHEN OTHERS THEN NULL ; un ON CONFLICT DO NOTHING évite les
--- conflits d'unicité si plusieurs requêtes arrivent le même jour sous le
--- même role_ctx.
--- La logique métier (COALESCE JWT → header) est strictement inchangée.
+-- CREATE OR REPLACE (pas DROP) : get_ferme_id() est référencée par une
+-- trentaine de policies RLS — un DROP échoue (ERROR 2BP01, dépendances).
+-- CREATE OR REPLACE remplace le corps sans casser les dépendances, et
+-- autorise le passage sql STABLE -> plpgsql (signature identique).
+-- VOLATILE implicite (défaut plpgsql) : requis pour écrire dans la sonde.
+-- La sonde est silencieuse : EXCEPTION WHEN OTHERS THEN NULL + ON CONFLICT.
+-- Logique métier (COALESCE JWT -> header) strictement inchangée.
 --
 -- Rollback : 060_rollback.sql
-
--- ── Table de sonde ───────────────────────────────────────────────────────────
--- Une ligne par (jour, role_ctx) : premier appel de la journée gagne.
--- v_jwt et v_header permettent de vérifier la convergence en production.
 
 CREATE TABLE IF NOT EXISTS public.sonde_repli (
     jour      DATE NOT NULL,
@@ -25,14 +22,9 @@ CREATE TABLE IF NOT EXISTS public.sonde_repli (
     PRIMARY KEY (jour, role_ctx)
 );
 
--- ── get_ferme_id() — plpgsql VOLATILE SECURITY DEFINER ──────────────────────
-
-DROP FUNCTION IF EXISTS public.get_ferme_id();
-
-CREATE FUNCTION public.get_ferme_id()
+CREATE OR REPLACE FUNCTION public.get_ferme_id()
 RETURNS uuid
 LANGUAGE plpgsql
-VOLATILE
 SECURITY DEFINER
 AS $function$
 DECLARE
@@ -59,7 +51,7 @@ BEGIN
         v_header := NULL;
     END;
 
-    -- Sonde : enregistrer le premier appel du jour par role_ctx (silencieux)
+    -- Sonde : premier appel du jour par role_ctx (silencieux)
     BEGIN
         INSERT INTO public.sonde_repli (jour, role_ctx, v_jwt, v_header)
         VALUES (CURRENT_DATE, current_user, v_jwt, v_header)

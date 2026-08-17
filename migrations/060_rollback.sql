@@ -1,9 +1,8 @@
 -- 060_rollback.sql
 -- Rollback de 060_sonde_repli.sql.
--- Retour à l'état 059 : get_ferme_id() en LANGUAGE sql STABLE SECURITY DEFINER.
+-- Retour à l'état 059 : get_ferme_id() en LANGUAGE sql STABLE.
+-- CREATE OR REPLACE (pas DROP) : dépendances RLS, cf. 060_sonde_repli.sql.
 -- Suppression de la table sonde_repli.
-
-DROP FUNCTION IF EXISTS public.get_ferme_id();
 
 CREATE OR REPLACE FUNCTION public.get_ferme_id()
 RETURNS uuid
@@ -19,4 +18,4 @@ AS $function$
   );
 $function$;
 
-DROP TABLE public.sonde_repli;
+DROP TABLE IF EXISTS public.sonde_repli;
