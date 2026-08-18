@@ -1,4 +1,4 @@
-# 🐔 AviGest v26
+﻿# 🐔 AviGest v26
 
 ## Bible du Projet --- Document de Référence Permanent
 
@@ -47,7 +47,7 @@ AviGest est une Progressive Web App (PWA) de gestion avicole à Ouagadougou. Ell
 
   Fichier de travail      C:.html
 
-  **Version actuelle**    **APP_VERSION = 'v26.48' · CACHE_NAME = 'avigest-v26-48'**
+  **Version actuelle**    **APP_VERSION = 'v26.49' · CACHE_NAME = 'avigest-v26-49'**
   ------------------------------------------------------------------------------------
 
 ### 2.2 Terminologie --- Deux niveaux
@@ -406,9 +406,9 @@ Le vaccin n'a pas fait l'objet d'un test terrain distinct, mais utilise exacteme
 
 ### ÉTAPES MODULE STOCK
 
-  --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   Étape                                                                         Statut
-  ----------------------------------------------------------------------------- --------------------------------------------------------------------------------------------------------------------------------
+  ----------------------------------------------------------------------------- --------------------------------------------------------------------------------------------------------------------------------------
   Étape 1 --- Schéma SQL                                                        ✅ Validé
 
   Étape 2 --- Interface création lot                                            ✅ Validé
@@ -426,7 +426,7 @@ Le vaccin n'a pas fait l'objet d'un test terrain distinct, mais utilise exacteme
   Étape 8 --- CRU filtré charges consommées                                     ✅ Validé --- confirmé session v26.18, filtre `categorie !== 'Achat stock'` présent et cohérent à 3 endroits du code
 
   Imputation multi-produits (litière/vaccin/médicament) depuis sessions agent   ✅ Validé --- confirmé session v26.18, voir détail ci-dessus
-  --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 **Le module Stock est désormais entièrement clos --- zéro item ouvert.**
 
@@ -458,9 +458,9 @@ Cette section est la mémoire vivante du projet. Claude la lit à chaque session
 
 **FONDATIONS**
 
-  -------------------------------------------------------------------------------------------------------------------------------------------------------------
+  ----------------------------------------------------------------------------------------------------------------------------------------------------------------
   Fonctionnalité                                               Statut          Note / Bug connu
-  ------------------------------------------------------------ --------------- --------------------------------------------------------------------------------
+  ------------------------------------------------------------ --------------- -----------------------------------------------------------------------------------
   Login PIN + session 12h                                      ✅ Validé       Testé PIN 0000 → OK
 
   Verrouillage multi-appareils                                 ✅ Validé       Table sessions_actives + device fingerprint
@@ -476,13 +476,13 @@ Cette section est la mémoire vivante du projet. Claude la lit à chaque session
   Mode hors ligne + sync auto                                  ○ À faire       Queue localStorage à implémenter
 
   Notifications OneSignal                                      ○ À faire       Géré en arrière-plan
-  -------------------------------------------------------------------------------------------------------------------------------------------------------------
+  ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 **AGENT**
 
-  -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   Fonctionnalité                        Statut         Note / Bug connu
-  ------------------------------------- -------------- --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  ------------------------------------- -------------- ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   Tuiles sessions dans onglet Tâches    ✅ Validé      4 sessions : Matin/Midi/PM/Nuit
 
   Session Matin --- 6 étapes            ✅ Validé      Pavé numérique fonctionnel
@@ -500,7 +500,7 @@ Cette section est la mémoire vivante du projet. Claude la lit à chaque session
   Blocage sessions hors plage horaire   ✅ Validé      Ex-B3 --- confirmé implémenté dans `renderSession()` : plages par session (Matin 5h-10h, Midi 10h-14h, PM 14h-19h, Nuit 19h-5h), double protection (bouton désactivé + re-vérification fonction)
 
   Écran abattage --- 3 étapes           ○ À faire      Calcul poids moyen auto
-  -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 **GÉRANT**
 
@@ -594,6 +594,8 @@ Registre centralisé transversal, source unique de numérotation des bugs. Les t
   B10          Statut \'TERMINEE\' invalide (→ \'CLOTURE\')   Clôture       ✅ Fermé     v26.18                  v26.21
 
   --------------------------------------------------------------------------------------------------------------------------------------
+
+Numérotation B1--B9 : antérieure au registre centralisé (introduit à B10, v26.18). Ces bugs vivent dans les tableaux de section comme références « Ex-Bn ». Les collisions B1 et B4 sont documentées et closes comme points purement historiques, sans impact fonctionnel --- ne pas renuméroter (intégrité de la trace).
 
 ### 13.4 Protocole de Brief de Session
 
@@ -701,7 +703,7 @@ Les trois requêtes de diagnostic du §14.3 ont été exécutées en base (SQL E
 
 **Migration 042 --- FAITE et poussée (v26.30) :** nettoyage du doublon de policy sur clients --- suppression de ferme_isolation (redondante, with_check hérité) ; clients_isolation (qual + with_check explicites) conservée. Testé : isolation inchangée (croisé refusé, légitime accepté en rôle anon). Résout le point en suspens n°8.
 
-**Doublons de policies RLS --- NETTOYAGE FAIT (migrations 043 + 044, v26.30) :** le même doublon acces_par_ferme (anon) + ferme_isolation (public) qui subsistait sur bandes, journal, mouvements_stock, saisies_techniques et taches a été traité par les migrations 043 et 044, même recette que la 042 (on garde la policy du rôle anon, celui réellement utilisé par l'app). Il subsiste un doublon de même nature sur la table fermes (observé v26.34) : ferme_isolation (ALL) fait double emploi avec fermes_select (SELECT) et fermes_update (UPDATE), toutes sur id = get_ferme_id(). Sans danger, rangement pur --- à traiter dans une future migration.
+**Doublons de policies RLS --- NETTOYAGE FAIT (migrations 043 + 044, v26.30) :** le même doublon acces_par_ferme (anon) + ferme_isolation (public) qui subsistait sur bandes, journal, mouvements_stock, saisies_techniques et taches a été traité par les migrations 043 et 044, même recette que la 042 (on garde la policy du rôle anon, celui réellement utilisé par l'app). Il subsiste un doublon de même nature sur la table fermes (observé v26.34) : ferme_isolation (ALL) fait double emploi avec fermes_select (SELECT) et fermes_update (UPDATE), toutes sur id = get_ferme_id(). Sans danger, rangement pur --- confirmé en base (ferme_isolation ALL + fermes_select + fermes_update, tous sur id = get_ferme_id(), rôle public). Nettoyage couplé à la vague de migrations RLS post-sonde (fermeture repli header §26.6 + filtre utilisateur_id partenaires §27.8) : DROP de fermes_select et fermes_update, en conservant ferme_isolation ET lecture_publique_code_acces (⚠️ cette dernière assure le login par code ferme --- ne jamais la supprimer).
 
 **Limite de fond NON couverte (à traiter au niveau authentification) :** le header x-ferme-id est posé côté navigateur (depuis localStorage) et repose sur la clé anon publique, unique pour tous les rôles. Un utilisateur de l'app peut donc modifier son header et se faire passer pour une autre ferme : dans ce cas header et ferme_id concordent, la RLS laisse passer. Aucune policy ne corrige cela --- c'est le rôle du futur chantier authentification (PIN → token JWT, vision SaaS). Point de sécurité prioritaire suivant.
 
@@ -712,10 +714,9 @@ Les trois requêtes de diagnostic du §14.3 ont été exécutées en base (SQL E
 ## Points en suspens (à clarifier avec Adama)
 
 1.  **~~Collision de numérotation B1~~** --- **Refermé session v26.18.** B1 "score santé" passé au statut ⏹️ Abandonné, décision définitive d'Adama.
-2.  **B4** --- collision historique entre deux mentions du même numéro reste non éclaircie (un B4 "corrigé 18/06" dans GÉRANT vs un B4 parfois cité en basse priorité ailleurs), **mais sans conséquence pratique** : le comportement fonctionnel est confirmé résolu par Adama (session v26.18). Point purement historique, non bloquant.
-3.  **Bug cosmétique score santé** (balises `<strong>` brutes) : ✅ RÉSOLU en v26.30 --- voir section 5. Deux balises étaient en cause, pas une seule, ce qui explique l'échec du premier correctif.
-4.  **Cohérence .md/.docx** : cette version .md (v26.18) doit être répercutée manuellement par Adama dans le `.docx`, qui reste l'unique source. Après édition du `.docx`, il faudra confirmer avec Adama s'il souhaite une régénération .md à committer dans le repo GitHub, à côté de SCHEMA.md.
-5.  **Prochaine priorité de développement** (mis à jour v26.34) : le bug cosmétique score santé est fermé (v26.30) et la session RLS dédiée est réalisée (§14.4). Restent en attente, par ordre : alerte échéance (§16.6, dernier morceau de l'étape 3 CRM), étapes 4 à 6 du §16.2 (export WhatsApp, écran Trésorerie/Caisse, mouvements hors-bande), authentification JWT (LA faille de fond, prérequis SaaS --- voir §14.4), bouton « Forcer la déconnexion » qui ne libère pas le verrou, sw.js STATIC_URLS incomplet, mode offline et dashboard SaaS (vision long terme).
+2.  **Bug cosmétique score santé** (balises `<strong>` brutes) : ✅ RÉSOLU en v26.30 --- voir section 5. Deux balises étaient en cause, pas une seule, ce qui explique l'échec du premier correctif.
+3.  **Cohérence .md/.docx** : cette version .md (v26.18) doit être répercutée manuellement par Adama dans le `.docx`, qui reste l'unique source. Après édition du `.docx`, il faudra confirmer avec Adama s'il souhaite une régénération .md à committer dans le repo GitHub, à côté de SCHEMA.md.
+4.  **Prochaine priorité de développement** (mis à jour v26.34) : le bug cosmétique score santé est fermé (v26.30) et la session RLS dédiée est réalisée (§14.4). Restent en attente, par ordre : alerte échéance (§16.6, dernier morceau de l'étape 3 CRM), étapes 4 à 6 du §16.2 (export WhatsApp, écran Trésorerie/Caisse, mouvements hors-bande), authentification JWT (LA faille de fond, prérequis SaaS --- voir §14.4), bouton « Forcer la déconnexion » qui ne libère pas le verrou, sw.js STATIC_URLS incomplet, mode offline et dashboard SaaS (vision long terme).
 
 ------------------------------------------------------------------------
 
@@ -2175,12 +2176,6 @@ budget annoncé. À la fin, ces 50% s\'appliquent à ce que la bande a vraiment 
 Le budget fixe la part, le réel fixe le montant. Et les trois écrans qui affichent ce % disent
 
 enfin tous le même chiffre.
-
-\- À câbler dans le module Clôture (§15) pour le versement en fin de bande.
-
-\- Point ouvert non tranché : le mode double %/FCFA de saisie (aujourd\'hui on saisit un
-
-  montant ; l\'idée d\'une saisie en % convertie a été écartée pour la v1).
 
 **27.9 Tuile Créances (CHANTIER CLOS --- v26.48)**
 
